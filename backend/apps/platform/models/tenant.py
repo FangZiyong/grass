@@ -92,3 +92,4 @@ class Tenant(BaseModel):
         super().save(*args, **kwargs)
 
 
+

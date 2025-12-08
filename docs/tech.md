@@ -1,421 +1,348 @@
-这是我的技术架构：
+下面是一份**整合了你前面技术架构 + PRD + 我刚才那批补丁决策**的「统一技术文档」。
 
-
-
-
-我会在关键地方用「⚠ 注意」标出来你实现时要特别小心的点。
-
----
-
-# 1. 技术栈选型
-
-## 1.1 后端技术栈
-
-* **框架**：Django 4.x + Django REST Framework (DRF)
-* **数据库**：MySQL 8.0+
-* **ORM**：Django ORM（自定义多租户 Manager/QuerySet）
-* **任务队列**：Celery + Redis（任务流执行 & 调度）
-* **缓存**：Redis（权限缓存、资源树缓存、看板查询缓存）
-* **LLM 集成**：本地 `ollama`，通过 HTTP 调用
-* **文件存储**：本地文件系统或 S3 兼容对象存储
-* **认证**：JWT（Bearer Token）
-
-## 1.2 前端技术栈
-
-* **框架**：Vue 3.x
-* **UI 框架**：Vben Admin（基于 Ant Design Vue）
-* **构建工具**：Vite
-* **状态管理**：Pinia
-* **路由**：Vue Router
-* **HTTP 客户端**：Axios
-* **可视化**：ECharts
-* **DAG 编辑器**：AntV X6 或自定义封装
-
-## 1.3 开发工具 & 规范
-
-* **版本控制**：Git
-* **代码规范**：
-
-  * 后端：Black、isort、flake8
-  * 前端：ESLint + Prettier
-* **API 文档**：drf-spectacular（OpenAPI 3.0）
-* **测试**：
-
-  * 后端：pytest + Django test
-  * 前端：Vitest + Vue Test Utils
+* 目录结构：严格按你 PRD 的一级目录（0–10）对齐。
+* 每一节都站在「两个初级开发照着写能写出一模一样的系统」的标准上，把关键标准和边界条件说死。
+* 有些已经在 PRD 里讲得很清楚的纯业务描述，我不再重复，只补上**技术实现/约束**，否则长度会爆炸。
 
 ---
 
-# 2. 系统整体架构
+# 0. 文档信息（技术版）
 
-## 2.1 分层架构
+## 0.1 文档范围与读者
 
-```text
-┌───────────────────────────────────────────────────────────┐
-│                       前端层 (Vue3 + Vben)                │
-│  - 平台后台（Platform Admin）                             │
-│  - 租户工作区（Modeling / Flows / Boards / Settings）     │
-└───────────────────────────────────────────────────────────┘
-                              │ HTTP (REST + JWT)
-                              ▼
-┌───────────────────────────────────────────────────────────┐
-│                    API 层 (Django + DRF)                  │
-│  - 认证中间件：解析 JWT，注入 request.user                │
-│  - 租户中间件：根据 Token/请求信息注入 request.tenant     │
-│  - DRF 权限类：针对具体资源做权限检查（调用 PermissionService）│
-└───────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌───────────────────────────────────────────────────────────┐
-│                  业务模块 (Django Apps)                   │
-│  - platform: 平台后台 (GlobalUser, Tenant, TenantUser)     │
-│  - modeling: 表/字段/关系                                  │
-│  - flows: 任务流定义与执行                                │
-│  - boards: 数据集 + 看板 + Widget                          │
-│  - permissions: 角色 & 资源/行/列权限 + PermissionService  │
-│  - resources: 资源树 (ResourceTree, FOLDER/TABLE/FLOW/BOARD)│
-│  - llm: 调用 ollama 生成编码等                            │
-│  - common: BaseModel, 多租户 Manager/QuerySet, 工具        │
-└───────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌───────────────────────────────────────────────────────────┐
-│                       数据访问层                          │
-│  - Django ORM (带 tenant 过滤的 Manager/QuerySet)         │
-│  - dsl_parser + sql_builder（统一 DSL → SQL 出口）          │
-└───────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌───────────────────────────────────────────────────────────┐
-│                      基础设施层                            │
-│  - MySQL：元数据 + 业务数据                               │
-│  - Redis：缓存 + Celery Broker                            │
-│  - 文件存储：本地或对象存储                               │
-│  - ollama：本地 LLM 服务                                  │
-│  - Celery Worker & Celery Beat (调度)                     │
-└───────────────────────────────────────────────────────────┘
+* 面向对象：
+
+  * 后端开发（Django + DRF）
+  * 前端开发（Vue3 + Vben）
+* 目标：
+
+  * 两个初级开发在不互相沟通的情况下，**只看本技术文档 + PRD，就能实现功能且行为一致**。
+* 依赖前置：
+
+  * 你提供的技术栈与架构图是本技术文档的前提，不再赘述。
+
+## 0.2 环境与基础设施
+
+* 后端：
+
+  * Python 3.10+
+  * Django 4.x
+  * DRF
+  * MySQL 8.0+
+  * Redis：缓存 + Celery broker
+  * Celery + Celery Beat
+  * 本地 LLM：`ollama`（HTTP 调用）
+* 前端：
+
+  * Vue3 + Vite
+  * Vben Admin（Ant Design Vue）
+  * Pinia, Vue Router, Axios, ECharts, AntV X6
+
+## 0.3 全局统一约定（非常重要）
+
+### 0.3.1 ID 规范（后端 & 前端统一）
+
+* **数据库层**
+
+  * 所有业务主键用 `BIGINT AUTO_INCREMENT` 或 `UUID`（二选一，看具体表）。
+  * 文档默认假定 BIGINT；如有 UUID，会特别指出。
+* **API 层**
+
+  * **所有返回给前端的 id 字段，类型一律为字符串**（避免 JS 精度问题），值等于数据库主键的字符串表示：
+
+    * 例：数据库 `id = 10` → 返回 `"id": "10"`.
+  * 不在 `id` 里拼接类型前缀（如 `table_1`），**类型统一用 `type` 字段区分**：
+
+    * 例：资源树节点：`{ "id": "10", "type": "TABLE" }`
+* **前端**
+
+  * 所有 store / route / 组件内部 ID 也用字符串处理。
+  * 如需带前缀（例如 `table_10` 用于组件内部 key），由前端自行拼接。
+
+### 0.3.2 时间与时区
+
+* 存储与 API：
+
+  * **所有时间字段均使用 UTC 时间，格式为 ISO8601 + `Z`**：
+
+    * 示例：`"2025-12-08T01:02:03Z"`.
+* 调度（Cron）：
+
+  * V1：**统一使用服务器时区**（例如部署在上海则 `Asia/Shanghai`），不做租户时区差异。
+  * 文案上可提示「当前调度时间基于服务器时区」。
+* 前端展示：
+
+  * 前端负责本地化展示，可按浏览器时区或租户配置。
+
+### 0.3.3 API 响应格式 & HTTP 状态码
+
+统一响应结构（所有 REST API）：
+
+```json
+{
+  "success": true,
+  "data": { ... },       // 成功时有效
+  "error": {             // 失败时有效
+    "code": "xxx",
+    "message": "人类可读错误信息",
+    "details": { ... }   // 可选，字段级错误等
+  },
+  "trace_id": "uuid"
+}
 ```
 
-### ⚠ 注意点
+HTTP 状态与 `success` 的对应关系（**必须遵守**）：
 
-1. **业务权限检查不要放在中间件**：只在中间件里做认证和租户解析，具体资源权限在 DRF 权限类里做。
-2. **所有 DSL → SQL 必须走统一 sql_builder**，不要在业务代码里散落 raw SQL。
+| 场景             | HTTP Status | success | 示例 error.code                     |
+| -------------- | ----------- | ------- | --------------------------------- |
+| 正常业务成功         | 200         | true    | -                                 |
+| 业务校验失败（参数错误等）  | 400         | false   | `COMMON__VALIDATION_ERROR`        |
+| 未认证（无/无效 JWT）  | 401         | false   | `AUTH__UNAUTHORIZED`              |
+| 已认证但无权限        | 403         | false   | `AUTH__FORBIDDEN` 或资源相关 code      |
+| 资源不存在          | 404         | false   | `COMMON__NOT_FOUND`               |
+| 资源冲突（依赖/唯一约束等） | 409         | false   | `MODELING__TABLE_DELETE_CONFLICT` |
+| 服务器内部异常        | 500         | false   | `COMMON__INTERNAL_ERROR`          |
 
----
+**禁止**所有错误统一 200 + `success=false`；务必结合 HTTP 语义。
 
-## 2.2 部署架构（JWT 模式）
+### 0.3.4 错误码使用约定
 
-```text
-           ┌───────────────────┐
-           │   Nginx 反向代理   │
-           │ - 静态资源 (Vue)   │
-           │ - /api 转发 Django │
-           └─────────┬─────────┘
-                     │
-          ┌──────────┴──────────┐
-          │                     │
-   ┌──────▼──────┐       ┌──────▼──────┐
-   │ Django 实例1 │       │ Django 实例2 │   ... (水平扩展)
-   └──────┬──────┘       └──────┬──────┘
-          │                     │
-          └──────────┬──────────┘
-                     │
-              ┌──────▼───────┐
-              │   MySQL 主从   │
-              └──────┬───────┘
-                     │
-              ┌──────▼───────┐
-              │    Redis     │  (缓存 + Celery Broker)
-              └──────┬───────┘
-                     │
-      ┌──────────────▼──────────────┐
-      │      Celery Workers          │
-      │  - flow 执行任务              │
-      │  - 其他异步任务               │
-      └──────────────┬──────────────┘
-                     │
-              ┌──────▼───────┐
-              │  Celery Beat │  (只部署一个，用于调度 Flow)
-              └──────────────┘
+* 错误码命名格式：`模块前缀__具体错误名`：
 
-   ┌──────────────────────────────┐
-   │          ollama 服务         │
-   │  - 通过 HTTP 调用本地模型     │
-   └──────────────────────────────┘
-```
+  * 例如：`MODELING__TABLE_DELETE_CONFLICT`、`FLOW__RUN_CONFLICT`。
+* 关键场景推荐错误码（摘重点）：
 
-### ⚠ 注意点
+  * 删除表但仍有依赖 → `MODELING__TABLE_DELETE_CONFLICT`（409）
+  * 同一 Flow 已有 RUNNING 再次触发 → `FLOW__RUN_CONFLICT`（409）
+  * 无表数据权限 → `PERMISSION__TABLE_DATA_FORBIDDEN`（403）
+  * DSL 校验失败 → `DSL__INVALID_FILTER`（400）
+* 完整错误码表可在实现时维护为常量文件，前后端共同引用。
 
-* Celery Beat **只部署一个实例**，避免多实例重复调度。
-* 所有 Django 实例共享同一个 MySQL/Redis 实例集群，保证状态一致。
+### 0.3.5 trace_id 规范
+
+* 每个请求都必须附带 `trace_id`：
+
+  * 若请求头中存在 `X-Trace-Id`，后端使用该值；
+  * 否则由后端生成新的 UUID（字符串）。
+* 响应：
+
+  * Body 中的 `trace_id` 与响应头 `X-Trace-Id` 一致。
+* 日志：
+
+  * 后端所有日志（包括审计日志）都应携带 `trace_id` 字段用于链路追踪。
 
 ---
 
-# 3. 后端模块与目录结构设计
+# 1. 核心概念与数据实体（技术实现版）
 
-## 3.1 后端目录结构（更新版）
+本节对应 PRD 的 1.x，侧重于**数据库结构 + ORM 约束 + 权限计算规则**。
 
-```text
-backend/
-├── config/
-│   ├── settings/
-│   │   ├── base.py
-│   │   ├── development.py
-│   │   └── production.py
-│   ├── urls.py
-│   ├── wsgi.py
-│   └── asgi.py
-│
-├── apps/
-│   ├── common/
-│   │   ├── models/
-│   │   │   ├── base.py        # BaseModel, TenantBaseModel
-│   │   │   └── managers.py    # TenantManager, TenantQuerySet
-│   │   ├── utils/
-│   │   │   ├── dsl_parser.py  # 过滤 DSL 解析
-│   │   │   ├── sql_builder.py # SQL 构建器 (统一出口)
-│   │   │   └── validators.py
-│   │   ├── exceptions.py
-│   │   └── permissions.py     # 通用 DRF Permission 基类
-│   │
-│   ├── platform/
-│   │   ├── models/            # GlobalUser, Tenant, TenantUser
-│   │   ├── serializers/
-│   │   ├── views/
-│   │   ├── urls.py
-│   │   └── admin.py
-│   │
-│   ├── resources/             # 资源树模块
-│   │   ├── models/            # ResourceTree(FOLDER/TABLE/FLOW/BOARD)
-│   │   ├── serializers/
-│   │   ├── views/
-│   │   └── urls.py
-│   │
-│   ├── permissions/
-│   │   ├── models/            # Role, RolePermission, ColumnPermission, RowPermission
-│   │   ├── services.py        # PermissionService (计算最终权限)
-│   │   ├── serializers/
-│   │   ├── views/             # 角色/权限配置接口
-│   │   └── urls.py
-│   │
-│   ├── modeling/
-│   │   ├── models/            # Table, Field, Relation
-│   │   ├── serializers/
-│   │   ├── views/
-│   │   ├── services/          # 表/字段创建、删除等业务逻辑
-│   │   ├── permissions.py     # DRF 权限类，调用 PermissionService
-│   │   └── urls.py
-│   │
-│   ├── flows/
-│   │   ├── models/            # Flow, Node, Run, NodeRun
-│   │   ├── serializers/
-│   │   ├── views/
-│   │   ├── services/          # Flow 执行引擎 (不含调度)
-│   │   ├── nodes/             # Source/Transform/Sink 实现
-│   │   ├── scheduler.py       # 调度逻辑（供 Celery Beat 调用）
-│   │   └── urls.py
-│   │
-│   ├── boards/
-│   │   ├── models/            # Dataset, Board, Widget
-│   │   ├── serializers/
-│   │   ├── views/
-│   │   ├── services/          # 数据查询服务 (利用 sql_builder)
-│   │   └── urls.py
-│   │
-│   └── llm/
-│       ├── services.py        # 调用 ollama, 编码生成, 缓存 & 限流
-│       └── urls.py           # 可选：对前端暴露 LLM 服务接口
-│
-├── middleware/
-│   ├── auth_middleware.py     # 解析 JWT，注入 request.user
-│   └── tenant_middleware.py   # 解析 tenant_id, 注入 request.tenant / request.tenant_user
-│
-├── tasks/
-│   └── flow_tasks.py          # Celery 任务：execute_flow(run_id)
-│
-├── requirements.txt
-├── manage.py
-└── README.md
-```
+## 1.1 GlobalUser / Tenant / TenantUser
 
-### ⚠ 注意点
+### 1.1.1 GlobalUser（平台用户）
 
-* **ResourceTree 独立成一个 app**，避免 modeling/flows/boards 互相硬耦合。
-* 权限计算逻辑集中在 `permissions.services.PermissionService`，业务 app 只写“薄”权限类。
+* 表：`platform_global_user`
+* 主键：`id` BIGINT
+* 核心字段和约束：
 
----
+  * `login_name`：唯一索引（全局）
+  * `email`：可选唯一索引（根据业务需要）
+  * `status`：`ACTIVE` / `DISABLED`
+* 技术细节：
 
-# 4. 前端目录结构 & 权限实现
+  * 登录时仅校验 `status=ACTIVE`。
+  * 禁用后：
 
-## 4.1 前端目录结构（Vue3 + Vben）
+    * 无法获取 JWT；
+    * 已有 JWT 不强制失效（V1 不做 token 黑名单）。
 
-与前一版方案大体相同，这里只强调几个重点：
+### 1.1.2 Tenant（租户）
 
-```text
-frontend/
-├── src/
-│   ├── api/
-│   │   ├── auth/           # 登录/刷新 JWT
-│   │   ├── platform/
-│   │   ├── modeling/
-│   │   ├── flows/
-│   │   ├── boards/
-│   │   └── permissions/
-│   │
-│   ├── composables/
-│   │   ├── useAuth.ts      # 获取当前 user, token
-│   │   ├── useTenant.ts    # 当前租户信息
-│   │   └── usePermission.ts# 基于后端 permission 映射按钮显示
-│   │
-│   ├── directives/
-│   │   └── permission.ts   # v-permission 指令
-│   │
-│   ├── stores/
-│   │   ├── user.ts
-│   │   ├── tenant.ts
-│   │   └── permission.ts   # 保存后端返回的资源权限快照（用于前端隐藏按钮）
-│   │
-│   ├── views/
-│   │   ├── platform/
-│   │   ├── modeling/
-│   │   ├── flows/
-│   │   ├── boards/
-│   │   └── settings/
-│   └── ...
-└── ...
-```
+* 表：`platform_tenant`
+* 主键：`id` BIGINT
+* 字段：
 
-### ⚠ 注意点
+  * `code`：唯一索引
+  * `status`：`ACTIVE` / `SUSPENDED`
+* 技术行为：
 
-* 前端只做“**权限 UI 隐藏**”（比如不显示删除按钮），**真正的权限控制必须在后端 DRF 权限类里做**。
-* JWT Token 存在 `localStorage` 或内存（配合刷新 Token），避免放到能被第三方脚本容易盗取的位置（小心 XSS）。
+  * `SUSPENDED` 时：
 
----
+    * 所有 `TenantUser` 无法访问租户工作区；
+    * 调度器在检查 Flow 时，若租户 `SUSPENDED`，不再创建新的 Run。
 
-# 5. 认证（JWT）与租户隔离 & 权限体系
+### 1.1.3 TenantUser（租户用户）
 
-## 5.1 JWT 认证方案
+* 表：`platform_tenant_user`
+* 主键：`id` BIGINT
+* 重要字段：
 
-### 5.1.1 登录流程
+  * `tenant_id`（FK → Tenant）
+  * `user_id`（FK → GlobalUser）
+  * `status`：`ACTIVE` / `DISABLED`
+  * `is_owner`：bool
+* 约束：
 
-1. 用户提交账号密码到 `/api/auth/login`；
-2. 后端验证 `GlobalUser`，如需要再检查 `TenantUser` 是否存在 & ACTIVE；
-3. 返回：
+  * `(tenant_id, user_id)` 唯一索引。
+  * 不在 DB 层强制 “至少一个 owner”，由业务逻辑在创建/禁用时检查。
+* 行为：
 
-   * `access_token`（短期有效，比如 30min）
-   * `refresh_token`（长期有效，比如 7 天）
-   * 当前可访问租户列表（tenant_id + name）
-4. 前端保存 token（localStorage/memory）+ 当前选中租户（`X-Tenant-ID` 或路由中带）。
+  * 认证通过后，`tenant_middleware` 会检查：
 
-### 5.1.2 请求头格式
+    * `Tenant.status = ACTIVE`
+    * `TenantUser.status = ACTIVE`
+    * 否则返回 403。
 
-```http
-Authorization: Bearer <access_token>
-X-Tenant-ID: <tenant_id>  # 或从 access_token 中解析
-Content-Type: application/json
-```
+## 1.2 Role（租户角色）
 
-### 5.1.3 Django 侧实现
+* 表：`permissions_role`
+* 主键：`id` BIGINT
+* 字段：
 
-* 使用 DRF 的自定义 Authentication 类：
+  * `tenant_id`（FK）
+  * `name`：同一租户下唯一索引
+  * `is_system`：bool（系统内置角色）
+* 行为：
 
-  * 解析 Authorization header；
-  * 校验 JWT；
-  * 找到 `GlobalUser`，set `request.user`；
-* 中间件 `tenant_middleware`：
+  * `is_system = true` 的角色不可删除。
+  * 平台管理员**不能**跨租户编辑角色配置（只在租户工作区内配置）。
 
-  * 从 Header 中读 `X-Tenant-ID` 或从 Token payload 中解析；
-  * 校验当前 user 是否是该租户的 TenantUser；
-  * 写入 `request.tenant` 和 `request.tenant_user`。
+## 1.3 ResourceTree（资源树）
 
-### ⚠ 注意点
+* 表：`resources_resource_tree`
+* 主键：`id` BIGINT
+* 字段：
 
-* JWT 模式下，API 路径可以直接**关闭 CSRF 检查**（只对 Cookie-based 会话有用），避免和 DRF Token 冲突。
-* 刷新 Token 走独立接口 `/api/auth/refresh`，只允许用 `refresh_token` 换新的 `access_token`。
+  * `tenant_id`（FK）
+  * `type`：`FOLDER` / `TABLE` / `FLOW` / `BOARD`
+  * `parent_id`（FK → 自身，可 NULL，表示根节点）
+  * `display_name`
+  * `sort_order` INT
+  * `ref_id` BIGINT：指向实际资源（表/Flow/Board）的主键，**仅当 type != FOLDER 时有效**。
+* 根节点设计：
 
----
+  * 可以有多个根 FOLDER 记录（`parent_id IS NULL`）。
+  * 前端不虚构“根目录”节点，直接根据返回列表渲染树。
 
-## 5.2 多租户隔离实现
+## 1.4 权限实体
 
-### 5.2.1 ORM 层实现（强制 tenant 过滤）
+### 1.4.1 RolePermission
 
-在 `common.models.managers` 中定义：
+* 表：`permissions_role_permission`
+* 字段：
 
-* `TenantQuerySet`：
+  * `tenant_id`
+  * `role_id`
+  * `resource_type`：`TABLE_SCHEMA` / `TABLE_DATA` / `FLOW` / `BOARD`
+  * `resource_id`：可以是 ResourceTree 节点 id（包括 FOLDER/TABLE/FLOW/BOARD）
+  * `permission`：`NONE` / `VIEW` / `EDIT` / `MANAGE`
+* 约束：
 
-  * 带一个 `for_tenant(tenant_id)` 的方法；
-* `TenantManager`：
+  * 同一 `(tenant_id, role_id, resource_type, resource_id)` 仅保留一条记录。
 
-  * `get_queryset()` 自动附加当前 tenant 过滤（从 thread local 或上下文拿 tenant_id）；
+### 1.4.2 ColumnPermission
 
-所有需要租户隔离的模型都继承：
+* 表：`permissions_column_permission`
+* 字段：
 
-```python
-class TenantBaseModel(BaseModel):
-    tenant = models.ForeignKey("platform.Tenant", on_delete=CASCADE)
+  * `tenant_id`
+  * `role_id`
+  * `table_id`（表元数据 id）
+  * `column_code`
+  * `access_level`：`HIDDEN` / `READONLY` / `READWRITE`
+* 默认行为（**重要**）：
 
-    objects = TenantManager()
-```
+  * 未配置的列默认 `READWRITE`，仅受资源级 TABLE_DATA 权限控制。
 
-⚠ **要点**：
+### 1.4.3 RowPermission
 
-* 禁止直接使用 `Model._base_manager` 或自建 `objects = models.Manager()` 绕过 `TenantManager`。
-* raw SQL 查询必须通过 `sql_builder` 构建，并强制传入 `tenant_id`。
+* 表：`permissions_row_permission`
+* 字段：
+
+  * `tenant_id`
+  * `role_id`
+  * `table_id`
+  * `filter_json`（JSON DSL）
+* 合并策略：
+
+  * 对于某一 TenantUser 和某一表：
+
+    * 收集其所有角色的 RowPermission 条目：`rule1, rule2, ...`
+    * 最终行过滤 DSL：`rule1 OR rule2 OR ...`
+  * 若用户至少一个角色在该表上的 TABLE_DATA 权限为 `MANAGE`：
+
+    * **V1 规则：忽略所有 rowFilter，看全量数据**。
+
+## 1.5 最终权限计算规则（必须统一）
+
+### 1.5.1 单角色的资源级权限
+
+对于指定 `role` + `resource_type` + `资源所在 ResourceTree 节点`：
+
+1. 起始权限 = `NONE`。
+2. 从根到叶遍历路径上的所有 FOLDER 与叶子节点（TABLE/FLOW/BOARD 自身）：
+
+   * 若在某个 FOLDER 节点有 RolePermission 配置，则：
+
+     * `当前权限 = max(当前权限, folder_permission)`；
+   * 若在叶子节点有 RolePermission 配置，则：
+
+     * `当前权限 = max(当前权限, leaf_permission)`；
+3. 得到该角色对该资源的最终权限。
+
+**注意：**
+
+* 子节点配置为 `NONE` 并不会降低父节点已经给出的 `VIEW/EDIT` 权限；`NONE` 视为“未配置”。
+
+### 1.5.2 多角色合并
+
+* 对于某个 TenantUser：
+
+  * 找到其在该租户下所有 `role`；
+  * 对同一资源：
+
+    * 先按上面步骤算出每个角色的权限；
+    * 最终权限 = 所有角色权限的最大值（MANAGE > EDIT > VIEW > NONE）。
+
+### 1.5.3 列权限 & 行权限应用顺序
+
+对于某个表数据查询请求：
+
+1. 计算该用户 TABLE_DATA 权限：
+
+   * 若 `< VIEW` → 403。
+2. 若 TABLE_DATA = MANAGE：
+
+   * 跳过 RowPermission（全量行）。
+3. 否则：
+
+   * 构造 `row_permission_filter`（OR 合并各角色规则）。
+4. 列权限：
+
+   * 收集该用户所有角色 ColumnPermission；
+   * 对每列：
+
+     * 若所有角色都为 HIDDEN → 不在 SELECT 列表中返回；
+     * 若存在至少一条 READWRITE → 可写；
+     * 否则若存在 READONLY → 只读。
+5. 最终查询过滤条件：
+
+   * `final_filter = AND(dataset_base_filter, widget_filter, row_permission_filter)`（缺失的部分省略）。
 
 ---
 
-## 5.3 权限体系实现
+# 2. 统一过滤条件 JSON DSL（技术实现细则）
 
-### 5.3.1 PermissionService（统一权限计算服务）
+本节基于 PRD 的 DSL 结构，补充**类型校验 + SQL 生成规则 + 特殊变量处理**。
 
-`apps/permissions/services.py` 提供方法：
-
-* `get_resource_permission(tenant_user, resource_type, resource_id)`
-  返回 NONE/VIEW/EDIT/MANAGE；
-* `get_table_column_permissions(tenant_user, table)`
-  返回每列的访问级别：HIDDEN/READONLY/READWRITE；
-* `get_table_row_filter(tenant_user, table)`
-  返回行权限 DSL（多个角色规则 OR 合并）。
-
-内部逻辑：
-
-1. 根据 `tenant_user` 找到所有 `Role`；
-2. 查找 RolePermission + ColumnPermission + RowPermission；
-3. 按「最大权限」规则合并；
-4. 行权限 DSL 合并成 OR 条件。
-
-### 5.3.2 DRF 权限类
-
-各模块实现自身的 DRF Permission 类，比如：
-
-* `ModelingTablePermission`：
-
-  * 从 URL/path/参数中取 `table_id`；
-  * 调用 `PermissionService.get_resource_permission(TABLE_SCHEMA/TABLE_DATA)`；
-  * 不满足要求则 raise `PermissionDenied`。
-* `FlowPermission` / `BoardPermission` 类似。
-
-### ⚠ 注意点
-
-* **不要在中间件里做具体资源权限判断**，否则需要解析所有 URL，复杂易错。
-* PermissionService 可以加 Redis 缓存（key 中包含 `tenant_user_id` + `resource_id`）。
-
----
-
-# 6. DSL & SQLBuilder（统一数据查询出口）
-
-## 6.1 DSL 结构（与 PRD 保持一致）
-
-统一 JSON 结构，用于：RowPermission、Dataset base_filter、Widget filter、Flow 过滤节点。
+## 2.1 DSL 结构回顾
 
 * 条件组：
 
 ```json
 {
   "op": "and",
-  "conditions": [
-    {...}, {...}
-  ]
+  "conditions": [ { ... }, { ... } ]
 }
 ```
 
@@ -429,1626 +356,1020 @@ class TenantBaseModel(BaseModel):
 }
 ```
 
-支持：
+支持的 `operator` 与 PRD 一致。
 
-* op: "and" / "or"
-* operator: =, !=, >, >=, <, <=, in, not_in, between, contains, starts_with, ends_with, is_null, is_not_null
+## 2.2 类型检查与字段元数据
 
----
+* 在构造 SQL 前，必须通过表元数据获取字段定义（data_type）：
 
-## 6.2 sql_builder 职责
+  * `string`, `text`, `int`, `bigint`, `float`, `decimal`, `bool`, `date`, `datetime` 等。
+* 校验：
 
-`common.utils.sql_builder` 提供：
+  * 对 number/operator：
 
-* `build_select_query(table_meta, visible_columns, base_filter_dsl, widget_filter_dsl, row_permission_dsl, tenant_id, pagination, order_by, group_by, aggregations)`
+    * `> >= < <= between`：字段类型必须为数值或日期/时间类型；
+  * 对 `in, not_in`：
 
-统一职责：
+    * `value` 必须为数组；
+  * 对 `is_null, is_not_null`：
 
-1. 根据 `tenant_id` 生成 `WHERE tenant_id = ?` 条件；
-2. 合并：
+    * 不读取 `value` 字段；
+  * 对文本运算（contains 等）：
 
-   * Dataset base_filter；
-   * Widget 自身 filter；
-   * RowPermission filter；
-3. 考虑列权限：
+    * 字段类型必须为 string/text。
+* 类型不匹配 → 返回 400，错误码：`DSL__INVALID_FILTER`。
 
-   * 去掉用户不可见字段；
-4. 根据 `aggregations` 和 `group_by` 构建 SELECT 子句；
-5. 拼出最终 SQL + 参数。
+## 2.3 特殊变量处理
 
-### ⚠ 注意点
+* 支持以下特殊值（字符串）：
 
-* 所有看板查询、Flow 中写入内部表前的 select，都必须通过 sql_builder。
-* SQLBuilder 内部要用参数化查询，避免 SQL 注入。
+| 变量名                | 替换为                                         |
+| ------------------ | ------------------------------------------- |
+| `CURRENT_USER`     | 当前 `TenantUser.id`（数字，参与 `=`、`in` 等）        |
+| `CURRENT_DATE`     | 当前日期（UTC）`YYYY-MM-DD`                       |
+| `CURRENT_DATETIME` | 当前时间（UTC）ISO8601 字符串或 `YYYY-MM-DD HH:mm:ss` |
 
----
+* 替换规则：
 
-# 7. 任务流 & 调度设计（Celery）
+  * 在解析 DSL 时，遇到 `value` 是上述字符串常量时替换为具体值。
 
-## 7.1 任务流执行
+## 2.4 SQL 生成规则（与 sql_builder 结合）
 
-* API `POST /api/flows/{flow_id}/run`：
+* 输入：
 
-  * 检查：FLOW ≥ EDIT；
-  * 检查是否已有 RUNNING 的 Run；
-  * 创建 Run 记录（PENDING）；
-  * 提交 `flow_tasks.execute_flow.delay(run_id)`；
-  * 返回 run_id。
+  * 表元数据（表名、字段列表、字段类型）
+  * `final_filter` DSL
+* 递归生成：
 
-* Celery 任务 `execute_flow(run_id)`：
+  * 条件组：
 
-  * 将 Run 状态置为 RUNNING；
-  * 拓扑排序 DAG 节点；
-  * 依次执行节点：
+    * `op = "and"` → `(... AND ...)`
+    * `op = "or"` → `(... OR ...)`
+  * 简单条件：
 
-    * 每个节点记录 NodeRun（状态/耗时/输入输出行数/错误信息）；
-    * 遇到错误：
+    * 统一使用参数化 SQL（占位符）：
 
-      * 将 NodeRun 标记 FAILED；
-      * 将 Run 标记 FAILED；
-      * 整个 Flow 结束；
-  * 全部成功：Run 状态置为 SUCCESS。
+      * 例如：`field = %s`。
+* 常见 operator 映射：
 
-### ⚠ 注意点
+| operator      | SQL 示例                            |
+| ------------- | --------------------------------- |
+| `=`           | `field = %s`                      |
+| `!=`          | `field <> %s`                     |
+| `>` / `<`…    | `field > %s` 等                    |
+| `in`          | `field IN (%s, %s, ...)`          |
+| `not_in`      | `field NOT IN (...)`              |
+| `between`     | `field BETWEEN %s AND %s`         |
+| `contains`    | `field LIKE CONCAT('%', %s, '%')` |
+| `starts_with` | `field LIKE CONCAT(%s, '%')`      |
+| `ends_with`   | `field LIKE CONCAT('%', %s)`      |
+| `is_null`     | `field IS NULL`                   |
+| `is_not_null` | `field IS NOT NULL`               |
 
-* 同一 Flow 同时只允许一个 RUNNING，避免写入冲突。
-* 写入内部表节点使用事务，保证“全成功或全失败”。
+* 空 DSL（条件为 `null` 或无 `conditions`）：
 
----
-
-## 7.2 调度（Scheduler + Celery Beat）
-
-* `flows/scheduler.py` 中实现：
-
-  * `check_scheduled_flows()`：
-
-    * 找出：`schedule_type = CRON` 且 `schedule_status = ENABLED` 的 Flow；
-    * 按 cron 表达式判断是否到期；
-    * 检查租户状态（非 SUSPENDED）；
-    * 检查当前是否有 RUNNING Run；
-    * 符合条件则创建 Run + 提交 Celery 任务。
-
-* Celery Beat 配置：
-
-  * 每分钟触发一次 `check_scheduled_flows`。
-
-### ⚠ 注意点
-
-* Celery Beat 只部署一份，不要在 Django 实例里再自己写 while True 的调度脚本。
-* 调度逻辑尽量无状态，所有状态依赖 MySQL。
+  * 视为不加任何 WHERE 子句（除了 tenant_id 强制条件）。
 
 ---
 
-# 8. LLM 模块（ollama 集成）
+# 3. 平台后台（Platform Admin Console）技术设计
 
-## 8.1 使用场景
+本节对应 PRD 3.x，重点定义**API、权限控制、查询规则**。
+平台后台只能由拥有「平台管理员」身份的 GlobalUser 使用（可在 GlobalUser 中用 `is_staff` 标记）。
 
-* 表编码生成：`generate_table_code(display_name, tenant_id)`
-* 字段编码生成：`generate_field_code(display_name, table_code, tenant_id)`
+## 3.1 认证 & 权限
 
-## 8.2 调用方式
+* 所有 `/api/admin/**` 接口：
 
-* **同步调用**：在 API 内直接调用 ollama（HTTP），避免再绕 Celery 一圈。
-* `llm/services.py`：
-
-  * 负责组装 prompt；
-  * 发送请求到 `http://ollama:port/api/generate`；
-  * 接收结果并清洗编码（小写、蛇形、非法字符替换）。
-
-## 8.3 降级策略
-
-1. LLM 返回后先清洗：
-
-   * 非 `[a-z0-9_]` → `_`；
-   * 首字符必须为字母，否则加前缀 `t_` / `f_`；
-   * 空或全是 `_` 则判为无效。
-2. 若 LLM 调用超时或返回无效：
-
-   * 使用本地编码规则（例如拼音首字母 + 时间戳后缀）；
-3. 唯一性校验：
-
-   * 若 `(tenant_id, code)` 已存在，则加 `_1` `_2` 等后缀。
-
-### ⚠ 注意点
-
-* 对同一 `display_name + table_code` 可在内存做简单缓存，减少重复请求；
-* 如果某租户连续 N 次 LLM 调用失败，可在短时间内直接使用本地规则（熔断），避免打爆 ollama。
-
----
-
-# 9. 安全 & 性能优化要点
-
-## 9.1 安全要点
-
-* JWT：
-
-  * Access Token 短有效期；
-  * Refresh Token 长期有效，后端可维护黑名单（登出或强制失效）。
-* CSRF：
-
-  * 纯 API + JWT 场景，API 路由可以关闭 CSRF 中间件；
-* XSS：
-
-  * 前端对用户可见内容进行转义；
-  * 避免在 DOM 中直接插 HTML，尽量使用安全组件。
-* 敏感信息：
-
-  * 密码散列存储（Django 默认 PBKDF2）；
-  * 第三方平台 token/secret 可加密存储（如用 Fernet + 环境密钥）。
-
-## 9.2 性能 & 缓存
-
-* 数据库：
-
-  * 给 `tenant_id` + 常用外键建立联合索引；
-  * Flow Run / NodeRun 可以按时间分区或归档，避免无限膨胀。
-* 缓存：
-
-  * Permission 缓存：key 包含 `tenant_user_id` + 资源类型，可设置 TTL=5 分钟；
-  * ResourceTree 缓存：以租户为粒度缓存整棵树，TTL=10 分钟；
-  * 看板查询缓存：按 dataset + widget + filter hash 做 1 分钟缓存（可选）。
-* 前端：
-
-  * 路由级代码分割；
-  * 表格支持虚拟滚动，避免一次渲染太多行；
-  * 搜索防抖（300–500ms）。
-
----
-
-# 10. 总体注意事项（汇总版）
-
-1. **权限统一出口**：所有业务权限统一走 PermissionService + DRF 权限类，避免在 view/middleware 到处散逻辑。
-2. **多租户强制隔离**：ORM 层统一 TenantManager；Raw SQL 统一通过 sql_builder，把 `tenant_id` 和 `rowFilter` 写死在流程中。
-3. **调度单点**：只用 Celery Beat 做调度，不要每个 Django 实例自行调度。
-4. **LLM 只做辅助，不做单点故障**：有本地规则兜底，失败时系统仍可正常工作。
-5. **JWT + 无 CSRF 的统一策略**：明确使用 Bearer Token，API 中关闭 CSRF，不要半 Cookie 半 JWT 混用。
-6. **前端权限只是 UI 辅助**：后端拒绝一切无权限操作请求，前端只负责少显示按钮、减少误操作。
-
-
-
-
-这是我的PRD：
-
-
-
-# 0. 文档信息
-
-* 产品名称（暂定）：多租户配置化数据建模与报表平台
-* 版本：V1.0
-* 范围：
-
-  * 平台后台（Platform Admin Console）
-  * 租户工作区（Tenant Workspace）
-
-    * 建模模块（Modeling）
-    * 任务流模块（Flows）
-    * 数据集 & 看板模块（Datasets & Boards）
-    * 租户内用户 & 角色 & 权限管理（Tenant Settings）
-
----
-
-# 1. 核心概念与数据实体
-
-## 1.1 GlobalUser（平台用户）
-
-平台级账号，一个 GlobalUser 可以加入多个租户。
-
-| 字段名          | 类型       | 说明                | 校验/约束                  |
-| ------------ | -------- | ----------------- | ---------------------- |
-| id           | UUID/int | 主键                | 系统生成                   |
-| login_name   | string   | 登录名/账号            | 必填；1–50；字母数字下划线；全局唯一   |
-| display_name | string   | 显示名称              | 必填；1–50                |
-| email        | string   | 邮箱                | 必填；email 格式；可唯一（视业务要求） |
-| status       | enum     | ACTIVE / DISABLED | 必填；禁用后阻止登录             |
-| created_at   | datetime | 创建时间              | 系统填充                   |
-| updated_at   | datetime | 更新时间              | 系统填充                   |
-
-## 1.2 Tenant（租户）
-
-逻辑隔离单位（公司/组织/项目）。
-
-| 字段名        | 类型       | 说明                       | 校验/约束                  |
-| ---------- | -------- | ------------------------ | ---------------------- |
-| id         | UUID/int | 主键                       |                        |
-| code       | string   | 租户编码                     | 必填；1–50；字母数字下划线；全局唯一   |
-| name       | string   | 租户名称                     | 必填；1–100               |
-| status     | enum     | ACTIVE / SUSPENDED       | 必填；SUSPENDED 表示整个租户被停用 |
-| plan       | enum     | BASIC / PRO / ENTERPRISE | 必填；默认 BASIC            |
-| created_at | datetime | 创建时间                     |                        |
-| updated_at | datetime | 更新时间                     |                        |
-
-## 1.3 TenantUser（租户用户）
-
-GlobalUser 与 Tenant 的关联关系，是权限控制的“人”的主体。
-
-| 字段名        | 类型       | 说明                     | 校验/约束                 |
-| ---------- | -------- | ---------------------- | --------------------- |
-| id         | UUID/int | 主键                     |                       |
-| tenant_id  | 外键       | 所属租户 ID                | 必填；引用 Tenants         |
-| user_id    | 外键       | 平台用户 ID（GlobalUser.id） | 必填；引用 GlobalUsers     |
-| status     | enum     | ACTIVE / DISABLED      | 必填；仅 ACTIVE 可登录该租户工作区 |
-| is_owner   | bool     | 是否该租户 Owner            | 同一租户可有多个 Owner，但必须≥1  |
-| last_login | datetime | 最近登录时间                 | 可空                    |
-| created_at | datetime | 创建时间                   |                       |
-| updated_at | datetime | 更新时间                   |                       |
-
-**约束：**
-
-* `(tenant_id, user_id)` 必须唯一；
-* 当租户 status 为 SUSPENDED 时，该租户下所有 TenantUser 不能访问工作区。
-
-## 1.4 Role（租户角色）
-
-租户级角色，用于权限管理。
-
-| 字段名         | 类型       | 说明       | 校验/约束           |
-| ----------- | -------- | -------- | --------------- |
-| id          | UUID/int | 主键       |                 |
-| tenant_id   | 外键       | 所属租户     | 必填              |
-| name        | string   | 角色名称     | 必填；1–50；同一租户内唯一 |
-| description | string   | 描述       | 可空；0–200        |
-| is_system   | bool     | 是否系统内置角色 | 内置角色不可删除        |
-| created_at  | datetime | 创建时间     |                 |
-| updated_at  | datetime | 更新时间     |                 |
-
-## 1.5 资源与权限
-
-### 1.5.1 Resource（资源）
-
-用户可见的资源类型：
-
-* TABLE（表格，权限拆成 TABLE_SCHEMA & TABLE_DATA 两条）
-* FLOW（任务流）
-* BOARD（看板）
-
-**资源树：**
-
-每类资源维护独立树结构：
-
-| 字段名          | 类型       | 说明                            |
-| ------------ | -------- | ----------------------------- |
-| id           | UUID/int | 资源 ID（表/任务流/看板的 ID）           |
-| tenant_id    | 外键       | 租户                            |
-| type         | enum     | TABLE / FLOW / BOARD / FOLDER |
-| parent_id    | UUID/int | 父节点 ID                        |
-| display_name | string   | 树节点显示名                        |
-| sort_order   | int      | 排序                            |
-
-> FOLDER 类型节点表示目录，不是实际资源；TABLE/FLOW/BOARD 是叶子节点。
-
-### 1.5.2 RolePermission（角色-资源权限）
-
-权限对象绑定的是 Role 与资源（或资源所在文件夹）。
-
-权限级别：
-
-* NONE：无权限
-* VIEW：查看
-* EDIT：编辑
-* MANAGE：管理
-
-字段：
-
-| 字段名           | 类型       | 说明                                       |
-| ------------- | -------- | ---------------------------------------- |
-| id            | UUID/int | 主键                                       |
-| tenant_id     | 外键       | 租户                                       |
-| role_id       | 外键       | 角色 ID                                    |
-| resource_type | enum     | TABLE_SCHEMA / TABLE_DATA / FLOW / BOARD |
-| resource_id   | UUID/int | 资源 ID 或 FOLDER ID                        |
-| permission    | enum     | NONE / VIEW / EDIT / MANAGE              |
-
-> 对表结构和表数据分别用 `resource_type = TABLE_SCHEMA` / `TABLE_DATA` + 同一 `resource_id`。
-
-### 1.5.3 行权限 / 列权限
-
-**列权限（ColumnPermission）：**
-
-| 字段名          | 类型       | 说明                            |
-| ------------ | -------- | ----------------------------- |
-| id           | UUID/int | 主键                            |
-| tenant_id    | 外键       | 租户                            |
-| role_id      | 外键       | 角色                            |
-| table_id     | 外键       | 表 ID                          |
-| column_code  | string   | 字段编码                          |
-| access_level | enum     | HIDDEN / READONLY / READWRITE |
-
-**行权限（RowPermission）：**
-
-| 字段名         | 类型       | 说明                         |
-| ----------- | -------- | -------------------------- |
-| id          | UUID/int | 主键                         |
-| tenant_id   | 外键       | 租户                         |
-| role_id     | 外键       | 角色                         |
-| table_id    | 外键       | 表 ID                       |
-| rule_name   | string   | 规则名称（可选）                   |
-| filter_json | json     | 行过滤条件（使用统一 JSON DSL，详见 2.） |
-
-### 1.5.4 最终权限计算（Effective Permission）
-
-**1）资源级权限（TABLE_SCHEMA / TABLE_DATA / FLOW / BOARD）**
-
-* 对单一角色：
-
-  * 实际权限 = 同一 `resource_type + resource_id` 上，**该表节点配置的权限** 与所有**上级 FOLDER 的默认权限**的最大值（MANAGE > EDIT > VIEW > NONE）。
-* 对拥有多个角色的 TenantUser：
-
-  * 对某资源的最终权限 = 所有角色对该资源的权限的**最大值**。
-
-**2）列权限**
-
-对某个 TenantUser：
-
-* 汇总该用户所有角色在 `ColumnPermission` 中的数据；
-* 对每列：
-
-  * 可见：存在任一角色对该列不是 HIDDEN；
-  * 可写：存在任一角色对该列为 READWRITE；
-
-**3）行权限**
-
-对某个 TenantUser：
-
-* 汇总该用户所有角色在 `RowPermission` 中与该表相关的规则；
-* 最终行过滤条件：所有规则的 filter_json 通过 OR 组合：
-
-  * `final_filter = rule1 OR rule2 OR ...`
-* 若某角色未配置任何 RowPermission，则该角色对行不增加额外限制（即视为“不过滤”）；
-* 若用户有至少一个角色的 TABLE_DATA 权限为 MANAGE，则后端可配置为**不应用 rowFilter**（看到全量数据）。
-
----
-
-# 2. 统一过滤条件 JSON DSL
-
-用于：
-
-* 任务流中的过滤节点；
-* Dataset 基础过滤；
-* RowPermission 规则；
-* Widget 查询的额外过滤。
-
-## 2.1 DSL 结构
-
-顶层结构：
-
-```json
-{
-  "op": "and",
-  "conditions": [
-    { "field": "amount", "operator": ">", "value": 100 },
-    {
-      "op": "or",
-      "conditions": [
-        { "field": "status", "operator": "=", "value": "SUCCESS" },
-        { "field": "status", "operator": "=", "value": "PARTIAL" }
-      ]
-    }
-  ]
-}
-```
-
-* 对象可以是：
-
-  * 条件组（有 `op` + `conditions`）；
-  * 简单条件（有 `field` / `operator` / `value`）。
-
-### 2.1.1 条件组
-
-| 字段         | 类型         | 说明           |
-| ---------- | ---------- | ------------ |
-| op         | string     | "and" / "or" |
-| conditions | 数组<object> | 子条件或嵌套条件组    |
-
-### 2.1.2 简单条件
-
-| 字段       | 类型     | 说明             |
-| -------- | ------ | -------------- |
-| field    | string | 字段编码           |
-| operator | string | 操作符            |
-| value    | any    | 操作值（可标量/数组/对象） |
-
-支持的 operator：
-
-* 通用：`=`, `!=`, `>`, `>=`, `<`, `<=`
-* 集合：`in`, `not_in`
-* 范围：`between`
-* 文本：`contains`, `starts_with`, `ends_with`
-* 特殊：`is_null`, `is_not_null`（这两种无需 value）
-
-value 类型要求：
-
-* 对 number 字段：value 必须是 number 或 array<number>；
-* 对 string 字段：value 必须是 string 或 array<string>；
-* 对 date/datetime：使用 `"YYYY-MM-DD"` / `"YYYY-MM-DD HH:mm:ss"` 字符串表示。
-
-特殊变量：
-
-* CURRENT_USER：当前 TenantUser ID；
-* CURRENT_DATE：当前日期；
-* CURRENT_DATETIME：当前时间。
-
----
-
-# 3. 平台后台（Platform Admin Console）
-
-## 3.1 导航结构
-
-* 用户管理（Global Users）
-* 租户管理（Tenants）
-* 租户成员管理（通过租户详情页查看）
-* 审计日志（可后端为主，前端简单列表）
-
----
+  * 必须有有效 JWT；
+  * `request.user.is_staff = True` 且非禁用；
+  * 否则返回 403。
 
 ## 3.2 GlobalUser 管理
 
-### 3.2.1 GlobalUser 列表页
+### 3.2.1 列表 API
 
-* 路径：`/admin/users`
-* 粒度：每行一个 GlobalUser。
+* `GET /api/admin/users`
+* 查询参数：
 
-字段：
+  * `q`（可选）：模糊搜索 login_name / display_name / email
+  * `status`（可选）：`ACTIVE` / `DISABLED`
+  * 分页：`page`, `page_size`
+* 行为：
 
-| 列名   | 类型       | 说明                    | 特殊逻辑          |
-| ---- | -------- | --------------------- | ------------- |
-| 登录名  | string   | login_name            | 列表支持按登录名搜索    |
-| 显示名  | string   | display_name          |               |
-| 邮箱   | string   | email                 |               |
-| 状态   | enum     | ACTIVE / DISABLED     | 支持在列表筛选       |
-| 创建时间 | datetime |                       |               |
-| 更新时间 | datetime |                       |               |
-| 操作   | -        | 编辑 / 禁用/启用 / （可选重置密码） | 禁用后用户无法登录任何租户 |
+  * 按创建时间倒序；
+  * 返回统一分页结构：`total`, `items`.
 
-校验：
-
-* 搜索输入：支持按登录名/显示名/邮箱模糊匹配；
-* 禁用操作必须有确认弹窗。
-
-### 3.2.2 创建 / 编辑 GlobalUser
-
-字段及校验同 1.1 中定义。
-
-行为：
-
-* 创建成功后返回列表；
-* 编辑时 login_name 不可修改。
-
----
-
-## 3.3 租户管理（Tenants）
-
-### 3.3.1 租户列表页
-
-* 路径：`/admin/tenants`
-* 粒度：每行一个 Tenant。
-
-字段：
-
-| 列名   | 类型       | 说明                       | 特殊逻辑              |
-| ---- | -------- | ------------------------ | ----------------- |
-| 租户编码 | string   | code                     | 唯一，点击可进入租户详情/成员管理 |
-| 租户名称 | string   | name                     |                   |
-| 状态   | enum     | ACTIVE / SUSPENDED       | 列表可筛选             |
-| 套餐   | enum     | BASIC / PRO / ENTERPRISE |                   |
-| 创建时间 | datetime |                          |                   |
-| 更新时间 | datetime |                          |                   |
-| 操作   | -        | 编辑 / 启用/停用 / 查看成员        | 停用需弹窗确认           |
-
-### 3.3.2 新建 / 编辑租户
-
-字段同 1.2，约束：
-
-* 新建时 code 唯一；
-* 编辑时 code 不可修改；
-* 状态变更为 SUSPENDED 时说明“租户用户无法登录，所有任务流调度停用”。
-
----
-
-## 3.4 TenantUser 管理（平台视角）
-
-### 3.4.1 租户成员列表页
-
-* 路径：`/admin/tenants/:tenantId/users`
-* 粒度：每行一个 TenantUser。
-
-字段：
-
-| 列名       | 类型       | 说明                      |
-| -------- | -------- | ----------------------- |
-| 登录名      | string   | GlobalUser.login_name   |
-| 显示名      | string   | GlobalUser.display_name |
-| 邮箱       | string   | GlobalUser.email        |
-| 状态       | enum     | ACTIVE / DISABLED       |
-| 是否 Owner | bool     |                         |
-| 角色列表     | string   | 所在租户的角色名称，用逗号分隔         |
-| 创建时间     | datetime |                         |
-| 更新时间     | datetime |                         |
-| 操作       | -        | 编辑状态/Owner / 禁用 / 移出    |
-
-新增成员：
-
-* 通过搜索 GlobalUser 选择；
-* 状态默认为 ACTIVE；
-* 可选择是否 Owner。
-
-约束：
-
-* `(tenant_id, user_id)` 唯一；
-* 至少有一个 Owner（平台端可以提示检查）。
-
----
-
-# 4. 租户工作区（Tenant Workspace）总览
-
-## 4.1 导航结构（租户前台）
-
-* 建模（Modeling）
-* 任务流（Flows）
-* 看板（Boards）
-* 系统设置（Settings）
-
-  * 租户用户管理
-  * 角色管理
-  * 权限配置
-
-## 4.2 登录与租户上下文
-
-* 租户用户通过某种方式选择当前租户（由产品整体架构决定）；
-* 所有业务接口均携带 `tenant_id`，后端必须按租户隔离数据。
-
----
-
-# 5. 租户前台：权限与设置
-
-## 5.1 租户用户管理（Settings → Users）
-
-### 5.1.1 列表页
-
-* 路径：`/app/:tenantId/settings/users`
-* 粒度：每行一个 TenantUser。
-
-字段：
-
-| 列名       | 类型       | 说明                      |
-| -------- | -------- | ----------------------- |
-| 登录名      | string   | GlobalUser.login_name   |
-| 显示名      | string   | GlobalUser.display_name |
-| 邮箱       | string   | GlobalUser.email        |
-| 状态       | enum     | ACTIVE / DISABLED       |
-| 是否 Owner | bool     |                         |
-| 角色列表     | string   | 本租户的角色名列表               |
-| 最近登录时间   | datetime | 可空                      |
-| 创建时间     | datetime |                         |
-| 操作       | -        | 编辑角色 / 禁用/启用（租户内）       |
-
-权限：
-
-* 仅 TenantOwner 或有特定权限的角色可访问该页。
-
-### 5.1.2 编辑 TenantUser 角色
-
-* 弹窗显示角色多选列表；
-* 保存后覆盖该 TenantUser 当前角色绑定。
-
----
-
-## 5.2 角色管理（Settings → Roles）
-
-### 5.2.1 角色列表页
-
-* 路径：`/app/:tenantId/settings/roles`
-* 粒度：每行一个 Role。
-
-字段：
-
-| 列名     | 类型       | 说明             |
-| ------ | -------- | -------------- |
-| 角色名称   | string   | name           |
-| 描述     | string   | description    |
-| 是否系统内置 | bool     | is_system      |
-| 创建时间   | datetime |                |
-| 更新时间   | datetime |                |
-| 操作     | -        | 编辑 / 删除 / 配置权限 |
-
-约束：
-
-* is_system=true 的角色不可删除。
-
-### 5.2.2 角色编辑表单
-
-字段及校验见 1.4 Role 定义。
-
----
-
-## 5.3 角色权限配置（Settings → Roles → Permissions）
-
-### 5.3.1 页面结构
-
-* 左侧：资源类型 Tabs：
-
-  * 表格权限
-  * 任务流权限
-  * 看板权限
-* 右侧：
-
-  * 对应资源树 + 权限下拉。
-
-### 5.3.2 表格权限 Tab
-
-* 资源树：表格资源树（FOLDER + TABLE）；
-* 选中某表时显示两行：
-
-| 权限项   | 可选值                         |
-| ----- | --------------------------- |
-| 表结构权限 | NONE / VIEW / EDIT / MANAGE |
-| 表数据权限 | NONE / VIEW / EDIT / MANAGE |
-
-文件夹节点：
-
-* 显示“默认表结构权限 / 默认表数据权限”的下拉；
-* 未显式配置的子表，默认继承文件夹权限；
-* 若表节点有单独配置，则使用表节点配置。
-
-### 5.3.3 任务流权限 Tab
-
-资源树：任务流资源树。
-
-* 每个 Flow 可配置：NONE / VIEW / EDIT / MANAGE；
-* 文件夹支持默认权限。
-
-### 5.3.4 看板权限 Tab
-
-资源树：看板资源树。
-
-* 每个 Board 可配置：NONE / VIEW / EDIT / MANAGE；
-* 文件夹支持默认权限。
-
----
-
-## 5.4 表数据的行/列权限配置
-
-在“建模 → 表详情页”中有 Tab："数据权限"。
-
-### 5.4.1 列权限配置 UI
-
-* 上方：角色选择（下拉）；
-* 中间：字段列表。
-
-字段列表列：
-
-| 列名   | 类型     | 说明                        |
-| ---- | ------ | ------------------------- |
-| 字段名  | string | display_name              |
-| 字段编码 | string | code（只读）                  |
-| 类型   | string | 数据类型                      |
-| 列权限  | enum   | HIDDEN/READONLY/READWRITE |
-
-规则：
-
-* 每次保存覆盖该角色在该表上的列权限；
-* 未配置的列可默认 READWRITE 或 READONLY（建议默认 READWRITE，仅受资源级 TABLE_DATA 权限约束）。
-
-### 5.4.2 行权限配置 UI
-
-* 上方：角色选择；
-* 中间：规则列表（每条规则一个 RowPermission）；
-* 每条规则包含：
-
-  * 规则名称（可选）
-  * 条件编辑器（使用统一 JSON DSL）；
-
-保存时：
-
-* 序列化为 filter_json，写入 RowPermission 表；
-* 删除规则即删除对应记录。
-
----
-
-# 6. 建模模块（Modeling）
-
-> 负责表结构与表数据；表编码/字段编码由本地 ollama 自动生成。
-
-## 6.1 表格资源树
-
-* 左：表格资源树，节点类型：
-
-  * FOLDER（文件夹）
-  * TABLE（表）
-* 操作：
-
-  * 新建文件夹：在选中节点下新建子文件夹；
-  * 重命名/删除文件夹：禁止删除非空文件夹；需要具备 Manage 权限；
-  * 拖动表到不同文件夹：需要对该表 TABLE_SCHEMA = MANAGE。
-
-权限：
-
-* 用户对某表的 TABLE_SCHEMA 和 TABLE_DATA 均为 NONE 时，该表不在树上展示；
-* 若文件夹下没有任何用户可见的表，则不显示该文件夹。
-
----
-
-## 6.2 表列表页
-
-* 选中某个文件夹（或根）后，右侧显示该目录下所有**用户有权限的表**。
-* 粒度：每行一张表。
-
-字段：
-
-| 列名   | 类型       | 说明                            |
-| ---- | -------- | ----------------------------- |
-| 表名   | string   | display_name                  |
-| 表编码  | string   | code（只读，由 LLM 自动生成）           |
-| 表类型  | enum     | 维度 / 事实 / 配置 / 其他             |
-| 创建人  | string   | 创建该表的 TenantUser.display_name |
-| 创建时间 | datetime |                               |
-| 更新时间 | datetime |                               |
-| 操作   | -        | 结构 / 数据 / 数据权限 / 删除           |
-
-按钮权限：
-
-* 结构：TABLE_SCHEMA ≥ VIEW；
-* 数据：TABLE_DATA ≥ VIEW；
-* 数据权限：TABLE_DATA = MANAGE；
-* 删除：TABLE_SCHEMA = MANAGE。
-
----
-
-## 6.3 新建 / 编辑表
-
-### 6.3.1 新建表表单
-
-字段：
-
-| 字段    | 类型     | 必填 | 说明                        | 校验            |
-| ----- | ------ | -- | ------------------------- | ------------- |
-| 表名    | string | 是  | 1–50                      | 非空            |
-| 表编码   | string | 否  | 自动生成，前端只读显示               | 后端校验唯一且符合命名规则 |
-| 表类型   | enum   | 是  | 维度 / 事实 / 配置 / 其他         | 必选            |
-| 描述    | string | 否  | 0–200                     |               |
-| 所属文件夹 | string | 否  | resource_tree 中 folder_id | 不填则默认根目录      |
-
-**编码生成逻辑（LLM）：**
-
-* 前端在表名 blur 时：
-
-  * 调用 `POST /api/llm/generate_table_code`，参数：
-
-    * display_name
-    * tenant_id
-* 后端调用本地 ollama：
-
-  * 生成英文小写蛇形编码，如 `order`, `user_profile`；
-  * 清洗：小写 + 非字母数字下划线替换为下划线；
-  * 若不符合正则或为空，用本地规则 fallback（如拼音）；
-  * 检查当前租户唯一性，不唯一则加 `_1` `_2` 后缀。
-* 前端将返回的 code 显示为只读字段。
-
-### 6.3.2 编辑表
-
-* 表编码不可修改；
-* 表名、表类型、描述可修改；
-* 修改表名不影响 code。
-
-**删除表：**
-
-* 前后端检查：
-
-  * 用户 TABLE_SCHEMA = MANAGE；
-  * 后端检查依赖：
-
-    * 表是否被任务流节点使用；
-    * 表是否被 Dataset / Widget 使用；
-    * 表是否在 Relation 中被引用；
-  * 有依赖则拒绝删除，返回详细说明。
-
----
-
-## 6.4 字段管理
-
-### 6.4.1 字段列表页
-
-* Tab 名称：结构
-* 粒度：每行一个字段。
-
-字段列表列：
-
-| 列名   | 类型     | 说明                              |
-| ---- | ------ | ------------------------------- |
-| 字段名  | string | display_name                    |
-| 字段编码 | string | code（只读）                        |
-| 类型   | enum   | string/int/float/decimal/bool/… |
-| 是否主键 | bool   | 用标记或图标显示                        |
-| 是否必填 | bool   | not null                        |
-| 默认值  | string | 显示为字符串                          |
-| 描述   | string |                                 |
-| 操作   | -      | 编辑 / 删除（视权限 & 是否系统字段）           |
-
-权限：
-
-* TABLE_SCHEMA ≥ VIEW：仅查看；
-* TABLE_SCHEMA ≥ EDIT：可新增/编辑/删除字段；
-* 系统字段（is_internal=true）不允许删除，不允许修改 code/type。
-
-### 6.4.2 新建字段表单
-
-字段：
-
-| 字段   | 类型     | 必填 | 说明                           | 校验                            |
-| ---- | ------ | -- | ---------------------------- | ----------------------------- |
-| 字段名  | string | 是  | 1–50                         | 非空                            |
-| 字段编码 | string | 否  | 自动生成，前端只读展示                  | 后端保证唯一 & 命名规则                 |
-| 类型   | enum   | 是  | string/int/float/decimal/... | 必选                            |
-| 是否主键 | bool   | 否  | 默认 false                     | 若已有主键字段，则禁止继续设置多个主键（V1 限制单主键） |
-| 是否必填 | bool   | 否  | 默认 false                     |                               |
-| 默认值  | any    | 否  | 按类型输入                        | 前端初步校验类型；后端再严格校验              |
-| 描述   | string | 否  | 0–200                        |                               |
-
-字段编码生成逻辑（LLM）：
-
-* 用户填写字段名后，blur 时：
-
-  * 调用 `POST /api/llm/generate_field_code`，参数：
-
-    * display_name
-    * table_code
-* 后端生成/清洗/唯一性检验类似表编码。
-
-### 6.4.3 字段生命周期规则
+### 3.2.2 创建 / 编辑 / 启用禁用
 
 * 创建：
 
-  * 写入 meta_fields；
-  * 对应物理表执行 `ALTER TABLE ADD COLUMN`（可默认 NULL）。
-* 修改：
+  * `POST /api/admin/users`
+  * Body 对应字段：
 
-  * 允许修改：display_name、is_required、default_value、描述；
-  * 不允许修改：code、type（避免复杂迁移）。
+    * `login_name`, `display_name`, `email`, `password` 等
+  * 约束：
+
+    * `login_name` 唯一，否则 400 + `COMMON__VALIDATION_ERROR`.
+* 编辑：
+
+  * `PUT /api/admin/users/{id}`
+  * `login_name` 禁止修改。
+* 启用/禁用：
+
+  * `POST /api/admin/users/{id}/status`
+  * Body：`{ "status": "ACTIVE" }` 或 `"DISABLED"`。
+
+## 3.3 Tenant 管理
+
+同 PRD 描述，补充几个技术点：
+
+* `GET /api/admin/tenants`：
+
+  * 支持按 `code`, `status` 过滤。
+* `POST /api/admin/tenants`：
+
+  * 新建时 `code` 唯一。
+* 状态变更为 `SUSPENDED` 时：
+
+  * 不自动踢出所有在线用户，会在下次请求时阻止访问；
+  * 调度器在下一轮检查中也会停发任务。
+
+## 3.4 TenantUser 平台视角管理
+
+* 平台管理员操作接口：
+
+  * 列表：`GET /api/admin/tenants/{tenant_id}/users`
+  * 新增成员：`POST /api/admin/tenants/{tenant_id}/users`
+
+    * Body：选已有 GlobalUser 的 id，是否 owner。
+  * 修改状态：
+
+    * `POST /api/admin/tenant_users/{id}/status`。
+* 平台管理员**不直接配置角色/权限**：
+
+  * 仅能将 GlobalUser 加入/移出租户、设置 owner、启用/禁用。
+
+---
+
+# 4. 租户工作区总览（认证、租户上下文、DRF 权限）
+
+本节对应 PRD 4.x + 5 开头的基础，决定所有后面的行为。
+
+## 4.1 JWT 认证实现
+
+### 4.1.1 JWT Payload 标准格式
+
+* Access Token payload 示例：
+
+```json
+{
+  "sub": "1",                // GlobalUser.id
+  "login_name": "alice",
+  "display_name": "Alice",
+  "exp": 1733600000
+}
+```
+
+* 不在 Token 中保存任何租户信息（tenant_id/role 等）——**统一从 DB 查询**。
+
+### 4.1.2 登录 API
+
+* `POST /api/auth/login`
+* Body：
+
+```json
+{
+  "login_name": "alice",
+  "password": "******"
+}
+```
+
+* 响应：
+
+```json
+{
+  "success": true,
+  "data": {
+    "access_token": "xxx",
+    "refresh_token": "yyy",
+    "user": {
+      "id": "1",
+      "login_name": "alice",
+      "display_name": "Alice",
+      "email": "a@example.com"
+    },
+    "tenants": [
+      { "id": "10", "code": "t_foo", "name": "Foo Corp" }
+    ]
+  },
+  "error": null,
+  "trace_id": "..."
+}
+```
+
+### 4.1.3 Refresh Token 策略（V1 简化）
+
+* V1：**Refresh Token 纯无状态**：
+
+  * 不在服务器保存 refresh token 或 jti；
+  * 不实现黑名单；
+  * 登出只是前端删除 token。
+* 刷新接口：
+
+  * `POST /api/auth/refresh`
+  * Body：`{ "refresh_token": "yyy" }`
+  * 校验签名 + `exp`；若通过生成新的 `access_token`，可选择旋转 `refresh_token` 或沿用。
+* 未来若需要黑名单/吊销，再追加一版设计。
+
+## 4.2 租户中间件 & TenantManager
+
+### 4.2.1 X-Tenant-ID 规范
+
+* 前端在所有**业务请求**中必须携带：
+
+```http
+Authorization: Bearer <access_token>
+X-Tenant-ID: <tenant_id>   # 字符串形式的租户主键
+```
+
+* V1：**只从 Header 获取 tenant_id**，不从 JWT payload 解析。
+
+### 4.2.2 Django 中间件实现规范
+
+中间件顺序示意（简化）：
+
+1. `AuthMiddleware`（自定义 DRF Authentication 或 JWT 中间件）
+2. `TenantMiddleware`
+
+`TenantMiddleware` 行为：
+
+1. 从 Header 读取 `X-Tenant-ID`，
+
+   * 若缺失：
+
+     * 若访问的是平台后台接口 `/api/admin/**`，可忽略；
+     * 若访问租户业务接口 `/api/app/**`，返回 400 + `COMMON__VALIDATION_ERROR`。
+2. 验证该 `tenant_id` 是否存在且 `status=ACTIVE`；
+3. 根据 `request.user` 和 `tenant_id` 查找 `TenantUser`：
+
+   * 若不存在 / 不 ACTIVE → 403。
+4. 把以下信息写入：
+
+   * `request.tenant`
+   * `request.tenant_user`
+   * 设置 `contextvar tenant_id`。
+
+### 4.2.3 TenantManager / TenantQuerySet 的实现约束
+
+* 使用 `contextvars.ContextVar` 存当前 `tenant_id`，禁止使用 thread local。
+* 所有需要租户隔离的模型继承 `TenantBaseModel`：
+
+```python
+class TenantBaseModel(BaseModel):
+    tenant = models.ForeignKey("platform.Tenant", on_delete=models.CASCADE)
+
+    objects = TenantManager()
+```
+
+* `TenantManager.get_queryset()` 必须强制：
+
+```python
+tenant_id = tenant_contextvar.get(None)
+if tenant_id is None:
+    raise RuntimeError("Tenant not set")
+return super().get_queryset().filter(tenant_id=tenant_id)
+```
+
+* 禁止在业务代码里使用 `_base_manager` 绕开租户过滤。
+
+## 4.3 DRF 权限类 & PermissionService
+
+* 统一接口（`permissions.services.PermissionService`）：
+
+  * `get_resource_permission(tenant_user, resource_type, resource_id) -> PermissionEnum`
+  * `get_table_column_permissions(tenant_user, table) -> Dict[column_code, ColumnAccessEnum]`
+  * `get_table_row_filter(tenant_user, table) -> dsl or None`
+* 每个业务模块实现自己的 DRF Permission 类：
+
+  * 例如 `ModelingTablePermission` 从 URL 中取 `table_id`，调用上述接口。
+* **V1 不强制使用 Redis 做权限缓存**：
+
+  * 若要优化，可在 Service 内部使用进程内 LRU 缓存（一请求生存期）。
+
+---
+
+# 5. 租户前台：权限与设置（Settings）
+
+对应 PRD 5.x，补充技术细节。
+
+## 5.1 租户用户管理（Settings → Users）
+
+### 5.1.1 API
+
+* 列表：`GET /api/app/settings/users`
+
+  * 仅 TenantOwner 或具备特定管理权限的角色可访问。
+* 编辑用户角色：
+
+  * `PUT /api/app/settings/users/{tenant_user_id}/roles`
+  * Body：`{ "role_ids": ["1", "2"] }`，覆盖原有角色绑定。
+  * 删除角色时需保证至少有一个 TenantUser 拥有 `is_owner`，但不强制必须有某个特定 role。
+
+## 5.2 角色管理（Settings → Roles）
+
+### 5.2.1 API
+
+* 列表：`GET /api/app/settings/roles`
+* 创建：`POST /api/app/settings/roles`
+* 编辑：`PUT /api/app/settings/roles/{id}`
+* 删除：`DELETE /api/app/settings/roles/{id}`
+
+  * 若 `is_system = true` → 403。
+
+## 5.3 角色权限配置
+
+### 5.3.1 ResourceTree + RolePermission
+
+* 接口：
+
+  * 查询角色权限：
+
+    * `GET /api/app/settings/roles/{id}/permissions`
+  * 保存角色权限：
+
+    * `PUT /api/app/settings/roles/{id}/permissions`
+    * Body：包含三类资源树（表/Flow/Board）节点上的权限配置列表。
+* 实现要点：
+
+  * 前端可只传显式配置项，后端负责插入/更新/删除对应 RolePermission。
+
+## 5.4 列权限 / 行权限配置
+
+* 列权限接口：
+
+  * `GET /api/app/modeling/tables/{table_id}/column_permissions?role_id=xxx`
+  * `PUT /api/app/modeling/tables/{table_id}/column_permissions`
+* 行权限接口：
+
+  * `GET /api/app/modeling/tables/{table_id}/row_permissions?role_id=xxx`
+  * `PUT /api/app/modeling/tables/{table_id}/row_permissions`
+* 保存行权限时：
+
+  * 后端必须对 `filter_json` 进行 DSL 校验；
+  * 校验失败 → 400 + `DSL__INVALID_FILTER`.
+
+---
+
+# 6. 建模模块（Modeling）技术细则
+
+对应 PRD 6.x，这一节比较核心。
+
+## 6.1 元数据模型与物理表命名
+
+### 6.1.1 元数据表
+
+* 表元数据：`modeling_table`
+
+  * 字段：`id`, `tenant_id`, `code`, `display_name`, `type`, `description`, ...
+* 字段元数据：`modeling_field`
+
+  * 字段：`id`, `tenant_id`, `table_id`, `code`, `display_name`, `data_type`, `is_primary`, `is_required`, `default_value`, `is_internal`, `description`.
+
+### 6.1.2 物理表命名规则（硬性统一）
+
+* 物理表名：`biz_{tenantId}_{tableCode}`
+
+  * 全小写；
+  * `tenantId` 为数字主键的十进制字符串，不补零；
+  * 例：租户 10 的 `order` 表 → `biz_10_order`。
+* 物理表结构：
+
+  * 系统字段：
+
+    * `id` BIGINT PK AUTO_INCREMENT
+    * `tenant_id` BIGINT（冗余；也用于行级强隔离）
+    * 可选审计字段：`created_at`, `updated_at`, `created_by`, `updated_by`.
+  * 业务字段：
+
+    * 从 `modeling_field` 同步维护。
+
+### 6.1.3 主键语义
+
+* 物理主键：
+
+  * 永远是系统字段 `id`。
+* `is_primary`：
+
+  * 只是业务层含义（业务主键标记），V1 **不在 DB 层建额外 PK/UNIQUE 约束**。
+
+## 6.2 字段类型映射表（统一）
+
+| data_type (元数据) | MySQL 列类型      | 说明              |
+| --------------- | -------------- | --------------- |
+| string          | VARCHAR(255)   | 默认              |
+| text            | TEXT           | 长文本             |
+| int             | INT            |                 |
+| bigint          | BIGINT         |                 |
+| float           | DOUBLE         |                 |
+| decimal         | DECIMAL(18, 4) | 金额等             |
+| bool            | TINYINT(1)     | 0/1             |
+| date            | DATE           |                 |
+| datetime        | DATETIME(6)    | 存 UTC 时间        |
+| json            | JSON           | MySQL 8 原生 JSON |
+
+后续如需扩展类型，必须更新此映射表，并同步前端字段类型列表。
+
+## 6.3 表创建 / 修改 / 删除
+
+### 6.3.1 新建表流程（后端）
+
+1. 校验：display_name、code 唯一性等。
+2. 根据物理表命名规则，检查 MySQL 中是否已有同名表。
+3. 事务执行：
+
+   * 插入 `modeling_table` 记录；
+   * 默认创建系统字段元数据（如 `id`, `tenant_id`, `created_at` 等，`is_internal=true`）；
+   * 执行 `CREATE TABLE ...`，包含系统字段和租户字段；
+   * 在 ResourceTree 中创建 `TABLE` 类型的节点。
+4. 若任一步失败，回滚事务。
+
+### 6.3.2 字段新增
+
+1. 校验表存在并在当前租户下。
+2. 根据 data_type 决定 MySQL 类型。
+3. 校验：
+
+   * 若 `is_required = true` 且无 `default_value`：
+
+     * 若是新增字段，物理层可允许 NULL，由业务层保证插入/更新时非空；
+     * V1 不执行 NOT NULL 约束。
+4. 事务执行：
+
+   * 在 `modeling_field` 中插入记录；
+   * 对物理表执行 `ALTER TABLE biz_{tenantId}_{tableCode} ADD COLUMN ...`（允许 NULL）。
+5. 失败则回滚。
+
+### 6.3.3 字段修改
+
+* 允许修改：
+
+  * `display_name`, `is_required`, `default_value`, `description`.
+* 不允许修改：
+
+  * `code`, `data_type`, `is_internal`.
+* 实现：
+
+  * 不 ALTER TABLE 结构，仅更新元数据。
+  * `is_required` 仅用于 API 校验，不改物理列 NULL/NOT NULL。
+
+### 6.3.4 字段删除
+
+1. 校验是否是系统字段：
+
+   * `is_internal=true` → 禁止删除。
+2. 依赖检查（至少包括）：
+
+   * Relation 是否引用该字段；
+   * Flow 节点配置中是否引用该字段；
+   * Dataset / Widget query_config 中是否引用该字段；
+   * RowPermission / ColumnPermission 是否引用该字段。
+3. 若存在任何依赖：
+
+   * 返回 409 + `MODELING__FIELD_DELETE_CONFLICT`，并列出引用来源。
+4. 否则：
+
+   * 事务中：
+
+     * 从 `modeling_field` 删除记录；
+     * 物理表 `ALTER TABLE DROP COLUMN`；
+   * 失败则回滚。
+
+### 6.3.5 删除表
+
+* 依赖检查范围（V1 须检查的最小集合）：
+
+  * Flow 节点中作为 Source/Sink 表；
+  * Dataset 中 `绑定表` 为该表；
+  * Widget 中使用该 Dataset（间接依赖）；
+  * Relation 中引用该表；
+  * RowPermission / ColumnPermission 绑定该表。
+* 若存在依赖：
+
+  * 409 + `MODELING__TABLE_DELETE_CONFLICT` + 具体验证列表。
+* 否则：
+
+  * 事务中：
+
+    * 删除 `modeling_field`、`modeling_table` 元数据；
+    * 删除对应 ResourceTree 节点；
+    * 物理层 `DROP TABLE biz_{tenantId}_{tableCode}`。
+
+## 6.4 表数据 CRUD
+
+### 6.4.1 查询
+
+* API：`POST /api/app/modeling/tables/{table_id}/data/query`
+* Body：
+
+  * 简化查询参数（字段过滤 / 排序 / 分页），或直接 DSL。
+* 逻辑步骤：
+
+  1. 通过 PermissionService 计算 TABLE_DATA 权限：
+
+     * `< VIEW` → 403。
+  2. 获取列权限：
+
+     * 确定可见列列表。
+  3. 获取 rowFilter（如需）。
+  4. 合并 Dataset/Widget filter（如果经由 Dataset），否则只用 rowFilter。
+  5. 调用 `sql_builder.build_select_query`：
+
+     * 强制添加 `tenant_id = 当前 tenant`；
+     * 组合 WHERE 条件；
+     * 加入分页与排序。
+  6. 返回数据，格式约定见第 8.5 小节。
+
+### 6.4.2 插入 / 更新 / 删除
+
+* 插入：
+
+  * API：`POST /api/app/modeling/tables/{table_id}/data`
+  * 校验：
+
+    * TABLE_DATA ≥ EDIT；
+    * 所有 `is_required = true` 的字段必须有值（非 NULL）；
+    * HIDDEN 列不可写；READONLY 列不可写。
+* 更新：
+
+  * API：`PUT /api/app/modeling/tables/{table_id}/data/{id}`
+  * 逻辑：
+
+    * 先按 rowFilter + tenant_id + id 查行：
+
+      * 若查不到 → 可视为 404 或 403（推荐 404 避免暴露行存在性）。
+    * 检查列权限，仅允许更新 READWRITE 列；
 * 删除：
 
-  * 后端检查依赖：
+  * API：`DELETE /api/app/modeling/tables/{table_id}/data/{id}`
+  * 行为：
 
-    * Relation 是否引用；
-    * Flow 节点 / Dataset / Widget 是否引用；
-  * 有依赖则禁止删除；
-  * 无依赖则：
+    * 同样先按 rowFilter + tenant_id 过滤。
+* 并发控制：
 
-    * 从 meta_fields 删除；
-    * 物理表执行 `ALTER TABLE DROP COLUMN`。
-
----
-
-## 6.5 表数据页
-
-* Tab 名称：数据
-* 粒度：每行代表一条记录。
-
-字段：
-
-* 动态生成：用户可见的字段（根据列权限）；
-* 列头显示 `display_name`。
-
-操作：
-
-* 查询：
-
-  * 支持简单过滤（前端构造 DSL 或简化参数）；
-  * 支持分页、排序（部分字段）。
-* 新增行：
-
-  * TABLE_DATA ≥ EDIT；
-  * 弹窗表单，展示用户可见的 READWRITE 字段；
-* 编辑行：
-
-  * TABLE_DATA ≥ EDIT；
-  * 编辑表单中仅允许修改 READWRITE 字段；
-* 删除行：
-
-  * TABLE_DATA ≥ EDIT；
-  * 每次操作一行，需确认弹窗。
-
-后端查询逻辑：
-
-1. 计算用户最终 TABLE_DATA 权限；
-2. 若权限 < VIEW → 返回 403；
-3. 获取用户列权限 → 仅 SELECT 可见列；
-4. 获取用户行权限 → 组装 rowFilter → 转为 SQL WHERE；
-5. 返回数据。
-
-后端修改逻辑：
-
-1. 检查 TABLE_DATA ≥ EDIT；
-2. 检查列权限：不可修改 HIDDEN 或 READONLY 列；
-3. 执行 INSERT / UPDATE / DELETE。
+  * V1 采用「最后写入覆盖」策略，不做版本号比较；
+  * 如后续需要乐观锁，可添加 `version` 字段。
 
 ---
 
-## 6.6 关系管理
+# 7. 任务流模块（Flows）技术细则
 
-* Tab 名称：关系
-* 粒度：每行一个 Relation（以当前表为主表或从表）。
+对应 PRD 7.x。
 
-字段：
+## 7.1 模型设计
 
-| 列名   | 类型     | 说明                        |
-| ---- | ------ | ------------------------- |
-| 关系名称 | string | 自定义名称                     |
-| 主表   | string | 表名                        |
-| 主表字段 | string | 字段 display_name           |
-| 从表   | string |                           |
-| 从表字段 | string |                           |
-| 类型   | enum   | ONE_TO_MANY / MANY_TO_ONE |
-| 描述   | string |                           |
-| 操作   | -      | 删除                        |
+### 7.1.1 Flow
 
-新建关系表单：
+* 表：`flows_flow`
+* 字段：
 
-* 主表/从表下拉选择；
-* 主表字段/从表字段来自字段列表；
-* 类型；
-* 描述。
+  * `id`, `tenant_id`, `name`, `description`
+  * `schedule_type`: `MANUAL` / `CRON`
+  * `schedule_cron`: string
+  * `schedule_status`: `ENABLED` / `DISABLED`
+  * 其它审计字段。
 
-校验：
+### 7.1.2 FlowNode / FlowEdge
 
-* 主表字段和从表字段类型需兼容；
-* 禁止主表=从表（V1 不支持自引用）；
-* 同一对表+字段组合不重复。
+* `flows_flow_node`
 
----
+  * `id`, `tenant_id`, `flow_id`
+  * `type`: `SOURCE_HTTP`, `SOURCE_MYSQL`, `TRANSFORM_FILTER`, `SINK_INTERNAL_TABLE`, ...
+  * `name`
+  * `config_json`：节点配置 JSON。
+* `flows_flow_edge`
 
-# 7. 任务流模块（Flows）
+  * `id`, `tenant_id`, `flow_id`
+  * `from_node_id`, `to_node_id`
 
-## 7.1 资源树与列表
+### 7.1.3 FlowRun / NodeRun
 
-* 路径：`/app/:tenantId/flows`
-* 左侧：任务流资源树（FOLDER + FLOW）；
-* 右侧：选中目录下的任务流列表。
+* `flows_flow_run`
 
-### 7.1.1 任务流列表页
+  * `id`, `tenant_id`, `flow_id`
+  * `status`: `PENDING` / `RUNNING` / `SUCCESS` / `FAILED`
+  * `trigger_type`: `MANUAL` / `SCHEDULED`
+  * `config_snapshot`：Flow 配置快照（nodes + edges 的 JSON）
+  * `started_at`, `finished_at`, `error_message`
+* `flows_node_run`
 
-粒度：每行一个 Flow。
+  * `id`, `tenant_id`, `flow_run_id`, `node_id`
+  * `status`, `started_at`, `finished_at`
+  * `input_row_count`, `output_row_count`
+  * `error_message`
 
-字段：
+**硬性要求：**
+创建 FlowRun 时必须保存 `config_snapshot`，`execute_flow(run_id)` 基于快照执行。后续修改 Flow 不影响历史 Run 的重看。
 
-| 列名     | 类型       | 说明                                 |
-| ------ | -------- | ---------------------------------- |
-| 任务流名称  | string   | name                               |
-| 描述     | string   | description                        |
-| 调度状态   | enum     | ENABLED / DISABLED                 |
-| 最近运行状态 | enum     | SUCCESS / FAILED / RUNNING / NEVER |
-| 最近运行时间 | datetime |                                    |
-| 创建人    | string   | TenantUser.display_name            |
-| 创建时间   | datetime |                                    |
-| 操作     | -        | 编辑 / 手动运行 / 调度配置 / 运行记录 / 删除       |
+## 7.2 节点间数据结构（统一）
 
-权限：
+* 在 Flow 执行引擎内部，节点间的数据统一抽象为：
 
-* FLOW ≥ VIEW：可见并查看；
-* FLOW ≥ EDIT：可编辑、手动运行、配置调度；
-* FLOW = MANAGE：可删除、移动。
+```python
+class DataFrameLike(TypedDict):
+    "只做说明，不一定要类定义"
+    columns: List[{"name": str, "data_type": str}]
+    rows: List[Dict[str, Any]]
+```
 
----
+* 也可以用简单结构：
 
-## 7.2 任务流编辑画布
+```python
+schema = List[(field_name, data_type)]
+rows = List[Dict[str, Any]]
+```
 
-* 路径：`/app/:tenantId/flows/:flowId/edit`
-* 布局：
+* 约定：
 
-  * 左侧：节点组件面板（分组 Source / Transform / Sink）；
-  * 中间：DAG 画布；
-  * 右侧：配置面板（节点配置 / Flow 配置 Tab）。
+  * 所有节点的 `run()` 输入与输出都严格使用该结构；
+  * 不在节点之间直接持久化到临时表（V1 面向小中规模数据）。
 
-### 7.2.1 Flow 基本信息
+## 7.3 大数据量限制
 
-右侧 “Flow 配置” Tab：
+* V1：Flow 引擎默认只支持「小中规模」数据：
 
-| 字段       | 类型     | 说明                      |
-| -------- | ------ | ----------------------- |
-| 名称       | string | 1–100                   |
-| 描述       | string | 0–500                   |
-| 调度状态     | enum   | ENABLED / DISABLED      |
-| 调度类型     | enum   | MANUAL / CRON           |
-| Cron 表达式 | string | 当类型=CRON 时必填，crontab 格式 |
+  * 单节点处理行数上限：例如 100,000（这个值作为常量写在配置里）；
+  * 若任何节点的输入或输出行数超过限制：
 
-校验：
+    * 节点失败，FlowRun 标记 FAILED；
+    * 错误码 `FLOW__ROW_LIMIT_EXCEEDED`，提示配置拆分或降采样。
 
-* Cron 表达式基本合法性校验；
-* 名称非空。
+## 7.4 节点类型实现规范（举几个关键）
 
-### 7.2.2 DAG 规则
+以 `run(context, input_df) -> output_df` 的伪接口说明，具体框架可自由。
 
-* Source 节点：无输入端口，只允许作为起点；
-* Sink 节点：无硬性限制，但语义上应作为终点；
-* 同一 Flow 内不允许存在环：
+### 7.4.1 Source：HTTP API 源
 
-  * 前端连线时检查；
-  * 后端保存时再检查。
+* config_json 示例（与 PRD 一致）：
 
----
+  * 包含 URL、Method、Headers、Body、JSONPath、字段映射等。
+* 执行：
 
-## 7.3 节点类型与配置
+  1. 按 config 调用 HTTP；
+  2. 使用 JSONPath 提取列表；
+  3. 按字段映射构造 rows；
+  4. 若响应非 2xx 或 JSONPath 结果为空且配置要求非空，节点失败。
 
-以下都在右侧“节点配置”中配置，每个节点都有字段：节点名称（默认类型+序号，可修改）。
+### 7.4.2 Transform：Join
 
-### 7.3.1 Source：HTTP API 源
+**关键边界：列名冲突**：
 
-配置字段：
+* 约定：前端在配置时必须为每个输出字段指定 `output_field_name`，并在 UI 上防止冲突。
+* 后端验证：
 
-| 字段           | 类型      | 必填 | 说明                         |
-| ------------ | ------- | -- | -------------------------- |
-| 节点名称         | string  | 是  | 1–100                      |
-| URL          | string  | 是  |                            |
-| Method       | enum    | 是  | GET / POST                 |
-| Headers      | KV 列表   | 否  | 多个 header                  |
-| Query Params | KV 列表   | 否  | GET 参数                     |
-| Body 类型      | enum    | 否  | JSON / FORM                |
-| Body 内容      | JSON/表单 | 否  | 当 Method=POST 时可填          |
-| Token 配置     | string  | 否  | 简单 token 头名和 token 值       |
-| JSON 路径      | string  | 是  | 列表所在路径，如 `$.data.items[*]` |
-| 字段映射         | 列表      | 是  | 源字段名 → 输出字段名 → 类型          |
+  * 若出现两个不同字段映射到同一 `output_field_name` → 400 + `FLOW__JOIN_FIELD_CONFLICT`。
+* 执行：
 
-校验：
+  * 根据 join_type，相当于 SQL 的 INNER/LEFT JOIN；
+  * 基于 input_df 在内存中实现（哈希 join）。
 
-* URL 非空且基本格式合法；
-* JSON 路径非空；
-* 字段映射至少一个字段被保留。
+### 7.4.3 Transform：计算字段
 
-### 7.3.2 Source：MySQL 源
+* 支持的表达式：
 
-配置字段：
+  * 二元运算：`+ - * /`
+  * 括号
+  * 简单函数：`ABS(x)`, `ROUND(x, n)`, `IF(cond, a, b)` 等固定一个白名单。
+* 实现建议：
 
-| 字段       | 类型     | 必填 | 说明            |
-| -------- | ------ | -- | ------------- |
-| 节点名称     | string | 是  |               |
-| host     | string | 是  |               |
-| port     | int    | 是  |               |
-| username | string | 是  |               |
-| password | string | 是  |               |
-| database | string | 是  |               |
-| SQL      | string | 是  | 仅允许 SELECT 语句 |
+  * 使用自定义 AST 解析器或安全表达式库；
+  * 禁止执行任意 Python 代码。
+* 错误：
 
-校验：
+  * 表达式解析错误 / 运行错误（例如 0 除） → 节点失败。
 
-* SQL 不能包含 DML/DDL 关键字（DELETE/UPDATE/INSERT/ALTER 等）；
-* 提供“测试连接”和“测试查询”按钮 → 调用后端测试。
+### 7.4.4 Sink：写入内部表
 
-### 7.3.3 Source：文件（CSV/Excel）
+* 核心规则：
 
-配置字段：
+  * 写入前必须验证用户对目标表 `TABLE_DATA ≥ EDIT`；
+  * 映射校验：确保所有必填字段有源值。
+* 执行：
 
-| 字段    | 类型     | 必填 | 说明                   |
-| ----- | ------ | -- | -------------------- |
-| 节点名称  | string | 是  |                      |
-| 文件上传  | file   | 是  | 上传后得到 file_id        |
-| 文件类型  | enum   | 是  | CSV / Excel（自动识别或选择） |
-| 分隔符   | string | 否  | CSV 时，默认 `,`         |
-| 首行为表头 | bool   | 否  | 默认 true              |
-| 字段映射  | 列表     | 是  | 源列名 → 输出字段名/类型       |
+  * 在一个 DB 事务中完成：
 
----
+    * 模式 APPEND：直接 insert；
+    * 模式 TRUNCATE_INSERT：
 
-### 7.3.4 Transform：字段选择/重命名
+      * 先删除 `tenant_id = 当前 tenant` 的所有数据；
+      * 再 insert 该 FlowRun 的输出。
+  * 任意一行 insert 失败 → 整个事务 rollback → 节点失败。
 
-配置字段：
+## 7.5 Flow 执行语义 & 调度
 
-* 从上游 schema 中读取字段列表；
-* 表格中每行：
+### 7.5.1 单 Flow 同时仅一个 RUNNING
 
-| 列表字段  | 说明            |
-| ----- | ------------- |
-| 源字段名  | 上游字段名（只读）     |
-| 输出字段名 | 可编辑，默认与源字段名一致 |
-| 是否保留  | 复选框，控制该字段是否输出 |
+* 创建 FlowRun 时，在事务中检查：
 
----
+  * 是否存在同一 `flow_id` 下 `status in (PENDING, RUNNING)` 的 Run；
+  * 若存在 → 409 + `FLOW__RUN_CONFLICT`。
 
-### 7.3.5 Transform：过滤
+### 7.5.2 Celery 任务 `execute_flow(run_id)`
 
-配置字段：
+执行流程：
 
-* 使用过滤 DSL 的可视化编辑器：
+1. 将 FlowRun 状态改为 RUNNING，记录 `started_at`。
+2. 从 `config_snapshot` 复原 DAG，做拓扑排序，检查无环。
+3. 按顺序执行节点：
 
-  * 选择字段、操作符、值；
-  * 可添加多条条件 AND/OR 组合；
-* 保存时存成 DSL JSON。
+   * 对每个节点：
 
----
+     * 创建 NodeRun 记录；
+     * 调用对应 NodeExecutor；
+     * 记录 input/output 行数；
+     * 若失败：
 
-### 7.3.6 Transform：聚合
+       * NodeRun 标记 FAILED；
+       * FlowRun 标记 FAILED，记录 `error_message`；
+       * 停止执行后续节点；
+       * 退出任务。
+4. 全部成功：
 
-配置字段：
+   * FlowRun 标记 SUCCESS，记录 `finished_at`。
 
-1. 分组字段：
+### 7.5.3 调度器（Scheduler + Celery Beat）
 
-   * 多选，下拉选择输入 schema 中的字段；
-2. 聚合字段：
+* Celery Beat：
 
-   * 列表，每行：
+  * 每分钟触发一次任务 `check_scheduled_flows`。
+* `check_scheduled_flows`：
 
-     * 字段名（数值型）
-     * 聚合函数：sum/avg/count/max/min
-     * 输出字段别名。
+  1. 在 DB 查询：
 
----
+     * `schedule_type = CRON`
+     * `schedule_status = ENABLED`
+     * 租户状态 ACTIVE
+  2. 对每个 Flow，使用 cron 表达式和服务器时区判断是否到期；
+  3. 对已到期且当前无 RUNNING Run 的 Flow：
 
-### 7.3.7 Transform：Join
-
-配置字段：
-
-* 左输入节点、右输入节点（系统自动识别）；
-* Join 类型：Inner / Left；
-* Join 条件列表：
-
-  * 左字段、右字段；
-* 输出字段选择：
-
-  * 左/右字段列表：
-
-    * 是否保留；
-    * 输出字段名（可指定前缀）。
-
----
-
-### 7.3.8 Transform：计算字段
-
-配置字段：
-
-* 输入字段列表展示；
-* 新增计算字段列表，每行：
-
-| 字段   | 类型     | 说明                             |
-| ---- | ------ | ------------------------------ |
-| 新字段名 | string | 编码规则同普通字段编码（可复用 LLM，也可手写）      |
-| 数据类型 | enum   | int/float/decimal/string/bool  |
-| 表达式  | string | 使用简单表达式语法，如 `price * quantity` |
-
-表达式支持：
-
-* 字段名直接引用；
-* * * * /；
-* 括号；
-* 函数：IF、ABS、ROUND 等（由后端实现子集）。
-
-运行时：
-
-* 表达式错误（如 0 除）导致整个节点失败，并返回错误信息。
-
----
-
-### 7.3.9 Sink：写入内部表
-
-配置字段：
-
-| 字段   | 类型     | 必填 | 说明                       |
-| ---- | ------ | -- | ------------------------ |
-| 节点名称 | string | 是  |                          |
-| 目标表  | string | 是  | 从当前租户表列表中选择              |
-| 写入模式 | enum   | 是  | APPEND / TRUNCATE_INSERT |
-| 字段映射 | 列表     | 是  | 目标字段 → 源字段               |
-
-校验：
-
-* 当前用户对目标表 `TABLE_DATA >= EDIT`；
-* 所有目标必填字段必须有映射；
-* 写入模式：
-
-  * APPEND：直接插入；
-  * TRUNCATE_INSERT：先清空表再插入（后端执行事务）。
-
----
-
-### 7.3.10 Sink：写入 HTTP API
-
-配置字段：
-
-| 字段      | 类型     | 必填 | 说明                         |
-| ------- | ------ | -- | -------------------------- |
-| 节点名称    | string | 是  |                            |
-| URL     | string | 是  |                            |
-| Method  | enum   | 是  | POST / PUT                 |
-| Headers | KV 列表  | 否  |                            |
-| Body 模板 | string | 是  | JSON 模板，支持 `{{field}}` 占位符 |
-| 批量大小    | int    | 否  | 默认 1，最大 100                |
-
-运行：
-
-* 对每条数据或每批数据替换占位符；
-* 发送 HTTP 请求；
-* 任意一批失败，则节点失败。
-
----
-
-## 7.4 运行记录与执行语义
-
-### 7.4.1 运行记录列表
-
-* 路径：`/app/:tenantId/flows/runs`
-* 粒度：每行一个 Run。
-
-字段：
-
-| 列名      | 类型       | 说明                                   |
-| ------- | -------- | ------------------------------------ |
-| Run ID  | string   | 主键                                   |
-| 任务流名称   | string   |                                      |
-| Flow ID | string   |                                      |
-| 触发方式    | enum     | MANUAL / SCHEDULED                   |
-| 开始时间    | datetime |                                      |
-| 结束时间    | datetime |                                      |
-| 状态      | enum     | PENDING / RUNNING / SUCCESS / FAILED |
-| 耗时（秒）   | number   | (结束 - 开始)                            |
-| 操作      | -        | 查看详情                                 |
-
-### 7.4.2 运行详情页
-
-* 展示：
-
-  * Flow 拓扑只读图；
-  * 每个节点的状态、耗时、输入条数、输出条数、错误信息（如有）。
-
-### 7.4.3 执行语义（必须实现）
-
-* 同一 Flow 同一时刻仅允许一个 RUN：
-
-  * 若当前 Flow 有 RUNNING 状态的 Run，再次触发时返回错误提示；
-* Flow 执行失败规则：
-
-  * 任意一个节点失败 → 整个 Flow 标记 FAILED；
-  * 不做自动重试（用户可手动重跑）；
-* 写入内部表节点：
-
-  * 任意一条记录写入失败（类型错误、约束失败等）→ 节点失败 → Flow 失败；
-  * 使用事务保障“要么全部插入，要么不插入”；
-* 调度：
-
-  * CRON 调度只在 Flow 调度状态=ENABLED 时生效；
-  * 租户被 SUSPENDED 时，所有调度停止触发。
+     * 创建 FlowRun（`trigger_type = SCHEDULED`）；
+     * 投递 `execute_flow.delay(run_id)`。
 
 ---
 
 # 8. 数据集 & 看板模块（Datasets & Boards）
 
-## 8.1 数据集（Dataset）管理
+对应 PRD 8.x。
 
-### 8.1.1 数据集列表页
+## 8.1 Dataset 技术实现
 
-* 路径：`/app/:tenantId/boards/datasets`
-* 粒度：每行一个 Dataset。
+* 表：`boards_dataset`
 
-字段：
+  * `id`, `tenant_id`, `name`, `table_id`, `base_filter_json`, `description`
+* 权限：
 
-| 列名   | 类型       | 说明                      |
-| ---- | -------- | ----------------------- |
-| 名称   | string   | name                    |
-| 绑定表  | string   | 表 display_name          |
-| 描述   | string   | description             |
-| 创建人  | string   | TenantUser.display_name |
-| 创建时间 | datetime |                         |
-| 更新时间 | datetime |                         |
-| 操作   | -        | 编辑 / 删除                 |
+  * Dataset 本身不引入新权限维度：
 
-权限：
+    * 权限全部沿用绑定表的 TABLE_DATA 权限；
+    * 若用户对表无 VIEW 权限 → 不能看到使用该表的数据集。
 
-* 与看板模块一致，建议由拥有某些 BOARD 权限的角色管理；（可实现为 DATASET 也是一种 BOARD 子资源）。
+## 8.2 Board & Widget 模型
 
-### 8.1.2 新建 / 编辑数据集
+* Board：`boards_board`
 
-字段：
+  * `id`, `tenant_id`, `name`, `description`, `layout_json`（可选全局布局）
+* Widget：`boards_widget`
 
-| 字段     | 类型     | 必填 | 说明                             |
-| ------ | ------ | -- | ------------------------------ |
-| 名称     | string | 是  | 1–100                          |
-| 绑定表    | string | 是  | 当前租户的表列表，必须有 TABLE_DATA ≥ VIEW |
-| 基础过滤条件 | json   | 否  | 使用过滤 DSL                       |
-| 描述     | string | 否  | 0–200                          |
+  * `id`, `tenant_id`, `board_id`
+  * `type`: `METRIC_CARD` / `CHART` / `TABLE`
+  * `title`, `description`
+  * `dataset_id`
+  * `query_config_json`
+  * `viz_config_json`
+  * `layout_json`: `{x, y, w, h, zIndex}`
 
-后端查询数据时：
+## 8.3 Widget 查询管线（统一规则）
 
-* 会先应用 Dataset 的 base_filter，再叠加 Widget 指定的 filter，再叠加行/列权限。
+### 8.3.1 Filter 合并顺序
 
----
+对于 Widget 请求：
 
-## 8.2 看板（Board）管理
+1. 找到 Dataset：
 
-### 8.2.1 看板资源树 & 列表
+   * 校验用户对 Dataset 绑定表的 TABLE_DATA 权限。
+2. 获取 Dataset 的 `base_filter` DSL。
+3. 解析 Widget 的 `query_config.filter` 为 DSL。
+4. 从 PermissionService 获取 `row_permission_filter` DSL（如需）。
+5. 合并顺序（**必须一致**）：
 
-* 路径：`/app/:tenantId/boards`
-* 左侧：看板资源树（FOLDER + BOARD）；
-* 右侧：看板列表。
-
-看板列表粒度：
-
-| 列名   | 类型       | 说明                      |
-| ---- | -------- | ----------------------- |
-| 看板名称 | string   | name                    |
-| 描述   | string   | description             |
-| 创建人  | string   | TenantUser.display_name |
-| 创建时间 | datetime |                         |
-| 更新时间 | datetime |                         |
-| 操作   | -        | 查看 / 编辑 / 删除            |
-
-权限：
-
-* BOARD ≥ VIEW：可见与查看；
-* BOARD ≥ EDIT：可编辑；
-* BOARD = MANAGE：可删除、移动、配置权限。
-
----
-
-## 8.3 看板查看页
-
-* 路径：`/app/:tenantId/boards/:boardId/view`
-* 结构：
-
-  * 顶部：看板标题 + 描述；
-  * 中部：根据 layout 渲染 Widgets（网格布局）。
-
-Widget 取数逻辑：
-
-* 前端逐个调用 `/api/boards/widgets/:widgetId/data`；
-* 后端根据：
-
-  * widget.dataset_id；
-  * widget.query_config；
-  * dataset.base_filter；
-  * 表对应的行权限 / 列权限；
-* 构造 SQL，并返回数据。
-
----
-
-## 8.4 看板编辑器
-
-* 路径：`/app/:tenantId/boards/:boardId/edit`
-* 布局：
-
-  * 左侧：组件库（Widget 类型列表）；
-  * 中间：看板画布（支持拖拽布局，记录 x,y,w,h）；
-  * 右侧：选中组件的配置面板。
-
-### 8.4.1 组件类型
-
-* MetricCard（指标卡）
-* Chart（折线、柱状、饼）
-* Table（数据表格）
-
-### 8.4.2 Widget 通用字段
-
-| 字段名          | 类型       | 说明                          |
-| ------------ | -------- | --------------------------- |
-| id           | string   | 主键                          |
-| board_id     | string   | 所属看板                        |
-| tenant_id    | string   | 租户                          |
-| type         | enum     | METRIC_CARD / CHART / TABLE |
-| title        | string   | 标题                          |
-| description  | string   | 描述                          |
-| dataset_id   | string   | 所用数据集 ID                    |
-| query_config | json     | 查询配置                        |
-| viz_config   | json     | 可视化配置（图表为主）                 |
-| layout       | json     | {x, y, w, h, zIndex}        |
-| created_at   | datetime |                             |
-| updated_at   | datetime |                             |
-
----
-
-## 8.5 Widget 配置规范（重点）
-
-### 8.5.1 MetricCard
-
-`query_config` 示例：
-
-```json
-{
-  "dataset_id": "ds_123",
-  "aggregation": {
-    "field": "amount",
-    "operator": "sum"
-  },
-  "filter": {
-    "op": "and",
-    "conditions": [
-      { "field": "date", "operator": ">=", "value": "2025-01-01" }
-    ]
-  }
-}
+```text
+final_filter = AND(base_filter, widget_filter, row_permission_filter)
 ```
 
-规则：
+* 任何缺失项视为“不过滤”。
 
-* `aggregation.field` 必须是数值型字段；
-* `operator` 支持 sum/avg/count/max/min。
+### 8.3.2 列权限在 Dataset/Widget 中的应用
 
-前端配置 UI：
+* 所有通过 Dataset/Widget 发起的查询：
 
-* 选择数据集；
-* 维度字段不需要，直接选指标字段+聚合方式；
-* 过滤条件使用 DSL 编辑器。
+  * 仍然必须应用 ColumnPermission；
+  * 即 SELECT 列表中自动剔除 HIDDEN 列；
+  * 如 query_config 中引用了 HIDDEN 列：
 
----
+    * 保存时校验失败 → 400 + `PERMISSION__COLUMN_FORBIDDEN`。
 
-### 8.5.2 Chart
+## 8.4 sql_builder 在看板中的使用
 
-`query_config` 示例：
+* Widget 调用统一方法：
+
+```python
+build_select_query(
+    table_meta,
+    visible_columns,          # 列权限过滤后的字段
+    base_filter_dsl,
+    widget_filter_dsl,
+    row_permission_dsl,
+    tenant_id,
+    pagination,               # 对于表格
+    order_by,
+    group_by,
+    aggregations
+)
+```
+
+* sql_builder 的职责：
+
+  * 组合 WHERE；
+  * 生成 GROUP BY + 聚合；
+  * 加上 `tenant_id = ?` 固定条件；
+  * 返回 SQL + params。
+
+## 8.5 Widget 数据返回格式（统一）
+
+* 所有 `GET /api/app/boards/widgets/{widget_id}/data` 类型接口统一返回：
 
 ```json
 {
-  "dataset_id": "ds_123",
-  "chart_type": "line",          // 或 "bar", "pie"
-  "dimensions": ["date"],        // X 轴维度
-  "metrics": [
-    { "field": "amount", "operator": "sum", "alias": "total_amount" }
-  ],
-  "series_field": "channel",     // 可选，多系列时用
-  "filter": {
-    "op": "and",
-    "conditions": [
-      { "field": "date", "operator": ">=", "value": "2025-01-01" }
+  "success": true,
+  "data": {
+    "columns": [
+      { "field": "date", "data_type": "date" },
+      { "field": "total_amount", "data_type": "decimal" }
+    ],
+    "rows": [
+      { "date": "2025-01-01", "total_amount": 1000.0 }
     ]
   },
-  "order_by": [
-    { "field": "date", "direction": "asc" }
-  ]
+  "error": null,
+  "trace_id": "..."
 }
 ```
 
-`viz_config` 示例：
+* 前端：
 
-```json
-{
-  "legend": true,
-  "stacked": false,
-  "xAxis_label_rotate": 0,
-  "show_value_labels": false
-}
-```
-
-约束：
-
-* `dimensions` 中字段必须是可作为维度的类型（string/date 等）；
-* `metrics` 中字段必须是数值型；
-* 当 `chart_type = pie` 时：
-
-  * `dimensions` 应为一个字段；
-  * `metrics` 仅允许一个指标。
+  * 图表根据 `columns` 和 `rows` 构造 ECharts option；
+  * 表格根据 columns 决定列顺序与渲染。
 
 ---
 
-### 8.5.3 Table Widget
+# 9. 本地 LLM（ollama）集成技术细节
 
-`query_config` 示例：
+对应 PRD 9.x。
 
-```json
-{
-  "dataset_id": "ds_123",
-  "columns": [
-    { "field": "date" },
-    { "field": "channel" },
-    { "field": "amount", "aggregation": "sum", "alias": "total_amount" }
-  ],
-  "filter": {
-    "op": "and",
-    "conditions": []
-  },
-  "order_by": [
-    { "field": "date", "direction": "desc" }
-  ],
-  "limit": 100
-}
-```
+## 9.1 模型与调用方式
 
-规则：
+* V1 建议选择一个确定模型，例如：`llama3.1:8b` 或你实际在 ollama 中部署的模型。
+* 统一调用 URL：
 
-* 对有 `aggregation` 的列，后端自动生成 group by；
-* 没有 aggregation 的列必须是 group by 维度。
+  * `http://ollama:11434/api/generate`（示例）
+* Timeout 与重试：
 
----
+  * Timeout 例如 5 秒；
+  * 超时或 HTTP 非 2xx 视为失败，不重试（V1 简化）。
 
-# 9. 本地 LLM（ollama）集成
+## 9.2 Prompt 模板（统一）
 
-## 9.1 场景
+### 9.2.1 表编码
 
-* 自动生成表编码（table_code）
-* 自动生成字段编码（field_code）
+Prompt（示例）：
 
-## 9.2 接口约定
+> 你是一个为数据库表生成英文标识符的助手。
+> 请将下面的中文表名转换为简短的、全小写、下划线风格的英文标识符。
+> 不要输出任何解释或其他文本，只输出标识本身。
+> 表名：`{display_name}`
 
-### 9.2.1 生成表编码
+### 9.2.2 字段编码
 
-* 请求：`POST /api/llm/generate_table_code`
-* 请求体：
+Prompt（示例）：
 
-```json
-{
-  "display_name": "订单表",
-  "tenant_id": "t_123"
-}
-```
+> 你是一个为数据库字段生成英文标识符的助手。
+> 请结合表的英文编码 `{table_code}`，将下面的中文字段名转换为简短的、全小写、下划线风格的英文标识符。
+> 不要输出任何解释或其他文本，只输出标识本身。
+> 字段名：`{display_name}`
 
-* 返回：
+## 9.3 返回值清洗与 fallback
 
-```json
-{
-  "code": "order"
-}
-```
+* 清洗规则：
 
-后端逻辑：
+  1. 全部转小写；
+  2. 非 `[a-z0-9_]` 的字符替换为 `_`；
+  3. 若首字符不是字母，则添加前缀：
 
-1. 调用本地 ollama，prompt 中包含 display_name；
-2. 接收返回文本，做清洗：
+     * 表：`t_`
+     * 字段：`f_`
+  4. 截断到 50 字符；
+  5. 若结果为空或全是 `_`：
 
-   * lower；
-   * 非 `[a-z0-9_]` 替换为 `_`；
-   * 保证首字符为字母，不是则加前缀如 `t_`；
-   * 截断到 50 字符；
-3. 若清洗后为空或全部非法，使用本地规则生成（如拼音）；
-4. 检查 `(tenant_id, code)` 是否已存在：
+     * 视为 LLM 输出无效。
+* 唯一性检查：
 
-   * 已存在则追加 `_1` `_2` 等后缀；
-5. 失败时返回 500 且携带 error message，前端提示“自动生成失败，稍后重试”。
+  * 在当前租户下检查 `code` 是否存在；
+  * 若存在：以 `_1`, `_2`, ... 形式递增，直到不冲突。
+* fallback：
 
-### 9.2.2 生成字段编码
+  * 任一步骤失败 / HTTP 超时 / 清洗后无效：
 
-* 请求：`POST /api/llm/generate_field_code`
-* 请求体：
+    * 使用本地规则（例如：对中文做拼音首字母缩写 + 时间戳）；
+  * V1 不实现“连续 N 次失败熔断”，每次按上述流程尝试。
 
-```json
-{
-  "display_name": "创建时间",
-  "table_code": "order"
-}
-```
-
-* 返回同上。
-
-缓存与限流（后端实现要求）：
-
-* 对相同 `(display_name, table_code)` 在短时间内重复请求，可复用上次结果；
-* 对单租户每分钟生成次数做限制，防止滥用。
-
-## 9.3 前端交互
+## 9.4 前端交互约定
 
 * 表/字段表单中：
 
-  * 用户输入“表名/字段名”后自动触发一次生成；
-  * 显示编码字段为只读；
-  * 提供“重新生成”按钮以手动重试；
-* 若接口调用失败：
+  * `display_name` blur 触发一次自动生成；
+  * 编码字段为只读；
+  * 提供“重新生成”按钮；
+* 若接口返回非 200 或 `success=false`：
 
-  * 使用 fallback 返回的编码；
-  * 若连 fallback 也失败，提示：“编码生成失败，请稍后重试”，并阻止提交。
+  * 前端优先使用 fallback 结果；
+  * 若连 fallback 也失败（后端会保证给一个），则禁止提交并提示错误。
 
 ---
 
-# 10. 非功能要求（简要）
+# 10. 非功能要求（安全、多租户、日志、性能）
 
-* 多租户隔离：
+对应 PRD 10.x。
 
-  * 所有业务表必须包含 `tenant_id` 列；
-  * 所有查询/更新都按 `tenant_id` 过滤。
-* 权限：
+## 10.1 多租户隔离
 
-  * 所有需要权限的接口在后端强制检查（资源级 + 行/列级）；
-  * 前端基于权限接口隐藏不该显示的按钮。
-* 日志：
+* 所有业务表（元数据、权限、Flow、Board 等）必须包含 `tenant_id`。
+* ORM 层统一通过 `TenantManager` 强制过滤。
+* 物理业务表中也带 `tenant_id`，Select / Insert / Update / Delete 必须显式加上 `tenant_id = ?` 条件。
 
-  * 记录建模变更（表/字段/关系增删改）；
-  * Flow 配置变更、运行记录；
-  * Board/Dataset/Widget 变更；
-  * 权限变更行为。
-* 性能：
+## 10.2 安全
 
-  * 常规查询场景（10 万～百万级）需保证正常使用体验（可通过分页限制返回行数）；
-  * Flow 运行同步返回启动结果，异步处理任务，运行结果通过 Run 记录查看。
+* 认证：
 
+  * 全站使用 JWT Bearer Token，不使用 Cookie 会话；
+  * 所有 `/api/app/**` 和 `/api/admin/**` 均需 JWT。
+* CSRF：
 
+  * 因为不用 Cookie，API 可关闭 CSRF 检查。
+* XSS：
 
+  * 后端默认不返回富文本 HTML；
+  * 前端所有用户输入输出区域统一通过组件转义。
+* 敏感信息：
 
+  * 密码使用 Django 自带加密；
+  * 外部平台 token/secret 可用对称加密（Fernet）存储在 DB。
 
-请你根据我的技术架构和我的PRD，写一份对应的技术文档，这份技术文档的详细程度需要满足以下要求： 把这个需求分别给两个初级开发，他们能够开发出来完全一样的功能，也就是你要事无巨细都要写的非常清楚。
+## 10.3 审计日志（统一结构）
 
- 为了让cursor更清楚的和PRD对应上，你要把prd和技术文档的一级目录一一对应。
+* 审计表：`common_audit_log`
 
-注意这里你需要产出的是【技术文档】，一定要考虑到所有的边界情况，并一一理清楚系统逻辑，考虑完整各种边界情况，逆向情况等。
-章节一和二可能和下面有重合，可以省略，在下面章节详细讲清楚就好。
-但是你在讲下面章节的时候，一定要详细参考章节一二。
+  * 字段：
 
-注意一定要有一个全局的标准数据格式，方便前后端进行统一管理。
+    * `id`, `tenant_id`（可为空：平台级）
+    * `user_id`（GlobalUser.id）
+    * `action`（字符串：`CREATE_TABLE`, `UPDATE_FLOW`, `CHANGE_ROLE_PERMISSION` 等）
+    * `object_type`（如：`TABLE`, `FLOW`, `BOARD`）
+    * `object_id`（字符串形式主键）
+    * `before_snapshot`（JSON，选填）
+    * `after_snapshot`（JSON，选填）
+    * `created_at`, `trace_id`
+* 必须记录的操作（最小集合）：
+
+  * 表/字段/关系的增删改；
+  * Flow 配置增删改；
+  * FlowRun 执行结果（可简略记录状态变化）；
+  * Role/RolePermission/RowPermission/ColumnPermission 变更；
+  * Dataset/Board/Widget 增删改。
+* 实现：
+
+  * 使用统一 helper 函数 `audit_log(user, action, object_type, object_id, before, after)`。
+
+## 10.4 性能与分页
+
+* 所有列表 API 必须支持分页，并限制 `page_size` 最大值（例如 100）。
+* 表数据查询：
+
+  * 最大返回行数：例如 10,000 行；
+  * 超出则返回提示使用分页或额外过滤。
+* FlowRun 历史：
+
+  * 可按时间归档或定期清理老数据（运维策略）。
+
+---
+
+如果你愿意，下一步我可以按这个技术文档，**挑一个模块（比如 Modeling + LLM 编码）写出完整的 Django 代码骨架**，再一起迭代细节。
