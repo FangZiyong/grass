@@ -656,23 +656,23 @@ entity AuditLog {
   created_at
 }
 
-Tenant ||--o{ TenantUser
-Tenant ||--o{ Role
-TenantUser ||--o{ TenantUserRole
-Role ||--o{ TenantUserRole
+Tenant "1" -- "0..*" TenantUser
+Tenant "1" -- "0..*" Role
+TenantUser "1" -- "0..*" TenantUserRole
+Role "1" -- "0..*" TenantUserRole
 
-Tenant ||--o{ ResourceTreeNode
-Role ||--o{ RolePermission
-ResourceTreeNode ||--o{ RolePermission
+Tenant "1" -- "0..*" ResourceTreeNode
+Role "1" -- "0..*" RolePermission
+ResourceTreeNode "1" -- "0..*" RolePermission
 
-Role ||--o{ RowPermission
-Role ||--o{ ColumnPermission
-TableMeta ||--o{ RowPermission
-TableMeta ||--o{ ColumnPermission
-TableMeta ||--o{ FieldMeta
+Role "1" -- "0..*" RowPermission
+Role "1" -- "0..*" ColumnPermission
+TableMeta "1" -- "0..*" RowPermission
+TableMeta "1" -- "0..*" ColumnPermission
+TableMeta "1" -- "0..*" FieldMeta
 
-Tenant ||--o{ AuditLog
-TenantUser ||--o{ AuditLog
+Tenant "1" -- "0..*" AuditLog
+TenantUser "1" -- "0..*" AuditLog
 @enduml
 ```
 
