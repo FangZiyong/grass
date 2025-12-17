@@ -1,1719 +1,1888 @@
-## 0. 文档说明
+# 1 文档基本信息
 
-### 0.1 文档目的与读者
+## 1.1 文档目的
 
-#### 0.1.1 文档定位
+本文档用于定义《多租户配置化数据建模与报表平台》在 V1.0 的需求边界、核心概念、关键行为约束与跨团队统一口径，作为产品/研发/测试/运维的共同基线。
 
-* 本文档是《多租户配置化数据建模与报表平台》的**技术设计文档（TDD）**，目标是把 PRD 的 0–3 章内容落成**工程可实现的强约束规范**，用于：
+## 1.2 产品能力概览
 
-  1. 后端/前端/测试对齐“同一件事到底如何实现”；
-  2. 明确每个概念对应的数据结构、请求链路、权限与隔离方式；
-  3. 给测试提供可枚举的验收点与边界条件。
+平台提供以下核心能力域（V1.0）：多租户、配置化建模、可视化任务流（ETL）、报表（数据集/图表/仪表盘）、权限（资源/行/列）与审计、LLM 辅助命名（本地 ollama）。 
 
-> PRD 里提到平台能力包含：多租户、配置化建模、可视化 Flow、报表（Dataset/Chart/Dashboard）、权限与审计、LLM 辅助命名等。本文档的 0–3 章负责把这些能力的“顶层规则”落成工程规范，后续章节再展开每个模块的接口与实现细节。
+## 1.3 适用读者与使用方式
 
-#### 0.1.2 适用读者与交付物
+适用读者包括：产品经理、后端研发、前端研发、测试工程师、运维/平台管理员、业务方/实施顾问；使用方式为“先统一概念与边界，再在技术设计中落到实现”。
 
-* **后端研发**：需要按本文档实现数据模型、鉴权、租户隔离、错误码、时间与删除策略等“横切能力”。
-* **前端研发**：需要按本文档实现租户切换、模块访问边界、错误展示一致性、编码字段只读等交互。
-* **测试工程师**：需要基于本文档的强约束输出用例：隔离/权限/状态/错误码/时间格式/删除依赖检查。
-* **运维/平台管理员**：需要按本文档理解租户停用后的系统行为（禁止访问、停止调度等）。
+## 1.4 范围边界
 
-#### 0.1.3 必须遵守的“规范关键词”
+### 1.4.1 In Scope（V1.0 必做）
 
-为避免“大家各写各的”，本文档使用以下关键词表达强约束：
+* 多租户与平台后台：GlobalUser/Tenant/TenantUser 管理；租户停用后禁止访问并停止调度。
+* 租户工作区框架：租户切换；Modeling / Flows / Reports / Settings 四大模块导航。
+* Modeling：表资源树、表结构管理、表数据基础 CRUD、关系管理。
+* Flows：资源树、DAG 画布（Source/Transform/Sink）、调度与 Run 记录。
+* Reports：Datasets（基于来源表生成可复用数据集表）、Charts（探索分析并保存为图表资产）、Dashboards（资源树、布局、添加图表实例、分享与导出）。
+* 权限与 DSL：统一过滤 JSON DSL；资源级权限；行/列权限配置与应用。
 
-* **必须**：不允许偏离，否则视为实现缺陷（会导致安全/一致性问题）。
-* **禁止**：任何情况下不允许出现。
-* **默认**：未配置时系统自动采用的行为。
-* **返回错误码**：出现异常时必须按 3.5 的响应结构返回。
+### 1.4.2 Out of Scope（V1.0 明确不做）
 
----
+字段类型在线变更、跨租户联邦查询、字段级血缘可视化、通知中心/消息中心（Flow 运行通知除外）、多语言国际化。
 
-### 0.2 术语约定（英文缩写说明）
+## 1.5 成功指标与质量红线
 
-本小节只列“工程实现必须对齐”的术语与边界（与 PRD 的缩写一致）。
-
-#### 0.2.1 平台与租户相关
-
-* **Platform**：整个平台（平台后台 + 所有租户工作区）。
-* **GlobalUser**：平台级唯一账号（登录主体）。一个 GlobalUser 可加入多个租户。
-* **Tenant**：租户，隔离单位（公司/部门/项目空间）。
-* **TenantUser**：GlobalUser 在某租户下的成员身份（权限与角色挂在这里）。
-
-工程落地要求：
-
-1. **鉴权与权限计算的主体是 TenantUser**（不是 GlobalUser）；
-2. 每个请求都必须能确定“当前 tenant_id + tenant_user_id”。
-
-#### 0.2.2 权限与资源
-
-* **Role**：租户内的权限集合（Owner/DataEngineer/Analyst/Viewer 等内置角色，以及自定义角色）。
-* **Resource**：可授权实体（表、Flow、Dataset、Dashboard 等）。
-* **ResourceTree**：资源目录树；按 `scope` 分为 TABLE / FLOW / DATASET / DASHBOARD 四棵树。
-* **RolePermission**：角色对资源（或目录）的权限配置。
-* **RowPermission / ColumnPermission**：行/列级权限；RowPermission 采用统一 DSL。
-
-工程落地要求：
-
-1. **资源权限、行权限、列权限三者同时生效**；任何数据读取必须先过资源权限，再叠加行/列限制；
-2. RowPermission 的过滤表达式必须与系统统一 DSL 结构一致（后续章节详述，3 章只定义“必须统一”。）
-
-#### 0.2.3 建模/流程/报表关键实体
-
-* **Table / Field / Relation**：建模核心；Relation 在 V1 不单独建表，从 Field 的 REFERENCE 配置推导。
-* **Flow / Node / Run / Schedule**：ETL 与调度体系。
-* **Dataset / Chart / Dashboard / DashboardItem**：报表资产化与复用单元（图表不承载布局，布局在 DashboardItem）。
+* 任务流运行：每日 Flow Run 成功率目标 ≥ 99%；关注平均运行耗时用于优化。
+* 权限稳定性红线：不允许未授权用户看到敏感数据；不允许合法用户被完全阻断。
 
 ---
 
-### 0.3 版本历史与评审记录
+# 2 整体情况（技术视角）
 
-#### 0.3.1 版本管理规则
+> 本章仅描述整体架构与关键链路（请求/查询/执行），不出现具体接口定义。
 
-* 每次修改必须更新：版本号、日期、作者、变更内容、评审人。
-* 重大变更（权限语义、删除策略、隔离方式、错误码结构、时间格式）必须：
+## 2.1 系统空间划分与访问边界
 
-  1. 在版本记录中单独列条目；
-  2. 触发专项评审（后端/前端/测试/安全至少各 1 人）。
+系统从产品与访问边界上分为两类工作空间：平台后台（面向 Platform Admin）与租户工作区（面向租户内用户）。平台管理员可查看租户元信息但默认不直接访问租户业务数据；租户用户只能访问自身租户。
 
-#### 0.3.2 冻结规则（对开发的强约束）
+## 2.2 模块与核心资产总览
 
-* 进入“开发冻结”后：
+### 2.2.1 租户工作区模块
 
-  * 任何与“权限/隔离/数据结构”相关的修改，必须同步更新：数据库迁移、API 契约、测试用例基线；
-  * 不允许出现“代码已改、文档未改、测试不知道”的状态。
+租户工作区包含：Modeling、Flows、Reports（Datasets/Charts/Dashboards）、Tenant Settings（用户/角色/权限）。
 
----
+### 2.2.2 核心资产与依赖关系
 
-## 1. 产品概述（Overview）
+* Dataset：基于来源表生成“可复用数据集表”，封装字段选择、base_filter 与刷新策略，用于稳定支撑下游分析展示。
+* Chart：在可视化查询中保存的“查询配置 + 可视化配置”，归属某 Dataset，可复用。
+* Dashboard：聚合多个图表实例（DashboardItem），包含布局等配置。
 
-### 1.1 背景 & 痛点（技术视角复述）
+推荐的端到端链路为：创建数据集 → 保存图表 → 创建仪表盘并添加图表。
 
-PRD 的痛点包含：建模成本高、ETL 门槛高、报表与权限混乱、多租户复用困难。
-在技术设计里，这些痛点对应必须解决的工程问题：
+### 2.2.3 平台后台（Platform Admin Console）能力域
 
-1. **建模成本高 → 元数据驱动 + 约束型 DDL**
+平台后台面向 Platform Admin，包含平台用户（GlobalUser）管理、租户（Tenant）管理、租户成员（TenantUser）管理等能力。
 
-* 必须有“表/字段元数据”作为单一事实源（SSOT），并能确定性生成物理表结构。
-* 必须有强约束：字段类型子集、不可随意在线变更类型（PRD 已明确 V1 不支持在线类型迁移）。
-
-2. **ETL 门槛高 → Flow DAG 配置化 + 可观测 Run**
-
-* Flow 的拓扑与节点配置必须持久化为 `config_json`，Run 必须记录节点级 stats。
-
-3. **权限混乱 → 资源权限 + 行/列权限统一落地**
-
-* 必须定义 RolePermission/RowPermission/ColumnPermission 的统一数据结构与合并逻辑入口（权限引擎）。
-
-4. **多租户复用困难 → tenant_id 强隔离**
-
-* 任何与业务数据相关的实体必须带 `tenant_id`，任何查询必须带 `tenant_id=当前租户`，禁止跨租户 JOIN。
-
----
-
-### 1.2 产品定位 & 价值主张（技术落地要点）
-
-产品定位：面向企业内部或 SaaS 的多租户配置化数据建模与报表平台。
-
-技术落地必须支撑三类价值：
-
-* **业务自助**：Dataset/Chart/Dashboard 的资产化与复用必须稳定（数据集表是下游唯一数据来源）。
-* **工程可运维**：Flow Run 记录、失败定位必须可视化（至少到节点级错误）。
-* **安全可控**：权限的任何缺陷都属于 P0（不允许越权看到数据）。
-
----
-
-### 1.3 与竞品/现有方案的对比（转成设计约束）
-
-PRD 对比了传统 BI、脚本数仓、Airflow。
-对技术设计而言，必须固化为以下约束：
-
-1. **禁止用户拼 SQL**：过滤、查询必须走统一 DSL → 安全映射 SQL。
-2. **平台内置多租户**：不允许“靠约定”隔离，必须每次请求链路强校验。
-3. **报表层复用单位**：Chart 不含布局，布局属于 DashboardItem（否则复用会失真）。
-
----
-
-### 1.4 目标用户 & Persona（技术侧映射）
-
-PRD 定义了平台管理员、租户 Owner、数据工程师、分析师、查看者。
-技术设计必须把这些 persona 映射为：
-
-* **可登录主体**：GlobalUser
-* **可授权主体**：TenantUser（附带多个 Role）
-* **可授权对象**：ResourceTree 节点与具体资源（Table/Flow/Dataset/Dashboard）
-
----
-
-### 1.5 使用典型场景（端到端链路的工程落地点）
-
-PRD 的端到端示例（建模→ETL→权限→Dataset→Dashboard）要求我们在技术上保证：
-
-1. **建模创建表/字段后，物理表必须可被 Flow 写入**；
-2. **Row/Column 权限必须在：表数据页、Dataset 刷新、Chart 查询、Dashboard 展示全链路一致生效**；
-3. **Flow 调度与租户停用联动**（停用后不再触发）。
-
----
-
-### 1.6 范围说明（In Scope / Out-of-Scope → 实现边界）
-
-V1.0 In Scope/Out-of-Scope 在 PRD 已明确。
-技术设计必须将其固化为“禁止实现/禁止承诺”的边界：
-
-* **禁止**实现字段类型在线迁移；禁止对外承诺可自动把 string 转 int。
-* **禁止**跨租户联邦查询与跨租户数据共享。
-* **默认**不做通知中心（任务失败 IM 推送）。
-
----
-
-### 1.7 成功指标（转成可埋点与可验收项）
-
-PRD 指标包括活跃租户、Run 成功率、仪表盘打开次数、权限 bug 零容忍等。
-技术设计必须提供以下“可统计字段/事件”：
-
-* 事件：login_success、tenant_switch、flow_run_created、flow_run_finished、dashboard_open、chart_query。
-* 指标计算口径：
-
-  * Flow Run 成功率 = SUCCESS / (SUCCESS+FAILED)，按 tenant/day 聚合。
-  * 仪表盘打开次数：dashboard_open 事件 count，按 tenant/dashboard/day 聚合。
-* 权限类缺陷验收：任意越权读取视为阻断上线。
-
----
-
-## 2. 系统角色与访问边界
-
-### 2.1 顶层架构视角（工程分区）
-
-系统分为两个工作空间：平台后台、租户工作区。
-
-#### 2.1.1 逻辑分区 PlantUML
+## 2.3 总体逻辑架构图（概念级）
 
 ```plantuml
 @startuml
-actor PlatformAdmin
-actor TenantMember
+actor "Platform Admin" as PA
+actor "Tenant User" as TU
 
-rectangle "Platform Admin Console" as PAC
+rectangle "Platform Admin Console" as ADMIN_UI
 rectangle "Tenant Workspace" as TW
-
-rectangle "GlobalUser Mgmt" as GUM
-rectangle "Tenant Mgmt" as TM
-
 rectangle "Modeling" as MOD
-rectangle "Flows" as FLO
-rectangle "Reports" as REP
-rectangle "Tenant Settings" as TS
+rectangle "Flows" as FLOWS
+rectangle "Reports\n(Datasets/Charts/Dashboards)" as RPT
+rectangle "Settings\n(Users/Roles/Permissions/Audit)" as SET
 
-PlatformAdmin --> PAC
-PAC --> GUM
-PAC --> TM
+rectangle "Backend Application" as APP
+rectangle "Auth + Tenant Context" as ATC
+rectangle "Permission Engine\n(Resource/Row/Column)" as PERM
+rectangle "Query Engine" as QE
+rectangle "Audit Logger" as AUD
+rectangle "Scheduler" as SCH
+rectangle "Worker" as WK
+rectangle "LLM Service (ollama)" as LLM
 
-TenantMember --> TW
-TW --> MOD
-TW --> FLO
-TW --> REP
-TW --> TS
+database "Metadata Store" as META
+database "Business Data Store" as DATA
+
+cloud "External Sources\n(MySQL / HTTP / Files)" as EXT
+
+PA --> ADMIN_UI
+TU --> TW
+
+ADMIN_UI --> APP
+TW --> APP
+
+APP --> ATC
+APP --> PERM
+APP --> QE
+APP --> AUD
+APP --> META
+
+QE --> DATA
+
+SCH --> META
+SCH --> WK
+WK --> EXT
+WK --> DATA
+
+APP --> LLM
 @enduml
 ```
 
-#### 2.1.2 访问关系强约束
+说明：平台在“交互入口（后台/工作区）”之下共享统一的身份认证、租户上下文、权限、审计与查询执行能力；Flows 的执行由调度器触发并由执行器实际跑节点逻辑。
 
-* 平台管理员在平台后台可查看租户**元信息**，默认**不直接访问租户业务数据**。
-* 租户内用户只能访问其所属租户；同一 GlobalUser 可加入多个租户并切换视角。
+## 2.4 关键链路一：请求链路（统一鉴权与租户上下文）
 
-工程落地要求（必须实现）：
+**目标**：任何进入后端的请求都必须同时完成“身份识别（GlobalUser）”与“租户上下文确定（Tenant + TenantUser）”，并在进入业务逻辑前完成权限决策。
 
-1. **Token 只代表 GlobalUser 身份**；“当前租户”必须由请求上下文确定，并校验该 GlobalUser 是否属于该租户（TenantUser 存在且 ACTIVE）。
-2. 租户工作区所有 API 必须拒绝“未提供 tenant 上下文”的请求（除登录/列出可加入租户等少数公共接口）。
+```plantuml
+@startuml
+actor Client
+participant "Frontend" as FE
+participant "Backend Application" as APP
+participant "Auth" as AUTH
+participant "Tenant Context" as TC
+participant "Permission Engine" as PERM
+participant "Module Service" as SVC
+participant "Audit Logger" as AUD
+
+Client -> FE : user action
+FE -> APP : request (with token + tenant selection)
+
+APP -> AUTH : authenticate
+AUTH --> APP : GlobalUser / auth status
+
+APP -> TC : resolve tenant context
+TC --> APP : Tenant + TenantUser (membership/status)
+
+APP -> PERM : authorize (resource/row/column)
+PERM --> APP : decision + scope
+
+APP -> SVC : execute business logic
+SVC -> AUD : record action (success/failed)
+SVC --> APP : result
+
+APP --> FE : unified response
+FE --> Client : render
+@enduml
+```
+
+* 租户隔离的关键点在于：后端必须校验用户是否属于该租户且租户处于可用状态，并据此决定是否继续处理。
+* 租户被停用（SUSPENDED）时：租户用户无法访问工作区，调度类 Flow 不再触发。
+
+## 2.5 关键链路二：查询链路（表/数据集/图表/仪表盘共用）
+
+**统一目标**：所有“读数据”的场景共享同一条查询链路：先做权限裁剪（资源/行/列），再把业务过滤转成统一 FilterDSL，并以统一顺序叠加到最终查询。
+
+```plantuml
+@startuml
+actor Client
+participant "Frontend" as FE
+participant "Backend Application" as APP
+participant "Permission Engine" as PERM
+participant "Query Engine" as QE
+database "Business Data Store" as DATA
+
+Client -> FE : open table/dataset/chart/dashboard
+FE -> APP : query request (filters/sort/page)
+
+APP -> PERM : check resource + calc row/column scope
+PERM --> APP : allowed + row_filter + column_mask
+
+APP -> QE : build & run query (dsl + pagination)
+QE -> DATA : execute
+DATA --> QE : rows
+QE --> APP : result set
+
+APP --> FE : data + schema (masked)
+FE --> Client : render
+@enduml
+```
+
+* 行/列权限需要在“表数据页、Flow 节点查询、Dataset/Chart 查询”等所有入口一致生效。
+* Charts 与 Dashboards 属于报表资产化与复用体系的一部分：Chart 可被多个仪表盘复用，Dashboard 聚合多个图表实例。
+
+## 2.6 关键链路三：执行链路（Flow 调度与运行）
+
+**统一目标**：Flows 的“调度触发/手动触发”最终都会落到一次 Run（运行实例），Run 以节点为单位执行，写入内部表或对外写入。
+
+```plantuml
+@startuml
+participant "Scheduler" as SCH
+participant "Backend Application" as APP
+participant "Worker" as WK
+participant "External Source\n(MySQL/HTTP/File)" as EXT
+database "Business Data Store" as DATA
+participant "Audit Logger" as AUD
+participant "Notification" as NTF
+
+SCH -> APP : trigger flow run (cron/manual)
+APP -> AUD : record "RUN_START"
+APP -> WK : dispatch run to worker
+
+WK -> EXT : extract
+WK -> WK : transform (per node config)
+WK -> DATA : load (write to internal table)
+WK --> APP : run status (success/failed)
+
+APP -> AUD : record "RUN_END"
+APP -> NTF : create notification (when needed)
+@enduml
+```
+
+通知范围在 V1.0 限定为“任务流运行结果提醒”：手动触发完成（成功/失败）与调度触发失败；成功的调度运行通常不通知。
+
+## 2.7 全局能力的产品约束对架构的影响
+
+* 全局搜索：V1.0 不提供跨模块全局搜索，各模块仅在自身列表页提供搜索/筛选能力。
+* 国际化：V1.0 不提供语言切换；时间/日期/数字格式可统一采用固定格式（如 `YYYY-MM-DD HH:mm:ss`）。
 
 ---
 
-### 2.2 用户角色定义（实现为系统内置 Role）
+# 3 全局规范（只写规则）
 
-PRD 的角色定义如下：Platform Admin、Tenant Owner、Data Engineer、Analyst、Viewer。
+## 3.1 多租户隔离规范（强制）
 
-#### 2.2.1 系统内置角色落库规则（必须）
+### 3.1.1 数据隔离原则
 
-* 每个 Tenant 初始化时必须创建（或确保存在）四个系统角色：
+* 所有与业务数据相关的表（含元数据与实际数据表）必须包含 `tenant_id`。
+* 所有查询/修改必须约束在当前租户：WHERE 条件必须包含 `tenant_id = 当前租户`。
+* 禁止跨租户 JOIN 或写入（即使同库同实例）。
 
-  * Owner、DataEngineer、Analyst、Viewer
-* 系统角色字段 `is_system=true`，并施加以下约束：
+### 3.1.2 访问路径与成员校验
 
-  * **禁止删除**；
-  * 允许修改 `description`；
-  * 角色 `name` 在租户内唯一。
+* 访问租户工作区时，必须同时校验：用户属于该租户（TenantUser 存在且 ACTIVE）+ 租户处于 ACTIVE 状态。
 
-#### 2.2.2 Owner 的强能力边界
+### 3.1.3 租户停用行为（SUSPENDED）
 
-* Owner 具备租户用户管理、角色/权限配置（含行列权限）能力。
-  工程要求：
-* “保证每个租户至少 1 个 Owner”必须由数据库约束 + 服务端校验共同保障：
+* 租户停用后：租户下所有用户无法访问工作区；调度型 Flow 不再触发新的 Run；重新启用后恢复。
 
-  * 数据库层：不强做复杂约束（MySQL 不易表达），但必须有审计与修复脚本；
-  * 服务层：任何“取消某成员 Owner 身份 / 删除成员”的操作，若会导致 Owner 数量变 0，必须返回错误 `ERR_TENANT_OWNER_REQUIRED`。
+## 3.2 角色与访问边界规范
+
+* 平台维度存在 Platform Admin；租户维度存在 Owner / Data Engineer / Analyst / Viewer 等角色分工，实际权限以 Role 配置为准。
+* 平台后台仅允许平台管理员访问，其身份由 GlobalUser 上的 `is_platform_admin` 标识决定。
+
+## 3.3 API 响应与错误码规范（统一）
+
+### 3.3.1 响应结构（成功/失败统一壳）
+
+所有 API 统一返回结构（字段语义固定）：`success`、`code`、`message`、`data`、`trace_id`。
+
+### 3.3.2 错误码命名规则
+
+* 统一前缀：`ERR_` + 模块前缀 + 简要说明。
+* 模块前缀建议集合：USER_/TENANT_/MODEL_/FLOW_/REPORT_/PERM_/LLM_。
+
+### 3.3.3 错误展示统一要求（面向用户）
+
+* 权限相关错误需要给出明确可执行的提示（如联系租户管理员）。
+
+## 3.4 FilterDSL（统一过滤 JSON）规范
+
+### 3.4.1 目标约束
+
+* 所有过滤条件在任何场景下必须转换为统一 JSON DSL，以实现语义一致、安全可控、可视化编辑与可扩展。
+
+### 3.4.2 结构定义
+
+* DSL 节点只有两类：Group（`{ op, conditions }`）与 Condition（`{ field, operator, value }`）；顶层可以是 Group 或单 Condition。
+
+### 3.4.3 操作符集合与类型约束
+
+* 操作符集合包含：比较、集合、范围、文本、空值判断等；前端必须根据字段类型限制可选 operator，避免生成不可执行 DSL。
+
+### 3.4.4 动态变量（内置变量）
+
+* DSL 支持内置变量：CURRENT_USER_ID / CURRENT_TENANT_ID / CURRENT_DATE / CURRENT_DATETIME，由后端解析。
+
+### 3.4.5 版本与兼容性
+
+* V1 允许未来增加 operator 或结构字段，但不得改变既有字段语义；如需多版本可在顶层增加 version 字段。
+
+## 3.5 行级权限（RowPermission）规范
+
+### 3.5.1 合并规则
+
+* 同一（role, table）下允许 0~N 条规则，规则间以 OR 合并；若该角色未配置规则，视为不施加额外行级限制（前提是资源级 TABLE_DATA 允许）。
+* 用户多角色合并：对各角色的 row_filter 再做 OR（行权限是“放开的合集”，不会因多角色被收窄）。
+
+### 3.5.2 与业务过滤的叠加顺序（统一口径）
+
+对任意查询统一顺序：Dataset.base_filter → 业务过滤（Chart/Flow 等配置）→ RowPermission；三者以 AND 组合，任何业务过滤不得绕过行级权限。
+
+```plantuml
+@startuml
+rectangle "Dataset.base_filter (optional)" as BF
+rectangle "business_filter (chart/flow/table UI)" as UF
+rectangle "row_permission_filter" as RF
+rectangle "FINAL WHERE = BF AND UF AND RF" as FINAL
+
+BF --> FINAL
+UF --> FINAL
+RF --> FINAL
+@enduml
+```
+
+## 3.6 列级权限（ColumnPermission）规范
+
+### 3.6.1 权限级别定义
+
+列权限级别为：HIDDEN（不可见）、READONLY（可见不可改）、READWRITE（可见可改），并规定查询结果、表数据页、字段选择器等一致行为。
+
+### 3.6.2 多角色合并规则
+
+* 若所有角色均为 HIDDEN → 最终 HIDDEN；否则：任一 READWRITE 优先，其次 READONLY。
+
+## 3.7 删除策略规范（如启用软删除）
+
+* 若对某实体引入 `is_deleted` 实现逻辑删除，则必须在该实体对应章节明确说明删除语义为“软删除”，并保证前端不展示被软删除记录。
+
+## 3.8 全局功能开关与统一格式
+
+* 全局搜索：V1 不做。
+* 通知：仅任务流运行结果相关。
+* 国际化：V1 不提供语言切换；时间/日期格式可统一采用 `YYYY-MM-DD HH:mm:ss`。
+
+
+# 第 4 章 多租户与认证体系
+
+> 目标：定义“平台级账号（GlobalUser）—租户（Tenant）—租户成员（TenantUser）”三层身份体系、认证会话、平台后台访问控制、租户上下文装载与租户停用行为，保证：
+> 1）平台后台仅 Platform Admin 可访问；2）租户工作区严格租户隔离；3）租户停用后前台不可访问且调度停止。 
 
 ---
 
-### 2.3 角色与模块访问矩阵（落成权限枚举）
+## 4.1 身份域与多租户边界
 
-PRD 给出了默认矩阵。
-技术设计要把“模块能力”转成**可校验的权限点（Permission Points）**，统一用于后端鉴权与前端按钮显隐。
+### 4.1.1 核心对象关系（概念级）
 
-#### 2.3.1 权限点命名规范（必须）
+* **GlobalUser（平台用户）**：平台级账号，可加入多个租户；禁用后不可登录任何租户。 
+* **Tenant（租户）**：平台中的逻辑隔离单元，字段包含 `code/name/status/plan`；当 `SUSPENDED` 时前台不可访问且停止调度。 
+* **TenantUser（租户用户）**：GlobalUser 在某个租户内的成员关系；`(tenant_id,user_id)` 唯一，且每租户至少 1 个 `is_owner=true`。 
 
-* 统一格式：`{RESOURCE_TYPE}:{ACTION}`
+### 4.1.2 平台后台与租户前台的访问边界
 
-  * RESOURCE_TYPE：TABLE_SCHEMA / TABLE_DATA / FLOW / DATASET / CHART / DASHBOARD / TENANT_SETTING
-  * ACTION：VIEW / EDIT / MANAGE / RUN / SCHEDULE / GRANT 等
+* 平台后台（`/admin/*`）仅 `is_platform_admin=true` 的 GlobalUser 可访问。 
+* 平台管理员默认仅查看租户**元信息**，不通过前台身份直接查看租户业务数据；如需运维排查须走专用接口并记录审计。 
+
+---
+
+## 4.2 数据模型（表结构）
+
+> 字段类型以 MySQL 为准（示例：`BIGINT/ VARCHAR / TINYINT / DATETIME / JSON`）。`created_at/updated_at` 统一由后端维护。
+
+### 4.2.1 `global_user`（平台用户）
+
+| 字段名               |           类型 | 是否可空 |               默认值 | 枚举/约束           | 说明                   |
+| ----------------- | -----------: | :--: | ----------------: | --------------- | -------------------- |
+| id                |       BIGINT |   否  |                 — | PK              | 主键                   |
+| login_name        |  VARCHAR(64) |   否  |                 — | 全局唯一；不可修改       | 登录名                  |
+| display_name      |  VARCHAR(64) |   否  |                 — | —               | 显示名                  |
+| email             | VARCHAR(128) |   否  |                 — | 格式校验            | 邮箱                   |
+| password_hash     | VARCHAR(255) |   否  |                 — | —               | 密码哈希（bcrypt/argon2）  |
+| is_platform_admin |   TINYINT(1) |   否  |                 0 | 0/1             | 平台管理员标识              |
+| status            |  VARCHAR(16) |   否  |            ACTIVE | ACTIVE/DISABLED | 禁用后无法登录任何租户          |
+| last_tenant_id    |       BIGINT |   是  |              NULL | FK→tenant.id    | 最近一次进入的租户（用于下次登录跳转）  |
+| last_login_at     |     DATETIME |   是  |              NULL | —               | 最近一次登录时间             |
+| created_at        |     DATETIME |   否  | CURRENT_TIMESTAMP | —               | 创建时间                 |
+| updated_at        |     DATETIME |   否  | CURRENT_TIMESTAMP | —               | 更新时间                 |
+
+**索引**
+
+* 唯一索引：`uk_global_user_login_name(login_name)`
+* 唯一索引：`uk_global_user_email(email)`
+* 普通索引：`idx_global_user_status(status)`（后台筛选）
+* 普通索引：`idx_global_user_is_platform_admin(is_platform_admin)`（后台筛选）
+
+---
+
+### 4.2.2 `tenant`（租户）
+
+| 字段名        |           类型 | 是否可空 |               默认值 | 枚举/约束                | 说明                     |
+| ---------- | -----------: | :--: | ----------------: | -------------------- | ---------------------- |
+| id         |       BIGINT |   否  |                 — | PK                   | 主键                     |
+| code       |  VARCHAR(64) |   否  |                 — | 全局唯一；不可修改            | 租户编码                   |
+| name       | VARCHAR(128) |   否  |                 — | —                    | 租户名称（**允许编辑**）         |
+| status     |  VARCHAR(16) |   否  |            ACTIVE | ACTIVE/SUSPENDED     | SUSPENDED：前台 403、调度停止  |
+| plan       |  VARCHAR(16) |   否  |             BASIC | BASIC/PRO/ENTERPRISE | 套餐                     |
+| created_at |     DATETIME |   否  | CURRENT_TIMESTAMP | —                    | 创建时间                   |
+| updated_at |     DATETIME |   否  | CURRENT_TIMESTAMP | —                    | 更新时间                   |
+
+**索引**
+
+* 唯一索引：`uk_tenant_code(code)`
+* 普通索引：`idx_tenant_status(status)`
+* 普通索引：`idx_tenant_plan(plan)`
+* 普通索引：`idx_tenant_name(name)`（模糊检索可配合前缀索引/全文索引视规模决定）
+
+---
+
+### 4.2.3 `tenant_user`（租户成员）
+
+| 字段名        |          类型 | 是否可空 |               默认值 | 枚举/约束             | 说明                  |
+| ---------- | ----------: | :--: | ----------------: | ----------------- | ------------------- |
+| id         |      BIGINT |   否  |                 — | PK                | 主键                  |
+| tenant_id  |      BIGINT |   否  |                 — | FK→tenant.id      | 租户                  |
+| user_id    |      BIGINT |   否  |                 — | FK→global_user.id | 平台用户                |
+| status     | VARCHAR(16) |   否  |            ACTIVE | ACTIVE/DISABLED   | 仅影响该租户内访问           |
+| is_owner   |  TINYINT(1) |   否  |                 0 | 0/1               | 租户 Owner（至少存在 1 个）  |
+| last_login |    DATETIME |   是  |              NULL | —                 | 最近一次进入该租户时间         |
+| created_at |    DATETIME |   否  | CURRENT_TIMESTAMP | —                 | 创建时间                |
+| updated_at |    DATETIME |   否  | CURRENT_TIMESTAMP | —                 | 更新时间                |
+
+**索引**
+
+* 唯一索引：`uk_tenant_user(tenant_id, user_id)` 
+* 普通索引：`idx_tenant_user_tenant(tenant_id)`（租户成员列表）
+* 普通索引：`idx_tenant_user_user(user_id)`（用户所属租户枚举）
+* 普通索引：`idx_tenant_user_status(tenant_id, status)`（筛选）
+
+---
+
+### 4.2.4 `auth_session`（登录会话 / RefreshToken 存储）
+
+> PRD 未限定 token/cookie 方案；为满足“退出登录”“多端会话管理”“禁用用户立即失效”等工程需求，本章给出可落地的 V1 会话表设计。
+
+| 字段名                |           类型 | 是否可空 |               默认值 | 枚举/约束                  | 说明                 |
+| ------------------ | -----------: | :--: | ----------------: | ---------------------- | ------------------ |
+| id                 |       BIGINT |   否  |                 — | PK                     | 主键                 |
+| user_id            |       BIGINT |   否  |                 — | FK→global_user.id      | 账号                 |
+| refresh_token_hash | VARCHAR(255) |   否  |                 — | 唯一（同一 token 不重复）       | refresh token 哈希存储 |
+| status             |  VARCHAR(16) |   否  |            ACTIVE | ACTIVE/REVOKED/EXPIRED | 会话状态               |
+| issued_at          |     DATETIME |   否  | CURRENT_TIMESTAMP | —                      | 签发时间               |
+| expires_at         |     DATETIME |   否  |                 — | —                      | 过期时间               |
+| revoked_at         |     DATETIME |   是  |              NULL | —                      | 撤销时间               |
+| meta               |         JSON |   是  |              NULL | —                      | UA/IP/设备信息（可选）     |
+
+**`meta` JSON 结构定义**
+
+| 字段         | 类型     |  必填 | 枚举/上限 | 示例             | 说明         |
+| ---------- | ------ | :-: | ----- | -------------- | ---------- |
+| user_agent | string |  否  | ≤512  | `"Chrome/..."` | 浏览器 UA     |
+| ip         | string |  否  | ≤64   | `"1.2.3.4"`    | 登录 IP      |
+| device_id  | string |  否  | ≤64   | `"web-xxx"`    | 客户端生成的设备标识 |
+
+**索引**
+
+* 唯一索引：`uk_auth_session_refresh_hash(refresh_token_hash)`
+* 普通索引：`idx_auth_session_user(user_id, status)`
+* 普通索引：`idx_auth_session_expires(expires_at)`
+
+---
+
+## 4.3 认证与会话（Auth）
+
+### 4.3.1 认证形态
+
+* **Access Token（JWT）**：短期有效（例如 15 分钟），用于鉴权与携带 `user_id/is_platform_admin` 等声明。
+* **Refresh Token**：长期有效（例如 7–30 天），服务端落库 `auth_session`，用于换发 access token 与“退出登录/禁用即失效”。
+
+> `/api/me` 用于登录后获取当前用户信息，并包含 `is_platform_admin` 用于是否展示平台后台入口。 
+
+---
+
+## 4.4 租户上下文（TenantContext）与停用行为
+
+### 4.4.1 租户上下文装载规则
+
+* 前端路由中存在 `tenantId`（租户切换时 URL 更新）。 
+* 后端对“租户域接口”统一要求携带 `X-Tenant-Id`（由前端用路由参数注入）；服务端中间件执行：
+
+  1. 解析 `X-Tenant-Id`
+  2. 校验 Tenant 存在
+  3. 校验 Tenant 状态为 ACTIVE（否则 403）
+  4. 校验 TenantUser 存在且为 ACTIVE（否则 403）
+  5. 将 `tenant/tenant_user` 挂载到 RequestContext，供后续权限与数据访问使用
+
+### 4.4.2 租户切换与“最近租户”记忆
+
+* 若用户仅属于一个租户：登录后直接进入该租户工作区。 
+* 若属于多个租户：首次登录展示租户选择或顶部下拉；下拉仅展示状态为 ACTIVE 的租户并支持搜索。 
+* 系统需记住最近一次进入的租户，用于下次登录直接跳转。 
+
+落地规则：当发生以下任一事件，更新 `global_user.last_tenant_id`：
+
+* 调用 `POST /api/tenants/switch` 成功；
+* 任意一次租户域请求通过 TenantContext 校验（以请求头的 `X-Tenant-Id` 为准）；
+
+### 4.4.3 访问被停用租户
+
+* 当用户尝试进入 `SUSPENDED` 租户：后端返回 403；前端展示“租户已停用”提示页且不展示业务菜单。 
+* 当租户状态从 ACTIVE → SUSPENDED：该租户下 CRON 调度的 Flow 不再触发新的 Run；在运行中的 Flow 可自然结束（是否强杀由运维策略决定）。 
+
+---
+
+## 4.5 关键链路图（PlantUML）
+
+### 4.5.1 租户域 API 请求链路（带 TenantContext）
+
+```plantuml
+@startuml
+title Tenant API Request Pipeline
+
+actor Client
+participant "AuthMiddleware" as AUTH
+participant "TenantContext" as TC
+participant "APIView" as API
+participant "Service" as SVC
+participant "Repo(MySQL)" as REPO
+
+Client -> AUTH : HTTP + Authorization
+AUTH -> AUTH : verify access token
+AUTH -> TC : attach user_id
+TC -> REPO : load tenant by X-Tenant-Id
+REPO -> TC : tenant
+TC -> REPO : load tenant_user(user_id, tenant_id)
+REPO -> TC : tenant_user
+TC -> API : attach tenant + tenant_user
+API -> SVC : handle(params, ctx)
+SVC -> REPO : read/write
+REPO -> SVC : result
+SVC -> API : result
+API -> Client : {code,message,data,request_id}
+@enduml
+```
+
+### 4.5.2 平台后台（/admin/*）请求链路（AdminGuard）
+
+```plantuml
+@startuml
+title Admin API Request Pipeline
+
+actor Client
+participant "AuthMiddleware" as AUTH
+participant "AdminGuard" as AG
+participant "AdminAPIView" as API
+participant "AdminService" as SVC
+participant "Repo(MySQL)" as REPO
+
+Client -> AUTH : HTTP + Authorization
+AUTH -> AUTH : verify access token
+AUTH -> AG : attach user
+AG -> AG : check is_platform_admin
+AG -> API : ok
+API -> SVC : handle(params)
+SVC -> REPO : read/write (platform metadata)
+REPO -> SVC : result
+SVC -> API : result
+API -> Client : {code,message,data,request_id}
+@enduml
+```
+
+### 4.5.3 登录后租户跳转（单租户 / 多租户 / 最近租户）
+
+```plantuml
+@startuml
+title Login Redirect Decision
+
+actor Client
+participant "AuthAPI" as AUTH
+participant "UserAPI" as ME
+participant "Repo(MySQL)" as REPO
+
+Client -> AUTH : POST /api/auth/login
+AUTH -> REPO : verify credential
+REPO -> AUTH : ok
+AUTH -> Client : access_token + refresh_cookie
+
+Client -> ME : GET /api/me
+ME -> REPO : load user + tenant list
+REPO -> ME : user + tenants + last_tenant_id
+ME -> Client : {user, tenants, last_tenant_id}
+@enduml
+```
+
+### 4.5.4 顶部租户切换（只展示 ACTIVE）
+
+```plantuml
+@startuml
+title Tenant Switch
+
+actor Client
+participant "UserAPI" as API
+participant "TenantContext" as TC
+participant "Repo(MySQL)" as REPO
+
+Client -> API : POST /api/tenants/switch {tenant_id}
+API -> REPO : load tenant
+REPO -> API : tenant(status)
+API -> REPO : load tenant_user(user_id, tenant_id)
+REPO -> API : tenant_user(status)
+API -> REPO : update global_user.last_tenant_id
+REPO -> API : ok
+API -> Client : {tenant_id, redirect_url}
+@enduml
+```
+
+---
+
+## 4.6 接口清单（本章范围）
+
+> 说明：
+>
+> * **租户域接口**统一要求：登录态 + `X-Tenant-Id`（除非接口本身是全局接口）。
+> * **平台后台接口**统一要求：登录态 + `is_platform_admin=true`，且路径位于 `/admin/*`（页面与接口）。 
+
+### 4.6.1 全局认证与用户态
+
+1. `POST /api/auth/login`（登录）
+2. `POST /api/auth/logout`（退出登录）
+3. `POST /api/auth/refresh`（换发 access token）
+4. `GET /api/me`（获取当前用户信息、可访问租户列表、is_platform_admin） 
+
+### 4.6.2 租户选择与切换（Tenant Workspace Shell）
+
+5. `POST /api/tenants/switch`（切换租户并记录最近租户） 
+6. `GET /api/tenants`（列出当前用户可访问的 ACTIVE 租户，用于下拉与搜索） 
+
+### 4.6.3 平台后台（Platform Admin）接口组（必须单独成组）
+
+> 平台后台能力：GlobalUser 管理、Tenant 管理、TenantUser 管理。 
+> **补齐项（必须实现）**：编辑租户时允许修改租户名称（`name`），不得遗漏。 
+
+7. `GET /admin/api/users`（GlobalUser 列表：搜索/筛选） 
+
+8. `POST /admin/api/users`（创建 GlobalUser：含初始密码策略） 
+
+9. `PATCH /admin/api/users/{id}`（编辑 GlobalUser：显示名/邮箱/is_platform_admin/status） 
+
+10. `POST /admin/api/users/{id}/enable`（启用）
+
+11. `POST /admin/api/users/{id}/disable`（禁用） 
+
+12. `POST /admin/api/users/{id}/reset_password`（可选：重置密码） 
+
+13. `GET /admin/api/tenants`（Tenant 列表：搜索/筛选） 
+
+14. `POST /admin/api/tenants`（创建 Tenant：code/name/plan/status） 
+
+15. `PATCH /admin/api/tenants/{id}`（编辑 Tenant：**name/plan/status**；code 不可改） 
+
+16. `POST /admin/api/tenants/{id}/enable`（启用）
+
+17. `POST /admin/api/tenants/{id}/suspend`（停用） 
+
+18. `GET /admin/api/tenants/{tenantId}/users`（租户成员列表） 
+
+19. `POST /admin/api/tenants/{tenantId}/users`（添加成员：从 GlobalUser 搜索添加，可批量，可设 Owner，可选初始角色） 
+
+20. `PATCH /admin/api/tenants/{tenantId}/users/{tenantUserId}`（修改成员：状态/Owner/角色） 
+
+21. `DELETE /admin/api/tenants/{tenantId}/users/{tenantUserId}`（移除成员：删除 TenantUser） 
+
+---
+
+## 4.7 接口实现规范（逐接口：入参/出参/校验/错误码/伪代码）
+
+> 统一响应封装（本章落地约定）：
+>
+> * 成功：`{ code: "OK", message: "OK", data: <object>, request_id: <string> }`
+> * 失败：`{ code: <string>, message: <string>, data: null, request_id: <string>, details?: <object> }`
+
+---
+
+### 4.7.1 `POST /api/auth/login`
+
+**请求 Body**
+
+| 字段         | 类型     |  必填 | 约束    | 说明               |
+| ---------- | ------ | :-: | ----- | ---------------- |
+| login_name | string |  是  | 1–64  | 登录名              |
+| password   | string |  是  | 8–128 | 明文密码（仅 HTTPS 传输） |
+
+**响应 data**
+
+| 字段           | 类型     |  必填 | 说明                                                         |
+| ------------ | ------ | :-: | ---------------------------------------------------------- |
+| access_token | string |  是  | JWT                                                        |
+| expires_in   | int    |  是  | 秒                                                          |
+| user         | object |  是  | `{id, login_name, display_name, email, is_platform_admin}` |
+
+**校验与异常分支**
+
+* `login_name` 不存在 → 登录失败（不暴露是否存在，统一提示）。
+* GlobalUser.status=DISABLED → 拒绝登录。 
+* 密码不匹配 → 登录失败。
+* 登录成功 → 写入 `global_user.last_login_at`；创建 `auth_session`；下发 refresh cookie（HttpOnly）。
+
+**错误码**
+
+* `AUTH_INVALID_CREDENTIALS`（401）
+* `AUTH_USER_DISABLED`（403）
+* `AUTH_TOO_MANY_ATTEMPTS`（429）
+* `VALIDATION_REQUIRED`（400）
+* `VALIDATION_FORMAT`（400）
+* `SECURITY_TLS_REQUIRED`（400）
+* `SESSION_CREATE_FAILED`（500）
+* `INTERNAL_ERROR`（500）
+
+**伪代码（Service/Repo 可映射）**
+
+```text
+AuthService.login(login_name, password, request_meta):
+  user = GlobalUserRepo.find_by_login_name(login_name)
+  if user is None: return error(AUTH_INVALID_CREDENTIALS, 401)
+  if user.status != "ACTIVE": return error(AUTH_USER_DISABLED, 403)
+  if not PasswordHasher.verify(password, user.password_hash):
+      RateLimit.bump(login_name, ip)
+      return error(AUTH_INVALID_CREDENTIALS, 401)
+
+  access = Jwt.issue({user_id:user.id, is_platform_admin:user.is_platform_admin}, ttl=900)
+  refresh = Token.random()
+  AuthSessionRepo.create(user_id=user.id, refresh_hash=hash(refresh), meta=request_meta, expires_at=now+30d)
+
+  GlobalUserRepo.update_last_login(user.id, now)
+  return ok({access_token:access, expires_in:900, user:PublicUser(user)}, set_cookie_refresh=refresh)
+```
+
+---
+
+### 4.7.2 `GET /api/me`
+
+> 登录后前端通过 `/api/me` 获取当前用户信息，并包含 `is_platform_admin` 用于平台后台入口控制。 
+
+**请求 Header**
+
+* `Authorization: Bearer <access_token>`
+
+**响应 data**
+
+| 字段      | 类型     |  必填 | 说明                                                                                 |
+| ------- | ------ | :-: | ---------------------------------------------------------------------------------- |
+| user    | object |  是  | `{id, login_name, display_name, email, is_platform_admin, status, last_tenant_id}` |
+| tenants | array  |  是  | 用户可访问租户列表（仅 ACTIVE）                                                                |
+
+`tenants[]` 结构：
+
+| 字段        | 类型     |  必填 | 说明                    |
+| --------- | ------ | :-: | --------------------- |
+| tenant_id | number |  是  | 租户 ID                 |
+| code      | string |  是  | 租户编码                  |
+| name      | string |  是  | 租户名称                  |
+| plan      | string |  是  | BASIC/PRO/ENTERPRISE  |
+
+**校验与异常分支**
+
+* token 无效/过期 → 401
+* GlobalUser 被禁用 → 403（并可主动撤销其所有会话）
+* 返回的 tenants 必须过滤 `tenant.status=ACTIVE` 
+
+**错误码**
+
+* `AUTH_UNAUTHORIZED`（401）
+* `AUTH_TOKEN_EXPIRED`（401）
+* `AUTH_USER_DISABLED`（403）
+* `DATA_INTEGRITY_ERROR`（500）
+* `RATE_LIMITED`（429）
+* `VALIDATION_HEADER_MISSING`（400）
+* `INTERNAL_ERROR`（500）
+* `SERVICE_UNAVAILABLE`（503）
+
+**伪代码**
+
+```text
+UserService.me(user_id):
+  user = GlobalUserRepo.get(user_id)
+  if user.status != "ACTIVE": return error(AUTH_USER_DISABLED, 403)
+
+  tenant_users = TenantUserRepo.list_by_user(user_id, status="ACTIVE")
+  tenant_ids = [tu.tenant_id for tu in tenant_users]
+  tenants = TenantRepo.list_by_ids(tenant_ids, status="ACTIVE")  # 只返回 ACTIVE
+  return ok({user:PublicUser(user), tenants:MapTenants(tenants), last_tenant_id:user.last_tenant_id})
+```
+
+---
+
+### 4.7.3 `POST /api/tenants/switch`
+
+> 切换后 URL 中 `tenantId` 更新并跳转工作区首页；系统需记住最近一次进入的租户。
+
+**请求 Body**
+
+| 字段        | 类型     |  必填 | 约束 | 说明   |
+| --------- | ------ | :-: | -- | ---- |
+| tenant_id | number |  是  | >0 | 目标租户 |
+
+**响应 data**
+
+| 字段           | 类型     |  必填 | 说明                                   |
+| ------------ | ------ | :-: | ------------------------------------ |
+| tenant_id    | number |  是  | 切换成功的租户                              |
+| redirect_url | string |  是  | 前端跳转地址（例如 `/t/{tenant_id}/modeling`） |
+
+**校验与异常分支**
+
+* tenant 不存在 → 404
+* tenant.status=SUSPENDED → 403（前端展示“租户已停用”页） 
+* TenantUser 不存在/被禁用 → 403
+* 切换成功 → 更新 `global_user.last_tenant_id`
+
+**错误码**
+
+* `AUTH_UNAUTHORIZED`（401）
+* `TENANT_NOT_FOUND`（404）
+* `TENANT_SUSPENDED`（403）
+* `TENANT_ACCESS_DENIED`（403）
+* `TENANT_USER_DISABLED`（403）
+* `VALIDATION_REQUIRED`（400）
+* `CONFLICT_STATE_CHANGED`（409）
+* `INTERNAL_ERROR`（500）
+
+**伪代码**
+
+```text
+TenantService.switch_tenant(user_id, tenant_id):
+  tenant = TenantRepo.get(tenant_id)
+  if tenant is None: return error(TENANT_NOT_FOUND, 404)
+  if tenant.status != "ACTIVE": return error(TENANT_SUSPENDED, 403)
+
+  tu = TenantUserRepo.get_by_unique(tenant_id, user_id)
+  if tu is None: return error(TENANT_ACCESS_DENIED, 403)
+  if tu.status != "ACTIVE": return error(TENANT_USER_DISABLED, 403)
+
+  GlobalUserRepo.update_last_tenant(user_id, tenant_id)
+  return ok({tenant_id:tenant_id, redirect_url: "/t/"+tenant_id+"/modeling"})
+```
+
+---
+
+## 4.8 平台后台（Platform Admin）接口组（逐接口）
+
+> 平台后台仅 `is_platform_admin=true` 可访问；未登录 401，非平台管理员 403。 
+
+> 注意：平台后台“编辑租户”必须支持修改租户名称（`name`），租户编码（`code`）不可修改。 
+
+以下接口均要求：
+
+* Header：`Authorization: Bearer <access_token>`
+* 路径前缀：`/admin/api/*`
+
+---
+
+### 4.8.1 `GET /admin/api/users`（GlobalUser 列表）
+
+**Query 参数**
+
+| 参数                | 类型     |  必填 | 约束              | 说明                                    |
+| ----------------- | ------ | :-: | --------------- | ------------------------------------- |
+| q                 | string |  否  | ≤128            | 按 login_name/display_name/email 模糊查询  |
+| status            | string |  否  | ACTIVE/DISABLED | 状态筛选                                  |
+| is_platform_admin | bool   |  否  | true/false      | 管理员筛选                                 |
+| page              | int    |  否  | ≥1              | 分页                                    |
+| page_size         | int    |  否  | 1–200           | 分页                                    |
+
+**响应 data**
+
+| 字段    | 类型    |  必填 | 说明   |
+| ----- | ----- | :-: | ---- |
+| total | int   |  是  | 总数   |
+| items | array |  是  | 用户列表 |
+
+`items[]` 字段（与后台展示一致） 
+
+**错误码**
+
+* `AUTH_UNAUTHORIZED`（401）
+* `ADMIN_FORBIDDEN`（403）
+* `VALIDATION_PAGINATION`（400）
+* `VALIDATION_FORMAT`（400）
+* `RATE_LIMITED`（429）
+* `DB_QUERY_TIMEOUT`（504）
+* `INTERNAL_ERROR`（500）
+* `SERVICE_UNAVAILABLE`（503）
+
+**伪代码**
+
+```text
+AdminUserService.list(q, status, is_platform_admin, page, page_size):
+  AdminGuard.require_platform_admin()
+  return GlobalUserRepo.search(q, status, is_platform_admin, page, page_size)
+```
+
+---
+
+### 4.8.2 `POST /admin/api/tenants`（创建租户）
+
+**请求 Body**（来自 PRD 表单字段） 
+
+| 字段                     | 类型            |  必填 | 枚举/约束                | 说明                      |
+| ---------------------- | ------------- | :-: | -------------------- | ----------------------- |
+| code                   | string        |  是  | 全局唯一；1–64            | 租户编码                    |
+| name                   | string        |  是  | 1–128                | 租户名称                    |
+| plan                   | string        |  是  | BASIC/PRO/ENTERPRISE | 套餐                      |
+| status                 | string        |  否  | ACTIVE/SUSPENDED     | 默认 ACTIVE               |
+| initial_owner_user_ids | array<number> |  是  | 至少 1 个               | 用于满足“每租户至少一个 Owner”的约束  |
+
+**响应 data**
+
+| 字段        | 类型     |  必填 | 说明     |
+| --------- | ------ | :-: | ------ |
+| tenant_id | number |  是  | 新租户 ID |
+
+**校验与异常分支**
+
+* code 重复 → 409
+* initial_owner_user_ids 中存在不存在/禁用 GlobalUser → 400/403
+* 创建 Tenant 成功后必须在同一事务内写入对应 TenantUser（is_owner=1）
+
+**错误码**
+
+* `AUTH_UNAUTHORIZED`（401）
+* `ADMIN_FORBIDDEN`（403）
+* `TENANT_CODE_DUPLICATE`（409）
+* `VALIDATION_REQUIRED`（400）
+* `VALIDATION_ENUM`（400）
+* `OWNER_REQUIRED`（400）
+* `USER_NOT_FOUND`（400）
+* `INTERNAL_ERROR`（500）
+
+**伪代码（含事务）**
+
+```text
+AdminTenantService.create(payload):
+  AdminGuard.require_platform_admin()
+
+  validate code unique
+  validate plan/status enum
+  validate initial_owner_user_ids non-empty
+
+  tx.begin()
+    tenant_id = TenantRepo.insert(code,name,plan,status)
+    for uid in initial_owner_user_ids:
+        u = GlobalUserRepo.get(uid)
+        if u is None: tx.rollback(); return error(USER_NOT_FOUND, 400)
+        if u.status != "ACTIVE": tx.rollback(); return error(AUTH_USER_DISABLED, 403)
+        TenantUserRepo.insert(tenant_id, uid, status="ACTIVE", is_owner=1)
+  tx.commit()
+  return ok({tenant_id:tenant_id})
+```
+
+---
+
+### 4.8.3 `PATCH /admin/api/tenants/{id}`（编辑租户：必须支持改名称）
+
+> 编辑 Tenant：`code` 不可修改；可修改 `name/plan/status`。 
+
+**请求 Path**
+
+* `id`: tenant id
+
+**请求 Body**
+
+| 字段     | 类型     |  必填 | 枚举/约束                | 说明             |
+| ------ | ------ | :-: | -------------------- | -------------- |
+| name   | string |  否  | 1–128                | 租户名称（**补齐必做**） |
+| plan   | string |  否  | BASIC/PRO/ENTERPRISE | 套餐             |
+| status | string |  否  | ACTIVE/SUSPENDED     | 状态             |
+
+**状态变更语义**
+
+* `SUSPENDED`：该租户所有 TenantUser 前台访问 403，Flow 调度停止触发新的 Run。 
+* `ACTIVE`：恢复访问与调度。 
+
+**错误码**
+
+* `AUTH_UNAUTHORIZED`（401）
+* `ADMIN_FORBIDDEN`（403）
+* `TENANT_NOT_FOUND`（404）
+* `VALIDATION_ENUM`（400）
+* `VALIDATION_FORMAT`（400）
+* `CONFLICT_NO_OWNER`（409）（若后续实现要求启用前必须存在 Owner）
+* `SCHEDULER_UPDATE_FAILED`（500）
+* `INTERNAL_ERROR`（500）
+
+**伪代码**
+
+```text
+AdminTenantService.update(tenant_id, patch):
+  AdminGuard.require_platform_admin()
+  tenant = TenantRepo.get(tenant_id)
+  if tenant is None: return error(TENANT_NOT_FOUND, 404)
+
+  if "name" in patch: validate len/name
+  if "plan" in patch: validate enum
+  if "status" in patch: validate enum
+
+  tx.begin()
+    TenantRepo.update_fields(tenant_id, patch)
+    if patch.status changed to "SUSPENDED":
+        SchedulerService.pause_all_cron_flows(tenant_id)   # 仅停止触发，不强杀运行中实例 :contentReference[oaicite:76]{index=76}
+    if patch.status changed to "ACTIVE":
+        SchedulerService.resume_all_cron_flows(tenant_id)
+  tx.commit()
+  return ok({})
+```
+
+---
+
+### 4.8.4 `POST /admin/api/tenants/{tenantId}/users`（添加成员，支持批量）
+
+> 添加成员：从 GlobalUser 搜索添加，可批量；可选设 Owner；可选初始角色；平台后台不提供注册新用户流程。 
+
+**请求 Body**
+
+| 字段               | 类型            |  必填 | 约束    | 说明               |
+| ---------------- | ------------- | :-: | ----- | ---------------- |
+| user_ids         | array<number> |  是  | 1–200 | GlobalUser.id 列表 |
+| set_owner        | bool          |  否  | —     | 是否将新增成员设为 Owner  |
+| initial_role_ids | array<number> |  否  | —     | 初始角色（角色表详见权限体系章） |
+
+**响应 data**
+
+| 字段      | 类型    |  必填 | 说明                       |
+| ------- | ----- | :-: | ------------------------ |
+| created | int   |  是  | 创建数量                     |
+| skipped | int   |  是  | 已存在跳过数量                  |
+| items   | array |  是  | 创建结果明细（含 tenant_user_id） |
+
+**校验与异常分支**
+
+* tenant 不存在 → 404
+* tenant.status=SUSPENDED 时是否允许“后台加人”：允许（平台操作不受前台限制），但新增成员仍需满足约束
+* user_ids 任一不存在 → 400
+* `(tenant_id,user_id)` 已存在 → 跳过或 409（建议返回明细）
+* 若设置/取消 Owner 导致租户无 Owner → 阻止并提示 
+
+**错误码**
+
+* `AUTH_UNAUTHORIZED`（401）
+* `ADMIN_FORBIDDEN`（403）
+* `TENANT_NOT_FOUND`（404）
+* `USER_NOT_FOUND`（400）
+* `CONFLICT_MEMBER_EXISTS`（409）
+* `CONFLICT_NO_OWNER`（409）
+* `VALIDATION_LIMIT_EXCEEDED`（400）
+* `INTERNAL_ERROR`（500）
+
+**伪代码（含事务与批量）**
+
+```text
+AdminTenantUserService.add_members(tenant_id, user_ids, set_owner, role_ids):
+  AdminGuard.require_platform_admin()
+  if TenantRepo.get(tenant_id) is None: return error(TENANT_NOT_FOUND, 404)
+
+  tx.begin()
+    results = []
+    for uid in user_ids:
+      if GlobalUserRepo.get(uid) is None:
+         tx.rollback(); return error(USER_NOT_FOUND, 400)
+      if TenantUserRepo.exists(tenant_id, uid):
+         results.append({uid, status:"SKIPPED_EXISTS"})
+         continue
+      tu_id = TenantUserRepo.insert(tenant_id, uid, status="ACTIVE", is_owner=set_owner?1:0)
+      if role_ids not empty: TenantUserRoleRepo.batch_insert(tu_id, role_ids)
+      results.append({uid, tenant_user_id:tu_id, status:"CREATED"})
+    ensure_owner_invariant(tenant_id)  # 至少 1 个 owner，否则 rollback :contentReference[oaicite:79]{index=79}
+  tx.commit()
+  return ok(summary(results))
+```
+
+
+# 5 权限体系
+
+## 5.1 目标与范围
+
+权限体系由三层组成，后端强校验为唯一安全边界：资源级（RolePermission）、行级（RowPermission）、列级（ColumnPermission）。前端权限仅用于隐藏/禁用按钮改善体验，不得替代后端校验。
+
+本章覆盖：
+
+* 角色（Role）与用户-角色关系（TenantUserRole）
+* 资源树权限（RolePermission）：表/Flow/Dataset/Dashboard，支持 Folder 默认权限与继承、多角色合并
+* 表数据级权限：行权限（RowPermission）与列权限（ColumnPermission），含多角色合并与与业务过滤叠加顺序
+* 权限配置入口与保存行为（Settings/Modeling 页面）
+* 权限变更审计的最小可追溯要求
+
+---
+
+## 5.2 核心概念与关系
+
+### 5.2.1 权限对象
+
+* **TenantUser**：租户内成员；Owner（is_owner）用于兜底管理与强约束（至少 1 个 Owner，不能移除最后一个 Owner）
+* **Role**：租户级角色；支持系统初始化模板角色（is_system=true），本期不施加不可编辑/不可删除等强约束（仅表示来源）。
+* **ResourceTree**：资源树，包含 Folder 节点与资源节点；目录节点可嵌套目录，资源节点不可挂载目录；前端展示“可查看资源 + 父目录链路”。
+* **RolePermission**：资源级权限（NONE/VIEW/EDIT/MANAGE），支持 Folder 默认权限继承、多角色取最大值合并。
+* **RowPermission**：表维度行过滤，FilterDSL JSON；角色内 OR、多角色再 OR；与 Dataset/业务过滤按 AND 叠加；TABLE_DATA=MANAGE 可绕过行权限。
+* **ColumnPermission**：表字段级可见/可写（HIDDEN/READONLY/READWRITE），多角色合并规则见 5.5；并受 TABLE_DATA 权限上限约束。
+
+### 5.2.2 PlantUML：权限域对象关系图
+
+```plantuml
+@startuml
+title Permission Domain (Core)
+
+class TenantUser
+class Role
+class TenantUserRole
+class ResourceTreeNode
+class RolePermission
+class RowPermission
+class ColumnPermission
+class Table
+class Field
+
+TenantUser --> TenantUserRole
+Role --> TenantUserRole
+
+ResourceTreeNode --> RolePermission
+Role --> RolePermission
+
+Table --> RowPermission
+Role --> RowPermission
+
+Table --> ColumnPermission
+Field --> ColumnPermission
+Role --> ColumnPermission
+@enduml
+```
+
+---
+
+## 5.3 统一权限校验原则
+
+### 5.3.1 后端强校验
+
+所有受控接口必须在后端强校验三类权限：资源级、行级、列级。
+
+### 5.3.2 HTTP 与提示
+
+* 未登录/Token 失效：401
+* 已登录但权限不足：403
+  并统一提示“没有权限执行该操作”。
+
+### 5.3.3 权限变更审计
+
+涉及角色/成员角色关系/资源权限/行权限/列权限的变更必须可追溯，记录操作人、时间、类型、对象、变更摘要、结果。
+
+---
+
+## 5.4 资源级权限（RolePermission）
+
+### 5.4.1 资源类型与权限等级
+
+资源类型（resource_type）范围：TABLE_SCHEMA、TABLE_DATA、FLOW、DATASET、DASHBOARD。
+权限等级：NONE < VIEW < EDIT < MANAGE。
+
+### 5.4.2 Folder 默认权限与继承
+
+Folder 节点可配置默认权限；子资源未单独配置时，取最近祖先 Folder 默认权限；资源节点显式配置覆盖默认值。
+
+合并顺序（单角色内部）：从资源节点向上回溯到根 Folder，收集权限设置，取最大权限等级作为该角色最终资源权限。
+
+多角色合并（Effective Resource Permission）：对用户所有角色分别算单角色权限后，再取最大值。
+
+### 5.4.3 表权限的“双权限项”约定
+
+表资源需配置两项：表结构权限（TABLE_SCHEMA）与表数据权限（TABLE_DATA）；Folder 也支持默认表结构/默认表数据权限。
+
+> 操作权限映射（强制）
+
+* 任何“建模变更”（字段新增/修改等）：必须满足 TABLE_SCHEMA ≥ EDIT（涉及删除/移动/配置权限必须 ≥ MANAGE）
+* 任何“数据读写”（表数据页、Flow 节点查询、Dataset/Chart 查询、记录增删改）：必须满足 TABLE_DATA ≥ VIEW（写入至少 ≥ EDIT）
+
+### 5.4.4 PlantUML：资源权限计算（含继承、多角色合并）
+
+```plantuml
+@startuml
+title Effective Resource Permission
+
+actor Client
+participant API
+participant PermissionEngine as PE
+participant Repo
+
+Client -> API : request(resource_type, resource_id)
+API -> PE : calcEffectivePermission(user, resource_type, resource_id)
+PE -> Repo : list user roles
+Repo --> PE : roles[]
+PE -> Repo : load ResourceTree path(folder ancestors)
+Repo --> PE : path_nodes[]
+loop for each role
+  PE -> Repo : find RolePermission on (role, resource_type, any path_node)
+  Repo --> PE : perms_on_path[]
+  PE -> PE : role_perm = max(perms_on_path)
+end
+PE -> PE : effective_perm = max(role_perm over roles)
+PE --> API : effective_perm
+API --> Client : allow/deny + data
+@enduml
+```
+
+---
+
+## 5.5 列级权限（ColumnPermission）
+
+### 5.5.1 权限等级与行为
+
+针对（role, table, column）：
+
+* HIDDEN：字段不可见；查询结果不返回；表数据页不显示；Chart 字段选择器不列出（尽可能）。
+* READONLY：字段可见不可编辑；API 不接受该字段修改。
+* READWRITE：完整读写。
+
+多角色合并：若所有角色都是 HIDDEN → HIDDEN；否则有任一 READWRITE → READWRITE；否则有任一 READONLY → READONLY。
+并且最终列权限仍受 TABLE_DATA 权限控制：TABLE_DATA < EDIT 时，即使列权限为 READWRITE 也不得写入。
+
+### 5.5.2 后端强制行为（查询/写入）
+
+* **查询返回列裁剪**：返回字段集合 = `requested_fields ∩ visible_fields`，其中 `visible_fields` = 最终列权限 ≠ HIDDEN 的字段集合。对 HIDDEN 字段必须从 SELECT 列表中剔除。
+* **写入字段校验**：
+
+  * READONLY：前端应禁用；若仍传入，后端必须“忽略或报错（统一决策）”。本期约定：**直接报错**，避免静默丢数据。
+  * READWRITE：允许写入，但仍需 TABLE_DATA ≥ EDIT。
+
+### 5.5.3 PlantUML：列权限在查询中的应用
+
+```plantuml
+@startuml
+title Column Permission in Query
+
+actor Client
+participant API
+participant PermissionEngine as PE
+participant QueryEngine as QE
+participant DB
+
+Client -> API : query(table_id, requested_fields, filters)
+API -> PE : check TABLE_DATA >= VIEW
+API -> PE : getEffectiveColumns(user, table_id)
+PE --> API : visible_fields[], readonly_fields[]
+API -> API : final_fields = requested_fields ∩ visible_fields
+API -> QE : buildSelect(table_id, final_fields, filters)
+QE -> DB : SELECT final_fields FROM table WHERE ...
+DB --> QE : rows
+QE --> API : rows(final_fields only)
+API --> Client : data
+@enduml
+```
+
+---
+
+## 5.6 行级权限（RowPermission）
+
+### 5.6.1 FilterDSL（用于 RowPermission 与业务过滤）
+
+FilterDSL 目标：统一表达过滤条件；可被 QueryEngine 编译为 SQL WHERE 条件；支持嵌套 and/or。
+
+#### JSON 结构定义（存储/传输）
+
+| 字段         | 类型     |         必填 | 枚举/约束                                                       | 说明                       |
+| ---------- | ------ | ---------: | ----------------------------------------------------------- | ------------------------ |
+| op         | string |          是 | and / or                                                    | 组合逻辑                     |
+| conditions | array  |          是 | 长度 ≥ 1                                                      | 子条件列表（condition 或 group） |
+| field      | string |       条件必填 | 仅允许白名单字段                                                    | 字段编码（如 `order_amount`）   |
+| operator   | string |       条件必填 | eq/ne/gt/gte/lt/lte/in/not_in/between/like/is_null/not_null | 操作符                      |
+| value      | any    | 视 operator | 类型与字段类型匹配                                                   | 常量或“特殊变量注入对象”            |
+
+#### 特殊变量（动态值注入）
+
+支持将 value 写为 `{"__var__": "CURRENT_USER_ID"}` 等形式（示例：限制“仅看自己负责的客户”）。
+
+> 实现要求
+
+* QueryEngine 编译 SQL 前必须先将 `__var__` 解析为运行时常量（来自 TenantContext + Auth 上下文）。
+* 变量解析失败（缺少上下文/不支持变量名）必须报参数错误，不得忽略。
+
+### 5.6.2 合并规则与叠加顺序
+
+* **角色内多条规则 OR**；**多角色再 OR**；并与 Dataset.base_filter、业务过滤按 AND 组合：
+  `总 WHERE = base_filter AND business_filter AND row_permission_filter`。
+* **MANAGE 绕过**：若用户在表的 TABLE_DATA 上任一角色为 MANAGE，则该表默认不受行权限限制（兜底/调试）。
+
+### 5.6.3 PlantUML：行权限合并与叠加
+
+```plantuml
+@startuml
+title Row Permission Merge and Apply
+
+actor Client
+participant API
+participant PermissionEngine as PE
+participant Repo
+participant QueryEngine as QE
+
+Client -> API : query(table_id, business_filter)
+API -> PE : check TABLE_DATA >= VIEW
+PE -> Repo : list roles(user)
+Repo --> PE : roles[]
+PE -> PE : if any role has TABLE_DATA=MANAGE -> bypass=true
+alt bypass == true
+  PE --> API : row_filter = null
+else bypass == false
+  loop each role
+    PE -> Repo : list RowPermission(role, table_id)
+    Repo --> PE : rules[]
+    PE -> PE : role_filter = OR(rules.filter_dsl)
+  end
+  PE -> PE : row_filter = OR(role_filter over roles)
+  PE --> API : row_filter
+end
+API -> QE : buildWhere(base_filter AND business_filter AND row_filter)
+QE --> API : rows
+API --> Client : data
+@enduml
+```
+
+---
+
+## 5.7 数据表设计（MySQL）
+
+> 约定：所有表默认包含审计字段 `created_at/created_by/updated_at/updated_by`；`created_by/updated_by` 存 TenantUser.id。
+
+### 5.7.1 role（角色）
+
+| 字段名         | 类型           | 是否可空 | 默认值               | 枚举/约束     | 说明                 |
+| ----------- | ------------ | ---: | ----------------- | --------- | ------------------ |
+| id          | bigint       |    否 |                   | PK        | 角色ID               |
+| tenant_id   | bigint       |    否 |                   | FK        | 租户ID               |
+| name        | varchar(64)  |    否 |                   | 同租户唯一     | 角色名称               |
+| description | varchar(255) |    是 | null              |           | 角色描述               |
+| is_system   | tinyint      |    否 | 0                 | 0/1       | 是否系统初始化模板角色        |
+| created_at  | datetime     |    否 | CURRENT_TIMESTAMP |           | 创建时间               |
+| created_by  | bigint       |    否 |                   |           | 创建人（TenantUser.id） |
+| updated_at  | datetime     |    否 | CURRENT_TIMESTAMP | ON UPDATE | 更新时间               |
+| updated_by  | bigint       |    否 |                   |           | 更新人（TenantUser.id） |
+
+索引（独立列出）：
+
+* 唯一索引：`uk_role_tenant_name (tenant_id, name)`（防重复）
+* 普通索引：`idx_role_tenant (tenant_id)`（租户内列表）
+
+### 5.7.2 tenant_user_role（成员-角色关系）
+
+| 字段名            | 类型       | 是否可空 | 默认值               | 枚举/约束 | 说明   |
+| -------------- | -------- | ---: | ----------------- | ----- | ---- |
+| id             | bigint   |    否 |                   | PK    | 关系ID |
+| tenant_id      | bigint   |    否 |                   | FK    | 租户ID |
+| tenant_user_id | bigint   |    否 |                   | FK    | 成员ID |
+| role_id        | bigint   |    否 |                   | FK    | 角色ID |
+| created_at     | datetime |    否 | CURRENT_TIMESTAMP |       | 创建时间 |
+| created_by     | bigint   |    否 |                   |       | 操作人  |
+
+索引：
+
+* 唯一索引：`uk_tur_unique (tenant_id, tenant_user_id, role_id)`（同成员不可重复绑定同角色）
+* 普通索引：`idx_tur_role (tenant_id, role_id)`、`idx_tur_user (tenant_id, tenant_user_id)`
+
+### 5.7.3 role_permission（资源级权限）
+
+| 字段名                   | 类型          | 是否可空 | 默认值               | 枚举/约束                                          | 说明                               |
+| --------------------- | ----------- | ---: | ----------------- | ---------------------------------------------- | -------------------------------- |
+| id                    | bigint      |    否 |                   | PK                                             | 权限记录ID                           |
+| tenant_id             | bigint      |    否 |                   | FK                                             | 租户ID                             |
+| role_id               | bigint      |    否 |                   | FK                                             | 角色ID                             |
+| resource_type         | varchar(32) |    否 |                   | TABLE_SCHEMA/TABLE_DATA/FLOW/DATASET/DASHBOARD | 资源类型                             |
+| resource_tree_node_id | bigint      |    否 |                   | FK                                             | ResourceTree 节点ID（Folder 或 资源节点） |
+| permission            | varchar(16) |    否 | NONE              | NONE/VIEW/EDIT/MANAGE                          | 权限等级                             |
+| created_at            | datetime    |    否 | CURRENT_TIMESTAMP |                                                | 创建时间                             |
+| created_by            | bigint      |    否 |                   |                                                | 创建人                              |
+| updated_at            | datetime    |    否 | CURRENT_TIMESTAMP | ON UPDATE                                      | 更新时间                             |
+| updated_by            | bigint      |    否 |                   |                                                | 更新人                              |
+
+索引：
+
+* 唯一索引：`uk_rp_unique (tenant_id, role_id, resource_type, resource_tree_node_id)`（同节点同类型仅一条）
+* 普通索引：`idx_rp_role (tenant_id, role_id, resource_type)`（加载某角色某类型全量权限）
+* 普通索引：`idx_rp_node (tenant_id, resource_type, resource_tree_node_id)`（节点反查）
+
+### 5.7.4 row_permission（行权限）
+
+| 字段名        | 类型          | 是否可空 | 默认值               | 枚举/约束           | 说明                    |
+| ---------- | ----------- | ---: | ----------------- | --------------- | --------------------- |
+| id         | bigint      |    否 |                   | PK              | 规则ID                  |
+| tenant_id  | bigint      |    否 |                   | FK              | 租户ID                  |
+| role_id    | bigint      |    否 |                   | FK              | 角色ID                  |
+| table_id   | bigint      |    否 |                   | FK              | 表ID                   |
+| name       | varchar(64) |    是 | null              |                 | 规则名称（可空）              |
+| filter_dsl | json        |    否 |                   | 必须为合法 FilterDSL | 行过滤条件（FilterDSL JSON） |
+| created_at | datetime    |    否 | CURRENT_TIMESTAMP |                 | 创建时间                  |
+| created_by | bigint      |    否 |                   |                 | 创建人                   |
+| updated_at | datetime    |    否 | CURRENT_TIMESTAMP | ON UPDATE       | 更新时间                  |
+| updated_by | bigint      |    否 |                   |                 | 更新人                   |
+
+`filter_dsl` JSON 结构（强制补充）：
+
+* 顶层必须为 group：`{ "op": "and|or", "conditions": [...] }`
+* condition 节点：`{ "field": "...", "operator": "...", "value": ... }`
+* value 可使用特殊变量：`{ "__var__": "CURRENT_USER_ID" }`
 * 示例：
 
-  * `TABLE_SCHEMA:EDIT`（改字段）
-  * `TABLE_DATA:VIEW`（查数据）
-  * `FLOW:RUN`（手动运行）
-  * `DASHBOARD:MANAGE`（删除/移动/改权限）
+  * `{"op":"and","conditions":[{"field":"owner_id","operator":"eq","value":{"__var__":"CURRENT_USER_ID"}}]}`
 
-> 注意：PRD 的 RolePermission 里 resource_type 覆盖 TABLE_SCHEMA/TABLE_DATA/FLOW/DATASET/DASHBOARD。Chart 在 V1 作为“列表管理资产”，其权限建议绑定到 Dataset（即：能管理 Dataset 才能创建/删除其下图表）。此点在后续报表章节会展开；2–3 章只规定“不得出现 Chart 自己一套完全独立的权限体系”，避免重复设计。
+索引：
 
----
+* 普通索引：`idx_rowperm_role_table (tenant_id, role_id, table_id)`（加载某角色在某表规则）
+* 普通索引：`idx_rowperm_table (tenant_id, table_id)`（按表排查）
 
-### 2.4 多租户隔离边界（必须实现的安全红线）
+### 5.7.5 column_permission（列权限）
 
-PRD 已给出隔离原则与停用行为。
-本节把它落成工程级“必须/禁止”。
+| 字段名          | 类型          | 是否可空 | 默认值               | 枚举/约束                     | 说明   |
+| ------------ | ----------- | ---: | ----------------- | ------------------------- | ---- |
+| id           | bigint      |    否 |                   | PK                        | 记录ID |
+| tenant_id    | bigint      |    否 |                   | FK                        | 租户ID |
+| role_id      | bigint      |    否 |                   | FK                        | 角色ID |
+| table_id     | bigint      |    否 |                   | FK                        | 表ID  |
+| field_id     | bigint      |    否 |                   | FK                        | 字段ID |
+| access_level | varchar(16) |    否 | READWRITE         | HIDDEN/READONLY/READWRITE | 列权限  |
+| created_at   | datetime    |    否 | CURRENT_TIMESTAMP |                           | 创建时间 |
+| created_by   | bigint      |    否 |                   |                           | 创建人  |
+| updated_at   | datetime    |    否 | CURRENT_TIMESTAMP | ON UPDATE                 | 更新时间 |
+| updated_by   | bigint      |    否 |                   |                           | 更新人  |
 
-#### 2.4.1 数据隔离（必须）
+索引：
 
-1. **所有租户内实体表必须包含 tenant_id**（包括元数据表与业务数据表）。
-2. 任意查询/更新/删除必须在 WHERE 条件带 `tenant_id=当前租户`。
-3. **禁止跨租户 JOIN**（即使同库同实例也禁止）。
-
-工程落地方式（必须至少做到）：
-
-* ORM 层：为“租户内模型”提供 `TenantQuerySet`，默认自动追加 tenant_id 过滤；任何绕过必须在代码评审中判定为高危。
-* SQL 构造层：统一通过 Query Builder 生成 SQL，Builder 必须强制注入 tenant_id 条件。
-* 审计层：若检测到未携带 tenant_id 的租户内查询，必须记录安全日志（trace_id + user_id + endpoint）。
-
-#### 2.4.2 访问路径隔离（必须）
-
-* 前端进入租户工作区时，URL 或请求头必须携带租户标识（实现方式二选一，但必须一致）：
-
-  * 方式 A：URL path：`/tenants/{tenantId}/...`
-  * 方式 B：Header：`X-Tenant-Id: {tenantId}`
-* 后端必须做“双重校验”：
-
-  1. GlobalUser 是否属于该租户（TenantUser 存在且 ACTIVE）；
-  2. Tenant 是否 ACTIVE（非 SUSPENDED）。
-
-#### 2.4.3 租户停用行为（必须）
-
-当 Tenant.status = SUSPENDED：
-
-* 租户工作区所有接口返回 `ERR_TENANT_SUSPENDED`；
-* 所有 CRON 调度停止触发；
-* 正在运行的 Flow：允许自然结束（不强杀），但 Run 记录必须标记其 tenant 已停用（便于运维分析）。
-
-#### 2.4.4 请求链路（Tenant API）校验顺序 PlantUML
-
-```plantuml
-@startuml
-actor Client
-participant "API Gateway" as GW
-participant "TenantContext Middleware" as MW
-participant "Auth (JWT)" as AUTH
-participant "Permission Engine" as PE
-participant "Service" as SVC
-participant "Repo (MySQL)" as DB
-
-Client -> GW : HTTP Request
-GW -> MW : forward
-MW -> MW : parse tenant_id
-MW -> DB : check tenant status
-MW -> AUTH : verify token
-AUTH -> DB : load GlobalUser
-MW -> DB : load TenantUser
-MW -> PE : build permission context
-PE -> SVC : allow/deny
-SVC -> DB : execute with tenant_id
-SVC -> Client : JSON response
-@enduml
-```
+* 唯一索引：`uk_colperm_unique (tenant_id, role_id, table_id, field_id)`（覆盖写入时可 upsert）
+* 普通索引：`idx_colperm_role_table (tenant_id, role_id, table_id)`（页面加载）
+* 普通索引：`idx_colperm_table (tenant_id, table_id)`（排查）
 
 ---
 
-## 3. 核心概念与全局规范
+## 5.8 接口清单（租户侧 Settings / Modeling 数据权限页）
 
-### 3.1 核心领域概念（数据模型与关系）
+> 访问控制总则：本章所有“权限配置/成员角色调整”接口必须要求调用者具备“Settings 管理权限”。该权限可由 Owner 或被授权角色持有（具体授予方式见 5.8.1）。
 
-PRD 明确了核心实体：GlobalUser、Tenant、TenantUser、Role、TenantUserRole、ResourceTree、RolePermission、RowPermission、ColumnPermission，以及 Table/Field/Flow/Dataset/Chart/Dashboard 等。
-本节把这些概念固化为工程可实现的数据关系与约束。
+### 5.8.1 Settings 管理权限的落地（实现约定）
 
-#### 3.1.1 身份与授权 ER（PlantUML）
+为满足“仅具有 Settings 管理权限的角色可访问 Settings 模块”的产品约束，后端采用以下判定：
 
-```plantuml
-@startuml
-class GlobalUser {
-  id
-  login_name
-  display_name
-  email
-  status
-}
+* `allow_settings(user) = (TenantUser.is_owner == true) OR (permission(user, SETTINGS_RESOURCE) >= MANAGE)`
+* SETTINGS_RESOURCE 为虚拟资源：`resource_type="SETTINGS"`、`resource_tree_node_id = tenant_root_settings_node_id`
 
-class Tenant {
-  id
-  code
-  name
-  status
-  plan
-}
+  * 该节点不出现在业务资源树 UI，仅用于权限判定与授权。
 
-class TenantUser {
-  id
-  tenant_id
-  user_id
-  status
-  is_owner
-}
-
-class Role {
-  id
-  tenant_id
-  name
-  is_system
-}
-
-class TenantUserRole {
-  tenant_user_id
-  role_id
-}
-
-GlobalUser "1" -- "many" TenantUser
-Tenant "1" -- "many" TenantUser
-TenantUser "1" -- "many" TenantUserRole
-Role "1" -- "many" TenantUserRole
-Tenant "1" -- "many" Role
-@enduml
-```
-
-关键约束（必须）：
-
-* GlobalUser.login_name 平台唯一；禁用后无法登录任何租户。
-* TenantUser(tenant_id, user_id) 唯一；每个租户至少 1 个 is_owner=true。
-* Role(name) 在同租户唯一；系统内置角色不可删除。
-
-#### 3.1.2 资源树 ResourceTree（必须一类资源一棵树）
-
-PRD：TABLE / FLOW / DATASET / DASHBOARD 各自独立资源树。
-工程实现要求：
-
-* ResourceTree 表必须包含：
-
-  * tenant_id、scope、type、resource_id、parent_id、display_name、sort_order。
-* 约束（必须）：
-
-  1. **目录禁止挂载在具体资源之下**（即 parent 必须是 FOLDER 或 null）。
-  2. 用户只看得到“自己有权限的资源节点及其父目录”（前端树构建必须做父链补齐）。
-  3. 对 FOLDER 配置的权限必须向下继承作为默认值（后续权限章详细定义继承与覆盖）。
-
-#### 3.1.3 表/字段/关系（Relation 推导而非建表）
-
-* Table 对应底层物理表，命名规则形如 `t_{tenantId}_{tableCode}`（可在后续技术章节细化，但必须保证 tenant 隔离）。
-* Field 的 `ui_type` 决定逻辑类型；REFERENCE 字段存储“指向 ref_table 的关系”，底层类型与 ref_field 对齐。
-* V1 **不为 Relation 单独建表**，由 `ui_type=REFERENCE` 的字段推导关系：
-
-  * “从当前表指向谁”：查当前表的 REFERENCE 字段；
-  * “当前表被谁指向”：查 ref_table_id=当前表 的字段。
-
-#### 3.1.4 Flow / Run / Schedule（可观测性必须内置）
-
-* Flow 必须持久化：schedule_type、cron_expr、config_json。
-* Run 必须记录：trigger_type、状态、起止时间、error_message、node_stats_json。
-* 调度要求：必须记录最近一次触发时间与结果；租户停用时不触发。
-
-#### 3.1.5 Dataset / Chart / Dashboard（报表资产边界必须清晰）
-
-* Dataset：来源表/视图 → 生成可复用数据集表；下游只读数据集表，不直接读来源表。
-* Chart：保存 query_config + viz_config，不含布局。
-* Dashboard：保存 layout_json + 可选 filters_json；DashboardItem 引用 Chart 并携带布局。
+> 若当前版本暂不实现 SETTINGS 虚拟资源节点，则本期最小实现可直接：仅 Owner 可访问 Settings；后续再扩展为可授权。
 
 ---
 
-### 3.2 全局 ID 与业务编码规范（接口/DB/前端一致）
+### 5.8.2 角色管理（Role）
 
-#### 3.2.1 主键 ID 统一规范（必须）
+#### API 1：查询角色列表
 
-* 主键统一 BIGINT 自增（或等价实现）；对外作为不透明整数，不承诺连续性与含义。
-* tenant_id 使用规范：所有租户内实体必须包含 tenant_id；API 禁止跨租户传入 ID 访问其他租户数据。
+* `GET /api/tenants/{tenant_id}/roles`
 
-工程落地要求：
+入参：
 
-* 任何“按 id 查记录”的 Repo 方法，必须额外接收 tenant_id 参数并参与过滤；
-* 任何“批量 id 查询”必须校验查询结果全部属于同 tenant_id，否则返回 `ERR_CROSS_TENANT_ACCESS`。
+| 字段        | 位置   | 类型     | 必填 | 约束 | 说明   |
+| --------- | ---- | ------ | -: | -- | ---- |
+| tenant_id | path | bigint |  是 |    | 租户ID |
 
-#### 3.2.2 业务编码 code 规范（必须）
+出参（data）：
 
-PRD 规定：字符集 `[a-z0-9_]+`，snake_case，长度 1–50，以字母开头，禁止保留字；Tenant.code 全局唯一，Table.code 租户内唯一，Field.code 表内唯一。
+| 字段                  | 类型          | 说明     |
+| ------------------- | ----------- | ------ |
+| items               | array       | 角色列表   |
+| items[].id          | bigint      | 角色ID   |
+| items[].name        | string      | 名称     |
+| items[].description | string/null | 描述     |
+| items[].is_system   | boolean     | 是否模板角色 |
 
-工程落地要求（必须）：
+校验与异常分支：
 
-* 后端必须提供 “code 生成与去重”能力：LLM 生成 + 后端清洗 + 冲突加后缀。
-* 前端默认 code 只读，不允许手工编辑（避免影响下游引用）。
+1. 校验 token 与 tenant 上下文（401/403）
+2. 校验 allow_settings（403）
+3. tenant_id 不存在或被停用（404/403，按租户模块约定）
 
----
+错误码（覆盖场景）：
 
-### 3.3 时间、时区与日期处理规范（必须统一）
-
-PRD 规定：数据库 datetime 存 UTC；API 传 ISO8601；前端按租户默认时区显示；输入按租户时区解释再转 UTC；DSL 日期/时间格式固定。
-
-工程落地要求（必须）：
-
-1. 数据库层：所有 `*_at` 字段存 UTC。
-2. API 层：
-
-   * datetime：ISO8601（例 `"2025-12-10T08:30:00Z"`）；date：`YYYY-MM-DD`。
-3. 前端层：
-
-   * 展示统一 `YYYY-MM-DD HH:mm`（按租户时区换算）。
-4. DSL 中：
-
-   * 日期：`YYYY-MM-DD`；日期时间：`YYYY-MM-DD HH:mm:ss`，按租户时区解释再转 UTC。
-   * 特殊变量 `CURRENT_DATE` / `CURRENT_DATETIME` 必须由后端在执行前展开。
-
----
-
-### 3.4 软删除、状态字段统一约定（必须按实体类型执行）
-
-PRD 明确：优先 status 表示可用性；V1 多数实体采用“物理删除 + 依赖检查”；审计类记录按归档清理。
-
-工程落地要求（必须）：
-
-1. status 的语义必须严格一致：ACTIVE / DISABLED / SUSPENDED 等。
-2. 对 Table/Field/Flow/Dataset/Dashboard 的删除：
-
-   * **必须先做依赖检查**（被引用则禁止删除并返回清晰错误）。
-   * 无依赖则物理删除（并同步删除 ResourceTree 节点、权限记录等关联数据，具体在后续章节定义）。
-3. 对用户/租户/成员关系：
-
-   * 不做物理删除，改 status（保留审计轨迹）。
-
----
-
-### 3.5 错误码 & 错误提示统一规范（前后端必须一致）
-
-PRD 给出统一响应结构与错误码命名建议，以及前端展示要求。
-
-#### 3.5.1 API 响应结构（必须一字不差）
-
-```json
-{
-  "success": false,
-  "code": "ERR_PERMISSION_DENIED",
-  "message": "您没有权限执行此操作",
-  "data": null,
-  "trace_id": "optional-debug-id"
-}
-```
-
-字段含义与要求：success/code/message/data/trace_id。
-
-#### 3.5.2 错误码规则（必须）
-
-* 统一前缀 `ERR_`；例如：无权限、租户停用、表被引用、DSL 不合法等。
-* 模块前缀建议：USER_/TENANT_/MODEL_/FLOW_/REPORT_/PERM_/LLM_。
-
-#### 3.5.3 前端展示强约束（必须）
-
-* 权限错误：提示“无权限 + 联系管理员”；不暴露后端堆栈。
-* 校验错误：必须定位到具体字段与原因。
-* 业务约束错误（如删除依赖）：必须列出关键依赖资源名，帮助用户自行处理。
-# 4. 公共能力：统一过滤 DSL 与权限体系（可直接实现）
-
-> 本章覆盖：统一过滤 DSL（FilterDSL）引擎、资源级权限（RolePermission）、行级权限（RowPermission）、列级权限（ColumnPermission）、以及运行时“强校验”落地方式。所有权限控制以**后端强校验**为准，前端仅改善体验。 
-
----
-
-## 4.0 范围、前置依赖、缺失信息处理
-
-### 4.0.1 本章范围
-
-1. FilterDSL：结构定义、校验、变量注入、SQL 编译、安全约束与错误返回（不做 silent ignore）。 
-2. 资源树与资源级权限：按 scope 构建资源树；Folder 默认权限向下继承；资源节点显式配置覆盖默认值；单角色与多角色合并算法。  
-3. 行权限：同一（role, table）0~N 规则 OR；多角色再 OR；与业务过滤按 AND 叠加；TABLE_DATA=MANAGE 本期默认绕过行权限。  
-4. 列权限：HIDDEN / READONLY / READWRITE；多角色合并规则；对查询、排序、写入接口的强制约束。  
-5. 审计：所有权限变更必须可追溯（本章给出 MVP 审计落表与写入点）。 
-
-### 4.0.2 前置依赖（本章会直接读写/引用）
-
-* Tenant / TenantUser / Role / TenantUserRole（租户成员与角色体系）  
-* ResourceTree（按 scope 的资源树） 
-* Table / Field（建模元信息；FilterDSL 的 field 必须是 Field.code）  
-
-### 4.0.3 缺失信息清单 + MVP ASSUMPTION + 替代方案（只选一个落地）
-
-| 缺失点                                                       | PRD现状       | MVP 落地方案（ASSUMPTION）                                                                                       | 替代方案（不选）                                |
-| --------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| ColumnPermission 未配置字段的默认 access_level                    | PRD未写默认值    | **ASSUMPTION-CP-DEFAULT：默认 READWRITE**。理由：列权限用于“隐藏/只读敏感字段”，未配置即不额外收紧；最终写入仍受 TABLE_DATA 权限约束。               | 默认 HIDDEN（需要全量配置，成本高）                   |
-| RolePermission 中 `resource_id` 可能是 Folder 节点ID或资源ID（潜在冲突） | PRD允许二者     | **ASSUMPTION-RP-TARGET：统一存 `resource_tree_node_id`**（Folder/Resource 都是 ResourceTreeNode），避免 id 冲突，继承计算更直接 | 继续用 resource_id + is_folder 字段（多字段、易误用） |
-| 权限配置并发冲突处理                                                | PRD未写       | **ASSUMPTION-CONFLICT：Last-Write-Wins + 审计记录**；所有写接口采用“整表替换/批量 upsert”，并用数据库事务保证原子性                        | 乐观锁 version（需要全链路处理冲突 UI）               |
-| 审计日志格式与查询方式                                               | PRD说第13章统一  | **ASSUMPTION-AUDIT：本期先落 audit_log 表**，记录 before/after JSON、actor、request_id；查询接口可后续增强（但写入点本章给全）            | 仅写应用日志（不可检索、不可结构化）                      |
-
----
-
-## 4.1 数据模型与 ER 图（含字段字典）
-
-### 4.1.1 ER 图（PlantUML）
-
-```plantuml
-@startuml
-entity Tenant {
-  id
-  status
-}
-
-entity TenantUser {
-  id
-  tenant_id
-  user_id
-  status
-  is_owner
-}
-
-entity Role {
-  id
-  tenant_id
-  name
-  is_system
-}
-
-entity TenantUserRole {
-  tenant_user_id
-  role_id
-}
-
-entity ResourceTreeNode {
-  id
-  tenant_id
-  scope
-  node_type
-  resource_id
-  parent_id
-  display_name
-  sort_order
-}
-
-entity RolePermission {
-  id
-  tenant_id
-  role_id
-  resource_type
-  resource_tree_node_id
-  permission
-}
-
-entity RowPermission {
-  id
-  tenant_id
-  role_id
-  table_id
-  rule_name
-  filter_json
-}
-
-entity ColumnPermission {
-  id
-  tenant_id
-  role_id
-  table_id
-  column_code
-  access_level
-}
-
-entity TableMeta {
-  id
-  tenant_id
-  code
-}
-
-entity FieldMeta {
-  id
-  tenant_id
-  table_id
-  code
-  data_type
-}
-
-entity AuditLog {
-  id
-  tenant_id
-  actor_tenant_user_id
-  action
-  entity_type
-  entity_id
-  before_json
-  after_json
-  request_id
-  created_at
-}
-
-Tenant "1" -- "0..*" TenantUser
-Tenant "1" -- "0..*" Role
-TenantUser "1" -- "0..*" TenantUserRole
-Role "1" -- "0..*" TenantUserRole
-
-Tenant "1" -- "0..*" ResourceTreeNode
-Role "1" -- "0..*" RolePermission
-ResourceTreeNode "1" -- "0..*" RolePermission
-
-Role "1" -- "0..*" RowPermission
-Role "1" -- "0..*" ColumnPermission
-TableMeta "1" -- "0..*" RowPermission
-TableMeta "1" -- "0..*" ColumnPermission
-TableMeta "1" -- "0..*" FieldMeta
-
-Tenant "1" -- "0..*" AuditLog
-TenantUser "1" -- "0..*" AuditLog
-@enduml
-```
-
-### 4.1.2 表结构（DDL 级约束 + 索引）
-
-> 数据库：MySQL 8；所有表必须包含 `tenant_id` 并参与索引；所有写操作必须写入审计表 `audit_log`（见 4.1.4）。
-
-#### 4.1.2.1 resource_tree_node（资源树）
-
-* 逻辑字段来自 PRD：`id/tenant_id/scope/type(resource)/resource_id/parent_id/display_name/sort_order`，并要求“目录禁止挂载在具体资源之下”。 
-
-**DDL（MVP）**
-
-```sql
-CREATE TABLE resource_tree_node (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  tenant_id BIGINT NOT NULL,
-  scope VARCHAR(16) NOT NULL,              -- TABLE/FLOW/DATASET/DASHBOARD
-  node_type VARCHAR(16) NOT NULL,          -- FOLDER/TABLE/FLOW/DATASET/DASHBOARD
-  resource_id BIGINT NULL,                 -- 非 FOLDER 时指向对应资源主键
-  parent_id BIGINT NULL,
-  display_name VARCHAR(128) NOT NULL,
-  sort_order INT NOT NULL DEFAULT 0,
-  created_at DATETIME NOT NULL,
-  updated_at DATETIME NOT NULL,
-  UNIQUE KEY uk_tenant_scope_parent_name (tenant_id, scope, parent_id, display_name),
-  KEY idx_tenant_scope_parent (tenant_id, scope, parent_id),
-  KEY idx_tenant_scope_node_type (tenant_id, scope, node_type)
-);
-```
-
-**强约束（后端校验，任何写接口必须执行）**
-
-1. `scope` ∈ {TABLE, FLOW, DATASET, DASHBOARD}。
-2. `node_type=FOLDER` ⇒ `resource_id IS NULL`。
-3. `node_type!=FOLDER` ⇒ `resource_id IS NOT NULL` 且该 `resource_id` 必须存在于对应资源表。
-4. **禁止把 Folder 挂在 Resource 节点下**：若 `parent_id` 指向的节点 `node_type!=FOLDER` ⇒ 返回错误 `ERR_TREE_FOLDER_UNDER_RESOURCE`（409）。
-5. 同一（tenant_id, scope, parent_id）下 `display_name` 唯一（重复返回 409）。
-
-#### 4.1.2.2 role_permission（资源级权限）
-
-* 覆盖类型：TABLE_SCHEMA / TABLE_DATA / FLOW / DATASET / DASHBOARD。 
-* 权限等级：NONE / VIEW / EDIT / MANAGE；MANAGE 包含删除、移动、配置权限等。 
-
-**DDL（采用 ASSUMPTION-RP-TARGET：resource_tree_node_id）**
-
-```sql
-CREATE TABLE role_permission (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  tenant_id BIGINT NOT NULL,
-  role_id BIGINT NOT NULL,
-  resource_type VARCHAR(16) NOT NULL,            -- TABLE_SCHEMA/TABLE_DATA/FLOW/DATASET/DASHBOARD
-  resource_tree_node_id BIGINT NOT NULL,         -- 指向 folder 或 resource 节点
-  permission VARCHAR(16) NOT NULL,               -- NONE/VIEW/EDIT/MANAGE
-  created_at DATETIME NOT NULL,
-  updated_at DATETIME NOT NULL,
-  UNIQUE KEY uk_role_res (tenant_id, role_id, resource_type, resource_tree_node_id),
-  KEY idx_tenant_role (tenant_id, role_id),
-  KEY idx_tenant_resnode (tenant_id, resource_tree_node_id),
-  CONSTRAINT fk_rp_role FOREIGN KEY(role_id) REFERENCES role(id),
-  CONSTRAINT fk_rp_node FOREIGN KEY(resource_tree_node_id) REFERENCES resource_tree_node(id)
-);
-```
-
-#### 4.1.2.3 row_permission（行权限）
-
-* 每条规则是 FilterDSL；同一（role, table）0~N 条规则，角色内 OR；多角色再 OR；与业务过滤按 AND 叠加。  
-
-**DDL**
-
-```sql
-CREATE TABLE row_permission (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  tenant_id BIGINT NOT NULL,
-  role_id BIGINT NOT NULL,
-  table_id BIGINT NOT NULL,
-  rule_name VARCHAR(64) NOT NULL,
-  filter_json JSON NOT NULL,
-  created_at DATETIME NOT NULL,
-  updated_at DATETIME NOT NULL,
-  UNIQUE KEY uk_role_table_rule (tenant_id, role_id, table_id, rule_name),
-  KEY idx_tenant_table (tenant_id, table_id),
-  KEY idx_tenant_role_table (tenant_id, role_id, table_id)
-);
-```
-
-#### 4.1.2.4 column_permission（列权限）
-
-* access_level：HIDDEN / READONLY / READWRITE。 
-
-**DDL**
-
-```sql
-CREATE TABLE column_permission (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  tenant_id BIGINT NOT NULL,
-  role_id BIGINT NOT NULL,
-  table_id BIGINT NOT NULL,
-  column_code VARCHAR(64) NOT NULL,
-  access_level VARCHAR(16) NOT NULL,          -- HIDDEN/READONLY/READWRITE
-  created_at DATETIME NOT NULL,
-  updated_at DATETIME NOT NULL,
-  UNIQUE KEY uk_role_table_col (tenant_id, role_id, table_id, column_code),
-  KEY idx_tenant_table (tenant_id, table_id),
-  KEY idx_tenant_role_table (tenant_id, role_id, table_id)
-);
-```
-
-#### 4.1.2.5 audit_log（权限审计 MVP）
-
-> PRD要求：角色/权限变更必须产生日志，本期至少保证后端可追溯。 
-
-**DDL**
-
-```sql
-CREATE TABLE audit_log (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  tenant_id BIGINT NOT NULL,
-  actor_tenant_user_id BIGINT NOT NULL,
-  action VARCHAR(64) NOT NULL,               -- e.g. ROLE_PERMISSION_REPLACE / ROW_PERMISSION_REPLACE / COLUMN_PERMISSION_REPLACE
-  entity_type VARCHAR(64) NOT NULL,          -- e.g. role_permission / row_permission / column_permission / resource_tree_node
-  entity_id VARCHAR(64) NOT NULL,            -- 支持批量：可填 role_id 或 "role:{id}:table:{id}"
-  before_json JSON NULL,
-  after_json JSON NULL,
-  request_id VARCHAR(64) NOT NULL,
-  created_at DATETIME NOT NULL,
-  KEY idx_tenant_time (tenant_id, created_at),
-  KEY idx_tenant_actor (tenant_id, actor_tenant_user_id)
-);
-```
-
----
-
-### 4.1.3 字段字典表（必须包含：来源/更新时机/是否可编辑/审计策略）
-
-> 说明：依赖表（Tenant/TenantUser/Role/TenantUserRole/Table/Field）仅列出本章用到字段；本章新增表全部列出。
-
-#### 4.1.3.1 resource_tree_node 字段字典
-
-| 字段           | 类型           | 来源         | 更新时机   | 是否可编辑     | 审计策略                                |
-| ------------ | ------------ | ---------- | ------ | --------- | ----------------------------------- |
-| id           | BIGINT       | DB 生成      | 创建时    | 否         | 不单独审计（通过 action 记录整体变更）             |
-| tenant_id    | BIGINT       | 上下文 Tenant | 创建时    | 否         | 写入 audit_log.after_json             |
-| scope        | VARCHAR(16)  | 前端选择       | 创建/移动时 | 否（创建后禁止改） | 修改 scope 禁止；若尝试返回 400 并审计失败请求（应用日志） |
-| node_type    | VARCHAR(16)  | 创建类型       | 创建时    | 否（创建后禁止改） | 禁止改；失败记录应用日志                        |
-| resource_id  | BIGINT       | 资源表主键      | 创建时    | 否         | 仅创建时记录                              |
-| parent_id    | BIGINT       | 前端拖拽/选择    | 移动时    | 是         | 变更前后写 audit_log（before/after）       |
-| display_name | VARCHAR(128) | 前端输入       | 重命名时   | 是         | 变更前后写 audit_log                     |
-| sort_order   | INT          | 前端拖拽排序     | 排序时    | 是         | 批量排序：记录批量 after_json（包含节点列表与顺序）     |
-| created_at   | DATETIME     | 系统时间       | 创建时    | 否         | 固定写入                                |
-| updated_at   | DATETIME     | 系统时间       | 任意更新   | 否         | 固定写入                                |
-
-#### 4.1.3.2 role_permission 字段字典
-
-| 字段                    | 类型          | 来源         | 更新时机 | 是否可编辑            | 审计策略                                    |
-| --------------------- | ----------- | ---------- | ---- | ---------------- | --------------------------------------- |
-| id                    | BIGINT      | DB 生成      | 创建时  | 否                | 批量替换写入 before/after                     |
-| tenant_id             | BIGINT      | 上下文 Tenant | 创建时  | 否                | 同上                                      |
-| role_id               | BIGINT      | URL path   | 替换时  | 否                | entity_id=role_id，before/after 包含全量权限配置 |
-| resource_type         | VARCHAR(16) | 请求体        | 替换时  | 否（每次替换固定一个 type） | 同上                                      |
-| resource_tree_node_id | BIGINT      | 请求体        | 替换时  | 是（通过替换实现）        | 同上                                      |
-| permission            | VARCHAR(16) | 请求体        | 替换时  | 是                | 同上                                      |
-| created_at/updated_at | DATETIME    | 系统时间       | 写入时  | 否                | 同上                                      |
-
-#### 4.1.3.3 row_permission 字段字典
-
-| 字段                    | 类型          | 来源         | 更新时机 | 是否可编辑 | 审计策略                             |
-| --------------------- | ----------- | ---------- | ---- | ----- | -------------------------------- |
-| id                    | BIGINT      | DB 生成      | 创建时  | 否     | 替换：before/after 全量               |
-| tenant_id             | BIGINT      | 上下文 Tenant | 创建时  | 否     | 同上                               |
-| role_id               | BIGINT      | URL path   | 替换时  | 否     | entity_id=`role:{id}:table:{id}` |
-| table_id              | BIGINT      | URL path   | 替换时  | 否     | 同上                               |
-| rule_name             | VARCHAR(64) | 请求体        | 替换时  | 是     | 同上                               |
-| filter_json           | JSON        | 请求体        | 替换时  | 是     | 同上（必须记录完整 DSL）                   |
-| created_at/updated_at | DATETIME    | 系统时间       | 写入时  | 否     | 同上                               |
-
-#### 4.1.3.4 column_permission 字段字典
-
-| 字段                    | 类型          | 来源         | 更新时机 | 是否可编辑 | 审计策略                             |
-| --------------------- | ----------- | ---------- | ---- | ----- | -------------------------------- |
-| id                    | BIGINT      | DB 生成      | 创建时  | 否     | 替换：before/after 全量               |
-| tenant_id             | BIGINT      | 上下文 Tenant | 创建时  | 否     | 同上                               |
-| role_id               | BIGINT      | URL path   | 替换时  | 否     | entity_id=`role:{id}:table:{id}` |
-| table_id              | BIGINT      | URL path   | 替换时  | 否     | 同上                               |
-| column_code           | VARCHAR(64) | 请求体        | 替换时  | 是     | 同上                               |
-| access_level          | VARCHAR(16) | 请求体        | 替换时  | 是     | 同上                               |
-| created_at/updated_at | DATETIME    | 系统时间       | 写入时  | 否     | 同上                               |
-
-#### 4.1.3.5 audit_log 字段字典
-
-| 字段                     | 类型          | 来源             | 更新时机 | 是否可编辑 | 审计策略  |
-| ---------------------- | ----------- | -------------- | ---- | ----- | ----- |
-| id                     | BIGINT      | DB 生成          | 创建时  | 否     | 自身不审计 |
-| tenant_id              | BIGINT      | 上下文 Tenant     | 写入时  | 否     | 自身不审计 |
-| actor_tenant_user_id   | BIGINT      | 上下文 TenantUser | 写入时  | 否     | 自身不审计 |
-| action                 | VARCHAR(64) | 服务层常量          | 写入时  | 否     | 自身不审计 |
-| entity_type/entity_id  | VARCHAR     | 服务层拼接          | 写入时  | 否     | 自身不审计 |
-| before_json/after_json | JSON        | 服务层组装          | 写入时  | 否     | 自身不审计 |
-| request_id             | VARCHAR(64) | 中间件生成          | 写入时  | 否     | 自身不审计 |
-| created_at             | DATETIME    | 系统时间           | 写入时  | 否     | 自身不审计 |
-
----
-
-## 4.2 FilterDSL 引擎（结构、校验、变量、SQL 编译）
-
-### 4.2.1 DSL 结构（PRD一致）
-
-* Group：`{ op, conditions }`，`op` 只能是 `"and"`/`"or"`；
-* Condition：`{ field, operator, value }`，`field` 必须是 `Field.code`；
-* 顶层可为 Group 或单独 Condition。 
-
-### 4.2.2 操作符与类型约束（必须强校验）
-
-* operator 白名单与 value 形态：`in/not_in` 必须数组；`between` 必须长度 2 数组；`is_null/is_not_null` value 省略或 null。  
-* 不同字段类型允许的 operator 必须按 PRD 过滤。 
-
-### 4.2.3 特殊变量注入（必须按枚举）
-
-* 变量格式固定：`{"__var__": "<NAME>"}`；前端只能从枚举选择，不允许自由填写。 
-* 内置变量：CURRENT_USER_ID / CURRENT_TENANT_ID / CURRENT_DATE / CURRENT_DATETIME。 
-
-### 4.2.4 DSL → SQL 约束（安全边界）
-
-强制规则（违反任一条都必须返回 4xx，带明确原因）：
-
-1. 仅支持 AND/OR；不支持 NOT；不支持 SQL 函数/子查询。 
-2. 禁止 SQL 直写；DSL 不提供任何可注入 SQL 的字段。 
-3. field 必须属于当前上下文 Field.code；禁止点号/表别名跨表写法。 
-4. operator 必须在白名单。 
-5. 字段不存在/类型不匹配/结构非法：返回 4xx；禁止“默认放宽”或 silent ignore。 
-
-### 4.2.5 实现细节：校验与编译（伪代码 + DB/事务点）
-
-#### 4.2.5.1 上下文字段目录（FieldCatalog）
-
-**输入**
-
-* `tenant_id`
-* `context_type`：`TABLE`（本章所有 DSL 校验最小实现只支持 TABLE；Dataset/Chart 复用时传入相同 catalog 构造方式）
-* `context_id`：`table_id`
-
-**构造规则**
-
-1. 查询 `field_meta`（或你系统中的 Field 表）得到 `{code, data_type}` 列表；
-2. 生成 `allowed_fields: Dict[str, DataType]`；
-3. **必须**额外生成 `code -> sql_expr` 映射：本章统一为 `` `t`.`<column_name>` ``（实际列名若与 code 不一致，则在 Field 表内必须存在 `physical_name` 字段；缺失则按 code=physical_name 处理）。
-
-> ASSUMPTION-FIELD-PHYSICAL：Field.code 默认等于物理列名；如不等，需要 Field 表提供 `physical_name` 并在 catalog 构造时使用它。
-
-#### 4.2.5.2 校验函数（validate_filter_dsl）
-
-* 运行时复杂度约束（ASSUMPTION-DSL-LIMITS，防止极端配置拖垮 DB）：
-
-  * 最大深度 `MAX_DEPTH=8`
-  * 最大节点数 `MAX_NODES=200`
-  * 违反即 400 `ERR_FILTER_DSL_TOO_COMPLEX`
-
-伪代码（关键校验点必须实现）：
-
-```python
-def validate_filter_dsl(node, catalog, depth=1, counter=0):
-    if depth > MAX_DEPTH:
-        raise Err("ERR_FILTER_DSL_TOO_DEEP")
-
-    counter += 1
-    if counter > MAX_NODES:
-        raise Err("ERR_FILTER_DSL_TOO_COMPLEX")
-
-    if is_group(node):
-        op = node.get("op")
-        if op not in ("and", "or"):
-            raise Err("ERR_FILTER_DSL_INVALID_OP")
-        conditions = node.get("conditions")
-        if not isinstance(conditions, list) or len(conditions) == 0:
-            raise Err("ERR_FILTER_DSL_EMPTY_CONDITIONS")
-        for child in conditions:
-            validate_filter_dsl(child, catalog, depth+1, counter)
-        return
-
-    # condition
-    field = node.get("field")
-    operator = node.get("operator")
-    if field not in catalog.allowed_fields:
-        raise Err("ERR_FILTER_DSL_FIELD_NOT_ALLOWED")
-    if operator not in OPERATOR_WHITELIST:
-        raise Err("ERR_FILTER_DSL_OPERATOR_NOT_ALLOWED")
-
-    dtype = catalog.allowed_fields[field]
-    if operator not in ALLOWED_OPERATORS_BY_TYPE[dtype]:
-        raise Err("ERR_FILTER_DSL_OPERATOR_TYPE_MISMATCH")
-
-    # value validation (including __var__)
-    if operator in ("is_null", "is_not_null"):
-        return
-
-    value = node.get("value", None)
-    if is_var(value):
-        var_name = value.get("__var__")
-        if var_name not in VAR_ENUM:
-            raise Err("ERR_FILTER_DSL_VAR_NOT_ALLOWED")
-        # dtype compatibility check for var (e.g. CURRENT_DATE only for date/datetime)
-        check_var_compatible(var_name, dtype)
-        return
-
-    # operator-specific shape
-    if operator in ("in", "not_in"):
-        if not isinstance(value, list) or len(value) == 0:
-            raise Err("ERR_FILTER_DSL_IN_REQUIRES_NONEMPTY_ARRAY")
-    if operator == "between":
-        if not isinstance(value, list) or len(value) != 2:
-            raise Err("ERR_FILTER_DSL_BETWEEN_REQUIRES_2_ARRAY")
-
-    # dtype-specific value parsing (date/datetime format)
-    check_value_type_and_format(value, dtype)
-```
-
-#### 4.2.5.3 编译函数（compile_filter_dsl_to_sql）
-
-**强制要求**
-
-* 必须参数化：禁止把 value 拼进 SQL 字符串；
-* 输出：`(sql_fragment: str, params: list)`；
-* LIKE 类操作必须转义 `%`/`_`（ASSUMPTION-LIKE-ESC：使用 `ESCAPE '\\'`）。
-
-伪代码（核心映射必须实现）：
-
-```python
-def compile(node, catalog, ctx):
-    if is_group(node):
-        parts, params = [], []
-        for child in node["conditions"]:
-            s, p = compile(child, catalog, ctx)
-            parts.append(f"({s})")
-            params.extend(p)
-        joiner = " AND " if node["op"] == "and" else " OR "
-        return joiner.join(parts), params
-
-    field_code = node["field"]
-    operator = node["operator"]
-    sql_expr = catalog.sql_expr[field_code]  # e.g. `t`.`amount`
-    value = node.get("value")
-
-    if operator == "is_null":
-        return f"{sql_expr} IS NULL", []
-    if operator == "is_not_null":
-        return f"{sql_expr} IS NOT NULL", []
-
-    if is_var(value):
-        value = resolve_var(value["__var__"], ctx)  # CURRENT_USER_ID etc.
-
-    if operator == "=":
-        if value is None:
-            return f"{sql_expr} IS NULL", []
-        return f"{sql_expr} = %s", [value]
-    if operator == "!=":
-        if value is None:
-            return f"{sql_expr} IS NOT NULL", []
-        return f"{sql_expr} <> %s", [value]
-    if operator in (">", ">=", "<", "<="):
-        return f"{sql_expr} {operator} %s", [value]
-    if operator in ("in", "not_in"):
-        placeholders = ",".join(["%s"] * len(value))
-        op = "IN" if operator == "in" else "NOT IN"
-        return f"{sql_expr} {op} ({placeholders})", list(value)
-    if operator == "between":
-        return f"{sql_expr} BETWEEN %s AND %s", [value[0], value[1]]
-    if operator in ("contains", "not_contains", "starts_with", "ends_with"):
-        like_val = build_like_value(operator, value)  # add % accordingly, escape
-        op = "LIKE" if operator in ("contains","starts_with","ends_with") else "NOT LIKE"
-        return f"{sql_expr} {op} %s ESCAPE '\\\\'", [like_val]
-
-    raise Err("ERR_FILTER_DSL_OPERATOR_NOT_SUPPORTED")
-```
-
----
-
-## 4.3 资源树与资源级权限（RolePermission）
-
-### 4.3.1 资源树 scope 与节点类型
-
-* 每类资源独立一棵树：scope=TABLE/FLOW/DATASET/DASHBOARD。 
-* 节点类型：FOLDER + 对应资源节点（TABLE/FLOW/DATASET/DASHBOARD）。 
-* 前端展示：用户只看到“有权限的资源节点及其父目录”；Folder 权限作为默认权限向下继承；目录禁止挂载在具体资源之下。 
-
-### 4.3.2 RolePermission 资源类型与等级
-
-* resource_type：TABLE_SCHEMA / TABLE_DATA / FLOW / DATASET / DASHBOARD。 
-* permission：NONE < VIEW < EDIT < MANAGE。 
-
-### 4.3.3 单角色权限计算（Folder 默认 + 资源显式覆盖）
-
-PRD要点：
-
-* Folder 节点可配置“默认权限”；未单独配置权限的子资源使用最近祖先 Folder 默认权限；资源节点显式配置覆盖默认值。 
-* 单角色内部：从资源节点向上回溯收集权限设置，取最大等级。 
-
-**落地算法（可执行，解决“覆盖 vs max”的冲突）**
-
-> 规则优先级（必须实现）
-> 1）若资源节点自身存在显式 role_permission：**直接使用该值**（覆盖默认）；
-> 2）否则：在祖先 Folder 链上收集 role_permission，取最大等级（满足 PRD 的“max”）；
-> 3）若链上也不存在：返回 NONE。
+* ERR_AUTH_REQUIRED（未登录/Token 失效 → 401）
+* ERR_TENANT_NOT_FOUND
+* ERR_TENANT_SUSPENDED
+* ERR_SETTINGS_FORBIDDEN（无 Settings 权限 → 403）
 
 伪代码：
 
-```python
-PERM_ORDER = {"NONE":0,"VIEW":1,"EDIT":2,"MANAGE":3}
-
-def single_role_permission(role_id, resource_type, res_node_id):
-    node = ResourceTreeNode.get(id=res_node_id)
-    # 1) resource-node explicit
-    rp = RolePermission.get_optional(role_id=role_id, resource_type=resource_type, resource_tree_node_id=res_node_id)
-    if rp is not None:
-        return rp.permission
-
-    # 2) ancestors folder defaults: max
-    cur = node.parent_id
-    best = "NONE"
-    while cur is not None:
-        pnode = ResourceTreeNode.get(id=cur)
-        if pnode.node_type == "FOLDER":
-            prp = RolePermission.get_optional(role_id=role_id, resource_type=resource_type, resource_tree_node_id=pnode.id)
-            if prp is not None and PERM_ORDER[prp.permission] > PERM_ORDER[best]:
-                best = prp.permission
-        cur = pnode.parent_id
-    return best
+```text
+RoleService.listRoles(tenant_id, actor):
+  assert Auth.requireLogin(actor)
+  assert TenantContext.requireTenantActive(tenant_id)
+  assert PermissionEngine.allowSettings(actor, tenant_id)
+  return RoleRepo.listByTenant(tenant_id, order_by=name)
 ```
 
-### 4.3.4 多角色合并（Effective Resource Permission）
+---
 
-* 用户对资源 R 的最终 permission：对所有角色取最大值。 
+#### API 2：创建角色
+
+* `POST /api/tenants/{tenant_id}/roles`
+
+入参（body）：
+
+| 字段          | 类型      | 必填 | 约束          | 说明                |
+| ----------- | ------- | -: | ----------- | ----------------- |
+| name        | string  |  是 | 1..64，同租户唯一 | 角色名               |
+| description | string  |  否 | ≤255        | 描述                |
+| is_system   | boolean |  否 | 默认为 false   | 是否模板角色（一般仅系统初始化用） |
+
+出参（data）：
+
+| 字段 | 类型     | 说明    |
+| -- | ------ | ----- |
+| id | bigint | 新角色ID |
+
+校验与异常分支：
+
+1. allow_settings 校验失败 → 403
+2. name 为空/超长 → 400
+3. name 重复（同 tenant）→ 409
+4. DB 写入失败 → 500
+
+错误码：
+
+* ERR_SETTINGS_FORBIDDEN
+* ERR_PARAM_INVALID（name/description）
+* ERR_ROLE_NAME_CONFLICT
+* ERR_DB_WRITE_FAILED
 
 伪代码：
 
-```python
-def effective_permission(tenant_user_id, resource_type, res_node_id):
-    role_ids = get_roles(tenant_user_id)
-    best = "NONE"
-    for rid in role_ids:
-        p = single_role_permission(rid, resource_type, res_node_id)
-        if PERM_ORDER[p] > PERM_ORDER[best]:
-            best = p
-    return best
+```text
+RoleService.createRole(tenant_id, actor, payload):
+  requireLogin + tenantActive + allowSettings
+  validate payload.name (not blank, len<=64)
+  if RoleRepo.existsName(tenant_id, payload.name): raise CONFLICT
+  begin tx
+    role_id = RoleRepo.insert(...)
+    Audit.log(actor, "ROLE_CREATE", target=role_id, summary="create role")
+  commit
+  return role_id
 ```
-
-### 4.3.5 资源树“可见性”计算（以 TABLE 为例，必须实现）
-
-* 若用户对表 T：TABLE_SCHEMA=NONE 且 TABLE_DATA=NONE ⇒ 不在资源树展示该表；否则展示。 
-* Folder：若递归下没有任何可见资源，可隐藏；若存在任意可见资源，展示该 Folder（即便用户无 Folder 的管理权限）。 
-
-**实现要求**
-
-1. 后端提供 `list_visible_tree(scope)`：返回“可见资源节点 + 必要父目录”的树形结构；
-2. 计算过程必须以 RolePermission（effective）为准，不允许前端自行推断；
-3. 输出节点必须包含：`id,node_type,resource_id,display_name,parent_id,sort_order`。
 
 ---
 
-## 4.4 行级权限（RowPermission）
+#### API 3：编辑角色（名称/描述）
 
-### 4.4.1 规则合并与“无规则”语义（必须与 PRD 一致）
+* `PATCH /api/tenants/{tenant_id}/roles/{role_id}`
 
-* 对（role, table）：0~N 条规则；角色内 OR 合并。 
-* 若某角色在该表无任何规则：该角色不施加额外行限制（等价“全量可见”，前提 TABLE_DATA 允许）。 
-* 多角色再 OR：`final_row_filter(user,t) = OR_over_roles(row_filter(role_i,t))`。 
+入参（body）：
 
-> 直接推论（必须按语义实现）：只要用户拥有任一“无规则角色”，其 row filter 即为 TRUE（不额外限制）。
+| 字段          | 类型     | 必填 | 约束          | 说明  |
+| ----------- | ------ | -: | ----------- | --- |
+| name        | string |  否 | 1..64，同租户唯一 | 新名称 |
+| description | string |  否 | ≤255        | 新描述 |
 
-### 4.4.2 与业务过滤叠加顺序（必须实现且不可绕过）
+校验与异常分支：
 
-查询统一约定（表数据页/Flow 节点查询/Dataset/Chart 查询）：
+* role_id 不存在/不属于 tenant → 404
+* 修改后 name 冲突 → 409
+* 修改 owner 模板/系统模板是否允许：本期允许修改（is_system 不作强约束）
 
-1. Dataset.base_filter（若存在）
-2. Chart/Flow 节点业务过滤
-3. RowPermission 行权限
-   三者按 AND：`base_filter AND business_filter AND row_permission_filter`，业务过滤不能绕过行权限。 
+错误码：
 
-### 4.4.3 TABLE_DATA=MANAGE 绕过行权限（本期必须实现）
+* ERR_ROLE_NOT_FOUND
+* ERR_ROLE_NAME_CONFLICT
+* ERR_DB_WRITE_FAILED
+* ERR_SETTINGS_FORBIDDEN
 
-* 若用户在该表 TABLE_DATA 上任一角色为 MANAGE：本期默认策略——不受行级权限限制。 
+伪代码（同上，事务 + 审计）略。
+
+---
+
+#### API 4：删除角色
+
+* `DELETE /api/tenants/{tenant_id}/roles/{role_id}`
+
+强制规则（实现）：
+
+1. 不允许删除仍被绑定到成员的角色（需要先解绑），或采用“删除时自动解绑”策略。为避免误伤权限，本期约定：**必须先解绑**。
+2. 角色删除必须同步清理该角色的 RolePermission/RowPermission/ColumnPermission。
+3. is_system 角色本期允许删除（PRD 明确不施加特殊约束）。
+
+错误码：
+
+* ERR_ROLE_NOT_FOUND
+* ERR_ROLE_IN_USE（仍有成员绑定）
+* ERR_SETTINGS_FORBIDDEN
+* ERR_DB_WRITE_FAILED
 
 伪代码：
 
-```python
-def final_row_filter_sql(tenant_user_id, table_id, catalog, ctx):
-    if effective_table_data_perm(tenant_user_id, table_id) == "MANAGE":
-        return "1=1", []
-
-    role_ids = get_roles(tenant_user_id)
-
-    # 角色无规则 => TRUE
-    role_sql_parts = []
-    role_params = []
-    for rid in role_ids:
-        rules = RowPermission.list(role_id=rid, table_id=table_id)
-        if len(rules) == 0:
-            return "1=1", []  # 任一角色全量 => 全量
-        # role inner OR
-        parts, params = [], []
-        for r in rules:
-            validate_filter_dsl(r.filter_json, catalog)
-            s, p = compile(r.filter_json, catalog, ctx)
-            parts.append(f"({s})")
-            params.extend(p)
-        role_sql_parts.append("(" + " OR ".join(parts) + ")")
-        role_params.extend(params)
-
-    # multi-role OR
-    return "(" + " OR ".join(role_sql_parts) + ")", role_params
+```text
+RoleService.deleteRole(tenant_id, actor, role_id):
+  requireLogin + tenantActive + allowSettings
+  role = RoleRepo.get(tenant_id, role_id) else NOT_FOUND
+  if TenantUserRoleRepo.countMembers(tenant_id, role_id) > 0: raise ROLE_IN_USE
+  begin tx
+    RolePermissionRepo.deleteByRole(...)
+    RowPermissionRepo.deleteByRole(...)
+    ColumnPermissionRepo.deleteByRole(...)
+    RoleRepo.delete(role_id)
+    Audit.log(actor, "ROLE_DELETE", target=role_id, summary="delete role")
+  commit
 ```
 
 ---
 
-## 4.5 列级权限（ColumnPermission）
+### 5.8.3 成员角色关系与 Owner
 
-### 4.5.1 权限级别与行为（必须实现）
+#### API 5：为成员绑定角色
 
-* HIDDEN：查询结果不返回；列表不展示；Chart 选择器不列出；若历史 Chart 引用但当前用户 HIDDEN，后端可直接返回字段权限错误。 
-* READONLY：可见但不可编辑；API 不接受修改；前端传入值后端需“忽略或报错”（本章必须选定一种）。 
-* READWRITE：正常读写。 
+* `POST /api/tenants/{tenant_id}/users/{tenant_user_id}/roles`
+* body：`{ "role_id": 123 }`
 
-**本章落地选择（必须统一）**
+异常场景（覆盖）：
 
-* ASSUMPTION-RO-WRITE：对 READONLY 字段，若写接口传入该字段：**直接报错 400** `ERR_COLUMN_READONLY`（不忽略），避免“前端 bug 导致静默丢字段”。
+* tenant_user_id 不存在/不属于租户
+* role_id 不存在/不属于租户
+* 已绑定（幂等返回成功或 409，本期约定：幂等成功）
+* 无 Settings 权限
+* 租户停用/成员禁用
 
-### 4.5.2 多角色合并（必须实现）
+#### API 6：移除成员角色
 
-合并规则（PRD）：
+* `DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/roles/{role_id}`
 
-1. 收集用户所有角色在该字段上的权限；
-2. 若所有角色都是 HIDDEN ⇒ 最终 HIDDEN；
-3. 否则：任一 READWRITE ⇒ READWRITE；否则任一 READONLY ⇒ READONLY。 
+异常场景（覆盖）：
 
-结合 ASSUMPTION-CP-DEFAULT（未配置默认 READWRITE）：
+* 关系不存在（幂等成功）
+* 移除后成员无任何角色：允许（最终权限可能变为 NONE）
+* 若成员是 Owner：移除角色不影响 Owner 身份；Owner 约束由 Owner 接口维护
 
-* 若某字段对任一角色未配置 ⇒ 该角色视为 READWRITE ⇒ 最终几乎总是 READWRITE；
-* 因此 **想隐藏某字段，必须对用户可能拥有的所有角色显式配置 HIDDEN**（这是策略结果，需在权限配置 UI 中提示管理员）。
+#### API 7：设置 Owner / 取消 Owner
 
-### 4.5.3 与 TABLE_DATA 资源级权限的关系（必须实现）
+* `POST /api/tenants/{tenant_id}/users/{tenant_user_id}/owner`
+* `DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/owner`
 
-* 即使列权限最终为 READWRITE，如果 TABLE_DATA < EDIT，仍不允许修改。 
+强约束：
 
-### 4.5.4 排序约束（必须实现）
+* 租户至少保留 1 个 Owner；取消 Owner 前必须校验当前 Owner 数量 > 1，否则拒绝。
 
-* 被隐藏字段不可用于排序；若请求排序字段被隐藏，后端必须返回错误并提示前端重置排序。 
-
----
-
-## 4.6 运行时权限校验：流程图、时序图、状态机图（PlantUML）
-
-### 4.6.1 权限校验流程图（PlantUML）
+PlantUML：设置/取消 Owner 流程
 
 ```plantuml
 @startuml
-start
-:Authenticate JWT;
-if (Token valid?) then (yes)
-  :Load TenantContext (tenant_id);
-  if (Tenant ACTIVE?) then (yes)
-    :Load TenantUser in tenant;
-    if (TenantUser ACTIVE?) then (yes)
-      :Resolve roles;
-      :Check resource permission;
-      if (Resource perm >= required?) then (yes)
-        :Apply ColumnPermission;
-        :Validate FilterDSL;
-        :Apply RowPermission;
-        :Execute SQL;
-        :Return data;
-      else (no)
-        :Return 403 PERMISSION_DENIED;
-      endif
-    else (no)
-      :Return 403 TENANT_USER_DISABLED;
-    endif
-  else (no)
-    :Return 403 TENANT_SUSPENDED;
-  endif
-else (no)
-  :Return 401 UNAUTHORIZED;
-endif
-stop
+title Set/Unset Owner
+
+actor Admin
+participant API
+participant PermissionEngine as PE
+participant Repo
+
+Admin -> API : POST/DELETE /owner
+API -> PE : allow_settings?
+PE --> API : yes/no
+API -> Repo : load tenant_user
+Repo --> API : tenant_user
+API -> Repo : count owners in tenant
+Repo --> API : owner_count
+alt delete owner and owner_count <= 1
+  API --> Admin : 409 last owner forbidden
+else ok
+  API -> Repo : update tenant_user.is_owner
+  API -> Repo : write audit log
+  API --> Admin : success
+end
 @enduml
 ```
 
-### 4.6.2 查询请求时序图（PlantUML）
+> 上述 5 个接口（5~7）均必须记录审计：添加/移除角色、设置/取消 Owner。
 
-```plantuml
-@startuml
-actor Client
-participant Middleware as MW
-participant "PermissionEngine" as PE
-participant "FilterDSL" as DSL
-participant "SQLAdapter" as SQL
-participant "MySQL" as DB
+---
 
-Client -> MW : HTTP Request (X-Tenant-Id, JWT)
-MW -> MW : auth + tenant/user load
-MW -> PE : check resource/row/col
-PE -> DSL : validate + compile base/business/row filters
-DSL -> PE : sql_where + params
-PE -> SQL : build final SQL (select/where/order/page)
-SQL -> DB : query(params)
-DB -> SQL : rows
-SQL -> MW : result
-MW -> Client : response
-@enduml
+### 5.8.4 资源树权限配置（RolePermission）
+
+页面行为：角色选择 + Tabs（表/Flow/Dataset/Dashboard）；表权限 tab 对表节点配置表结构/表数据两项；Folder 节点配置默认值；所有更改一个“保存”统一提交。
+
+#### API 8：加载资源树与当前角色权限（按 scope）
+
+* `GET /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions?scope=TABLE|FLOW|DATASET|DASHBOARD`
+
+出参（data）：
+
+| 字段                                  | 类型          | 说明                               |
+| ----------------------------------- | ----------- | -------------------------------- |
+| tree                                | array       | ResourceTree 节点（Folder/Resource） |
+| tree[].node_id                      | bigint      | ResourceTreeNode.id              |
+| tree[].parent_id                    | bigint/null | 父节点                              |
+| tree[].node_type                    | string      | FOLDER/RESOURCE                  |
+| tree[].name                         | string      | 展示名                              |
+| tree[].resource_id                  | bigint/null | 资源ID（资源节点）                       |
+| permissions                         | array       | 当前角色已显式配置的权限列表                   |
+| permissions[].resource_type         | string      | TABLE_SCHEMA/TABLE_DATA/...      |
+| permissions[].resource_tree_node_id | bigint      | 节点ID                             |
+| permissions[].permission            | string      | NONE/VIEW/EDIT/MANAGE            |
+
+校验与异常分支：
+
+* role_id 不存在/不属于 tenant → 404
+* scope 非法 → 400
+
+#### API 9：保存资源权限（覆盖式批量提交）
+
+* `PUT /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions?scope=...`
+
+入参（body）：
+
+| 字段                            | 类型     | 必填 | 约束                    | 说明                          |
+| ----------------------------- | ------ | -: | --------------------- | --------------------------- |
+| items                         | array  |  是 | 允许空数组                 | 显式配置列表                      |
+| items[].resource_type         | string |  是 | 与 scope 匹配            | TABLE_SCHEMA/TABLE_DATA/... |
+| items[].resource_tree_node_id | bigint |  是 | 必须属于该 scope 的资源树      | 节点ID                        |
+| items[].permission            | string |  是 | NONE/VIEW/EDIT/MANAGE | 权限值                         |
+
+实现规则（强制）：
+
+1. **覆盖式保存**：以（tenant_id, role_id, scope 对应 resource_type 集合）为维度，先删后插（或 upsert），保证“保存即当前配置”。
+2. 对表 scope：必须允许同时提交 TABLE_SCHEMA 与 TABLE_DATA 两类记录。
+3. 数据一致性校验失败（节点不属于 scope、节点不存在、resource_type 非法）必须返回明确错误信息。
+4. 成功后立即生效。
+
+错误码（覆盖场景）：
+
+* ERR_ROLE_NOT_FOUND
+* ERR_SCOPE_INVALID
+* ERR_RESOURCE_TREE_NODE_INVALID
+* ERR_PERMISSION_ENUM_INVALID
+* ERR_SETTINGS_FORBIDDEN
+* ERR_DB_WRITE_FAILED
+
+伪代码：
+
+```text
+RolePermissionService.saveScope(tenant_id, actor, role_id, scope, items):
+  requireLogin + tenantActive + allowSettings
+  assert role exists in tenant
+  validate scope -> allowed resource_types
+  for each item:
+    assert item.resource_type in allowed_types
+    assert ResourceTreeNode belongs to (tenant, scope) and exists
+    assert item.permission in [NONE,VIEW,EDIT,MANAGE]
+  begin tx
+    RolePermissionRepo.deleteByRoleAndTypes(tenant_id, role_id, allowed_types)
+    RolePermissionRepo.bulkInsert(items)
+    Audit.log(actor, "ROLE_PERMISSION_SAVE", target=role_id, summary="save scope="+scope)
+  commit
 ```
 
-### 4.6.3 权限校验状态机图（PlantUML）
+---
 
-```plantuml
-@startuml
-[*] --> AUTH_CHECK
-AUTH_CHECK --> TENANT_CHECK : token ok
-AUTH_CHECK --> DENIED_401 : token invalid
+### 5.8.5 列权限配置（ColumnPermission）
 
-TENANT_CHECK --> USER_CHECK : tenant active
-TENANT_CHECK --> DENIED_403_TENANT : tenant suspended
+页面结构：顶部角色选择；中部字段列表表格（展示 Field.display_name/code/type；列权限下拉）；保存即覆盖该角色在该表上的列权限配置；未显式配置字段使用系统默认策略（建议默认 READWRITE，仅受 TABLE_DATA 约束）。
 
-USER_CHECK --> RESOURCE_CHECK : tenant_user active
-USER_CHECK --> DENIED_403_USER : tenant_user disabled/missing
+#### API 10：加载某表某角色的列权限
 
-RESOURCE_CHECK --> COL_CHECK : resource ok
-RESOURCE_CHECK --> DENIED_403_PERM : resource denied
+* `GET /api/tenants/{tenant_id}/tables/{table_id}/column-permissions?role_id=...`
 
-COL_CHECK --> DSL_CHECK
-DSL_CHECK --> ROW_CHECK : dsl ok
-DSL_CHECK --> DENIED_400_DSL : dsl invalid
+出参（data）：
 
-ROW_CHECK --> EXECUTE
-EXECUTE --> [*]
-@enduml
+| 字段                    | 类型     | 说明                            |
+| --------------------- | ------ | ----------------------------- |
+| fields                | array  | 字段列表（含当前 role 的 access_level） |
+| fields[].field_id     | bigint | 字段ID                          |
+| fields[].code         | string | Field.code                    |
+| fields[].display_name | string | Field.display_name            |
+| fields[].type         | string | Field.type                    |
+| fields[].access_level | string | HIDDEN/READONLY/READWRITE     |
+
+#### API 11：保存列权限（覆盖式）
+
+* `PUT /api/tenants/{tenant_id}/tables/{table_id}/column-permissions?role_id=...`
+
+入参（body）：
+
+| 字段                   | 类型     | 必填 | 约束                        | 说明     |
+| -------------------- | ------ | -: | ------------------------- | ------ |
+| items                | array  |  是 | 可为空                       | 字段权限列表 |
+| items[].field_id     | bigint |  是 | 必须属于 table_id             | 字段     |
+| items[].access_level | string |  是 | HIDDEN/READONLY/READWRITE | 列权限    |
+
+强制校验：
+
+* field_id 必须属于该表
+* access_level 枚举合法
+* 可选约束：系统字段（如主键 id）最低 READONLY，不允许 HIDDEN（按需实现）
+
+错误码：
+
+* ERR_TABLE_NOT_FOUND
+* ERR_ROLE_NOT_FOUND
+* ERR_FIELD_NOT_IN_TABLE
+* ERR_ACCESS_LEVEL_INVALID
+* ERR_SETTINGS_FORBIDDEN
+* ERR_DB_WRITE_FAILED
+
+伪代码：
+
+```text
+ColumnPermissionService.save(tenant_id, actor, table_id, role_id, items):
+  requireLogin + tenantActive + allowSettings
+  assert table exists; assert role exists in tenant
+  load table fields set S
+  for item in items:
+    assert item.field_id in S
+    assert access_level in [HIDDEN,READONLY,READWRITE]
+  begin tx
+    ColumnPermissionRepo.deleteByRoleAndTable(tenant_id, role_id, table_id)
+    ColumnPermissionRepo.bulkInsert(items)
+    Audit.log(actor, "COLUMN_PERMISSION_SAVE", target=table_id, summary="role="+role_id)
+  commit
 ```
 
 ---
 
-## 4.7 核心流程（每个流程≥15步，含异常分支；可直接照做实现）
+### 5.8.6 行权限配置（RowPermission）
 
-### 4.7.1 流程 A：表数据查询（含 base_filter + business_filter + row_permission + column_permission）
+页面结构：顶部角色选择；中部规则列表（每条为 RowPermission）；支持新建/编辑/删除；保存时将可视化条件序列化为 FilterDSL JSON 存储。
 
-> 适用场景：表数据页、Flow 节点查询、Dataset/Chart 查询（过滤叠加顺序必须一致）。 
+#### API 12：查询行权限规则列表
 
-**步骤（实现必须逐条落地）**
+* `GET /api/tenants/{tenant_id}/tables/{table_id}/row-permissions?role_id=...`
 
-1. 读取请求头 `Authorization` 与 `X-Tenant-Id`。
-2. 校验 JWT；解析 `global_user_id`。
-3. 异常分支 A1：JWT 缺失/过期/签名错误 ⇒ 返回 401 `ERR_AUTH_INVALID_TOKEN`。
-4. 加载 Tenant：`tenant_id=X-Tenant-Id`。
-5. 异常分支 A2：Tenant 不存在 ⇒ 404 `ERR_TENANT_NOT_FOUND`。
-6. 校验 Tenant.status=ACTIVE（SUSPENDED 禁止访问）。 
-7. 异常分支 A3：Tenant=SUSPENDED ⇒ 403 `ERR_TENANT_SUSPENDED`。
-8. 加载 TenantUser（tenant_id + global_user_id）。 
-9. 异常分支 A4：TenantUser 不存在 ⇒ 403 `ERR_TENANT_USER_NOT_FOUND`。
-10. 校验 TenantUser.status=ACTIVE。 
-11. 异常分支 A5：TenantUser=DISABLED ⇒ 403 `ERR_TENANT_USER_DISABLED`。
-12. 解析目标表 `table_id`；校验 table 属于 tenant。
-13. 异常分支 A6：table 不存在/不属于 tenant ⇒ 404 `ERR_TABLE_NOT_FOUND`。
-14. 计算资源级权限：对该表对应的 ResourceTreeNode，取 effective TABLE_DATA 权限。 
-15. 异常分支 A7：TABLE_DATA < VIEW ⇒ 403 `ERR_PERMISSION_TABLE_DATA_VIEW_REQUIRED`。
-16. 计算列级权限：对请求的 select 列集合，逐列得到最终 access_level（多角色合并 + 默认 READWRITE）。 
-17. 从 select 列中剔除 HIDDEN；若 select 结果为空 ⇒ 异常分支 A8：400 `ERR_NO_VISIBLE_COLUMNS`。
-18. 校验排序字段：若排序字段为 HIDDEN ⇒ 异常分支 A9：400 `ERR_SORT_BY_HIDDEN_COLUMN`。 
-19. 构造 FieldCatalog（4.2.5.1）。
-20. 解析并校验 Dataset.base_filter（若有）：validate_filter_dsl；失败 ⇒ 异常分支 A10：400 `ERR_DATASET_BASE_FILTER_INVALID`。
-21. 解析并校验 business_filter：validate_filter_dsl；失败 ⇒ 异常分支 A11：400 `ERR_BUSINESS_FILTER_INVALID`。
-22. 计算行权限：若 TABLE_DATA=MANAGE ⇒ row_filter=TRUE；否则按 4.4 OR 规则编译；失败 ⇒ 异常分支 A12：400 `ERR_ROW_PERMISSION_INVALID`。 
-23. 将 base_filter、business_filter、row_filter 按 AND 组合成最终 WHERE。 
-24. 生成最终 SQL（SELECT 可见列、WHERE、ORDER、LIMIT/OFFSET），所有参数化。
-25. 执行 SQL；若 DB 超时/语法错误 ⇒ 异常分支 A13：500 `ERR_DB_QUERY_FAILED`（同时写应用日志，包含 request_id）。
-26. 返回结果：仅包含可见列；分页信息；request_id。
+#### API 13：新建行权限规则
 
----
+* `POST /api/tenants/{tenant_id}/tables/{table_id}/row-permissions?role_id=...`
 
-### 4.7.2 流程 B：替换角色资源权限（RolePermission Replace）
+入参（body）：
 
-> 目标：管理员对某角色在某 scope 下配置 Folder 默认权限与资源节点权限；多次编辑必须原子替换；必须审计。
+| 字段         | 类型     | 必填 | 约束           | 说明   |
+| ---------- | ------ | -: | ------------ | ---- |
+| name       | string |  否 | ≤64          | 规则名  |
+| filter_dsl | json   |  是 | 合法 FilterDSL | 过滤条件 |
 
-**步骤**
+校验要点：
 
-1. 认证 + Tenant/TenantUser 检查（复用流程 A 的 1~11）。
-2. 鉴权：仅 `TenantUser.is_owner=true` 可调用（ASSUMPTION-ADMIN-ONLY）；否则 403 `ERR_PERMISSION_OWNER_REQUIRED`。 
-3. 读取 path：`role_id`；校验 role 属于 tenant。 
-4. 异常分支 B1：role 不存在 ⇒ 404 `ERR_ROLE_NOT_FOUND`。
-5. 解析请求体：`resource_type`、`items[]`（每项包含 `resource_tree_node_id` 与 `permission`）。
-6. 异常分支 B2：resource_type 不在枚举 ⇒ 400 `ERR_ENUM_INVALID_RESOURCE_TYPE`。 
-7. 异常分支 B3：permission 不在枚举 ⇒ 400 `ERR_ENUM_INVALID_PERMISSION`。 
-8. 校验每个 `resource_tree_node_id` 存在且属于 tenant。
-9. 异常分支 B4：node 不存在/跨租户 ⇒ 404 `ERR_RESOURCE_NODE_NOT_FOUND`。
-10. 校验 node.scope 与 resource_type 匹配（必须实现映射）：
+* FilterDSL 结构校验（op/conditions、operator/value 类型、字段白名单、特殊变量合法性）
+* role_id 必须属于 tenant
+* table_id 存在
 
-    * TABLE_SCHEMA/TABLE_DATA ⇒ scope=TABLE
-    * FLOW ⇒ scope=FLOW
-    * DATASET ⇒ scope=DATASET
-    * DASHBOARD ⇒ scope=DASHBOARD
-11. 异常分支 B5：scope 不匹配 ⇒ 400 `ERR_RESOURCE_SCOPE_MISMATCH`。
-12. 开启数据库事务 `BEGIN`。
-13. 读取替换前全量配置：`SELECT * FROM role_permission WHERE tenant_id=? AND role_id=? AND resource_type=? FOR UPDATE`（用于审计 before_json）。
-14. 删除旧配置：`DELETE ...`。
-15. 批量插入新配置（逐条 upsert 也可，但必须保证 uk 不冲突）：
+错误码：
 
-    * 若 items 内有重复 node_id ⇒ 异常分支 B6：400 `ERR_DUPLICATE_NODE_IN_PAYLOAD`，回滚。
-16. 写入 audit_log：
+* ERR_FILTER_DSL_INVALID
+* ERR_FILTER_VAR_INVALID
+* ERR_FIELD_NOT_ALLOWED
+* ERR_SETTINGS_FORBIDDEN
+* ERR_DB_WRITE_FAILED
 
-    * action=`ROLE_PERMISSION_REPLACE`
-    * entity_id=`role:{role_id}:type:{resource_type}`
-    * before_json=旧列表；after_json=新列表
-17. `COMMIT`。
-18. 返回 200：包含 `replaced_count`。
-19. 异常分支 B7：DB 约束失败（uk 冲突/外键）⇒ 回滚，500 `ERR_DB_INTEGRITY_ERROR`。
-20. 异常分支 B8：审计写入失败 ⇒ 回滚，500 `ERR_AUDIT_WRITE_FAILED`（禁止“权限写成功但审计失败”）。
+#### API 14：编辑行权限规则
+
+* `PATCH /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}`
+
+#### API 15：删除行权限规则
+
+* `DELETE /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}`
+
+> 规则生效逻辑必须严格遵循：角色内 OR、多角色 OR、与业务过滤 AND。
 
 ---
 
-### 4.7.3 流程 C：替换行权限规则（RowPermission Replace）
+## 5.9 关键流程（编号步骤 + 异常分支）
 
-**步骤**
+### 5.9.1 “查询表数据”全链路权限应用（资源+列+行）
 
-1. 认证 + Tenant/TenantUser 检查。
-2. 鉴权：仅 owner（ASSUMPTION-ADMIN-ONLY）或具备该表 TABLE_DATA=MANAGE（可选扩展；本章不启用）才能修改行权限；否则 403 `ERR_PERMISSION_DENIED`。
-3. 校验 role_id/table_id 属于 tenant。
-4. 异常分支 C1：role/table 不存在 ⇒ 404。
-5. 解析 rules[]：每项 `rule_name`、`filter_json`。
-6. 异常分支 C2：rule_name 为空/长度>64/重复 ⇒ 400 `ERR_RULE_NAME_INVALID_OR_DUPLICATE`。
-7. 构造 FieldCatalog（table 维度）。
-8. 对每条 filter_json 执行 validate_filter_dsl（4.2.5.2）。
-9. 异常分支 C3：DSL 结构非法/字段不在上下文/operator 不匹配 ⇒ 400 `ERR_FILTER_DSL_INVALID`（返回字段级原因）。
-10. 开启事务 `BEGIN`。
-11. `SELECT * FROM row_permission WHERE tenant_id=? AND role_id=? AND table_id=? FOR UPDATE` 作为 before_json。
-12. `DELETE` 旧规则。
-13. `INSERT` 新规则（逐条写入 created_at/updated_at）。
-14. 写入 audit_log：action=`ROW_PERMISSION_REPLACE`，entity_id=`role:{id}:table:{id}`。
-15. `COMMIT`。
-16. 返回 replaced_count。
-17. 异常分支 C4：DB 写入失败/JSON 无法落库 ⇒ 回滚，500 `ERR_DB_WRITE_FAILED`。
-18. 异常分支 C5：审计失败 ⇒ 回滚，500 `ERR_AUDIT_WRITE_FAILED`。
+1. API 接收请求，解析 tenant_id、table_id、requested_fields、business_filter。
+2. 校验登录态与 token（失败→401）。
+3. 校验 tenant 上下文存在且可用（失败→ERR_TENANT_*）。
+4. PermissionEngine 计算用户对该表的 TABLE_DATA effective permission（继承 + 多角色 max）。
+5. 若 TABLE_DATA == NONE → 403。
+6. 若请求包含写入动作（新增/编辑）且 TABLE_DATA < EDIT → 403。
+7. 计算用户对该表各字段最终 ColumnPermission（多角色合并）。
+8. 将 HIDDEN 字段从 requested_fields 中剔除（必须不出现在 SELECT）。
+9. 若业务强制必须字段被剔除（例如主键），按“可选约束”策略处理：要么强制 READONLY，要么返回字段权限错误。
+10. 计算 RowPermission：
 
----
+* 若 TABLE_DATA=MANAGE 绕过→ row_filter=null；否则：角色内 OR、多角色 OR。
 
-### 4.7.4 流程 D：替换列权限配置（ColumnPermission Replace）
-
-**步骤**
-
-1. 认证 + Tenant/TenantUser 检查。
-2. 鉴权：仅 owner（ASSUMPTION-ADMIN-ONLY）；否则 403。
-3. 校验 role_id/table_id 属于 tenant。
-4. 解析 items[]：`column_code`、`access_level`。
-5. 异常分支 D1：access_level 非枚举 ⇒ 400 `ERR_ENUM_INVALID_ACCESS_LEVEL`。 
-6. 校验 column_code 必须存在于该表 Field.code 列表。 
-7. 异常分支 D2：column_code 不存在 ⇒ 400 `ERR_COLUMN_NOT_FOUND`。
-8. 校验 payload 内 column_code 不重复。
-9. 异常分支 D3：重复 ⇒ 400 `ERR_DUPLICATE_COLUMN_IN_PAYLOAD`。
-10. 开启事务。
-11. 读取旧配置 FOR UPDATE（before_json）。
-12. 删除旧配置。
-13. 插入新配置。
-14. 写入 audit_log：action=`COLUMN_PERMISSION_REPLACE`。
-15. 提交。
-16. 返回 replaced_count。
-17. 异常分支 D4：DB 约束/外键失败 ⇒ 回滚 500。
-18. 异常分支 D5：审计失败 ⇒ 回滚 500。
+11. 组合总 WHERE：base_filter AND business_filter AND row_permission_filter。
+12. QueryEngine 编译 FilterDSL → SQL（含 `__var__` 解析）。
+13. 发送 SQL 到数据库执行。
+14. 返回结果 rows（仅包含 final_fields）。
+15. 记录访问日志（若审计要求覆盖查询可扩展；本期最小要求覆盖变更类操作）。
+16. 响应给前端。
+17. **异常分支 A**：FilterDSL 非法（结构/字段/变量）→ 400 + ERR_FILTER_DSL_INVALID。
+18. **异常分支 B**：历史 Chart 引用了当前用户 HIDDEN 字段 → 返回字段权限错误并提示“无权使用字段 X”。
+19. **异常分支 C**：权限不足 → 403。
+20. **异常分支 D**：DB/超时 → 500/504（按全局错误码规范）。
 
 ---
 
-## 4.8 接口设计（每个接口≥8个错误码场景；含入参/出参/校验/DB点/事务/幂等）
+## 5.10 权限变更审计对接（本章最小实现）
 
-> 统一响应结构（ASSUMPTION-RESP）：
-> 成功：`{ "code": 0, "message": "OK", "data": {...}, "request_id": "..." }`
-> 失败：`{ "code": <非0>, "message": "...", "detail": {...}, "request_id": "..." }`
+本期至少保证后端可追溯记录，覆盖：角色管理、成员角色关系、资源权限、行权限、列权限等。
 
-### 4.8.1 POST /api/filterdsl/validate（FilterDSL 校验）
+审计记录字段（强制）：
 
-**用途**：保存 RowPermission / Dataset.base_filter / 业务过滤前的后端强校验（前端校验不作为安全边界）。 
+* actor：TenantUser.id + GlobalUser 标识
+* time、action_type（枚举）、target（对象ID）、summary（变更摘要）、result（成功/失败原因）
 
-**Request**
-
-```json
-{
-  "context_type": "TABLE",
-  "context_id": 123,
-  "filter_json": { "op": "and", "conditions": [ ... ] }
-}
-```
-
-**校验**
-
-1. context_type 只能为 TABLE（本章最小实现）。
-2. table_id 必须存在且属于 tenant。
-3. filter_json 必须符合 4.2 全部规则；失败返回 400，detail 给出错误路径（如 `conditions[1].conditions[0].field`）。
-
-**Response**
-
-```json
-{
-  "code": 0,
-  "message": "OK",
-  "data": { "normalized_filter": { ... } },
-  "request_id": "req_xxx"
-}
-```
-
-**DB 点**
-
-* 只读：Table + Field（构造 catalog）。
-
-**幂等**
-
-* 纯校验接口：天然幂等。
-
-**错误码场景（≥8）**
-
-| HTTP |  code | 场景                     | message                           |
-| ---- | ----: | ---------------------- | --------------------------------- |
-| 401  | 40101 | 未登录/Token缺失            | AUTH_REQUIRED                     |
-| 401  | 40102 | Token无效/过期             | AUTH_INVALID_TOKEN                |
-| 403  | 40301 | Tenant=SUSPENDED       | TENANT_SUSPENDED                  |
-| 403  | 40302 | TenantUser不存在          | TENANT_USER_NOT_FOUND             |
-| 403  | 40303 | TenantUser=DISABLED    | TENANT_USER_DISABLED              |
-| 404  | 40403 | Table不存在/跨租户           | TABLE_NOT_FOUND                   |
-| 400  | 40031 | DSL结构非法(op/conditions) | FILTER_DSL_INVALID_STRUCTURE      |
-| 400  | 40032 | field 不在上下文/含点号        | FILTER_DSL_FIELD_NOT_ALLOWED      |
-| 400  | 40033 | operator 不在白名单         | FILTER_DSL_OPERATOR_NOT_ALLOWED   |
-| 400  | 40034 | operator 与字段类型不匹配      | FILTER_DSL_OPERATOR_TYPE_MISMATCH |
-
----
-
-### 4.8.2 PUT /api/roles/{role_id}/permissions/resource（替换 RolePermission：按 resource_type）
-
-**Request**
-
-```json
-{
-  "resource_type": "TABLE_DATA",
-  "items": [
-    { "resource_tree_node_id": 1001, "permission": "VIEW" },
-    { "resource_tree_node_id": 1002, "permission": "MANAGE" }
-  ]
-}
-```
-
-**校验（必须逐条实现）**
-
-1. 仅 owner 可调用（ASSUMPTION-ADMIN-ONLY）。
-2. role_id 必须存在且 tenant_id 匹配。
-3. resource_type ∈ 枚举；permission ∈ 枚举。 
-4. node_id 必须存在且属于 tenant。
-5. node.scope 与 resource_type 映射必须匹配（见 4.7.2 步骤 10）。
-6. items 内 node_id 不允许重复。
-
-**DB/事务**
-
-* 事务内：旧配置 FOR UPDATE → DELETE → INSERT → 写 audit_log → COMMIT。
-
-**幂等**
-
-* 以 PUT 语义“最终态替换”实现幂等（相同 payload 多次提交结果一致）；审计仍记录每次提交（可通过 request_id 区分）。
-* 若你需要“幂等不重复写审计”，必须引入 idempotency-key 表；本章不启用（保持最小实现）。
-
-**错误码场景（≥8）**
-
-| HTTP |  code | 场景                        |
-| ---- | ----: | ------------------------- |
-| 401  | 40101 | 未登录                       |
-| 403  | 40304 | 非 owner 调用                |
-| 404  | 40402 | role 不存在/跨租户              |
-| 400  | 40011 | resource_type 非法          |
-| 400  | 40012 | permission 非法             |
-| 404  | 40404 | resource_tree_node 不存在    |
-| 400  | 40013 | scope 与 resource_type 不匹配 |
-| 400  | 40014 | payload 内重复 node_id       |
-| 500  | 50001 | DB 写入/约束失败                |
-| 500  | 50002 | audit 写入失败（必须回滚）          |
-
----
-
-### 4.8.3 PUT /api/roles/{role_id}/tables/{table_id}/permissions/row（替换 RowPermission）
-
-**Request**
-
-```json
-{
-  "rules": [
-    { "rule_name": "sales_own_customer", "filter_json": { "field":"owner_id","operator":"=","value":{"__var__":"CURRENT_USER_ID"} } }
-  ]
-}
-```
-
-**校验**
-
-1. 仅 owner 可调用（本章）。
-2. role/table 必须存在且属于 tenant。
-3. rules 中 rule_name：非空、<=64、不可重复。
-4. 每条 filter_json 必须通过 validate_filter_dsl（上下文=TABLE）。
-
-**DB/事务**
-
-* 事务内：旧规则 FOR UPDATE → DELETE → INSERT → audit → COMMIT。
-
-**幂等**
-
-* PUT 最终态替换幂等（同 payload 重复提交结果一致）。
-
-**错误码场景（≥8）**
-
-| HTTP |  code | 场景                |
-| ---- | ----: | ----------------- |
-| 401  | 40101 | 未登录               |
-| 403  | 40304 | 非 owner           |
-| 404  | 40402 | role 不存在          |
-| 404  | 40403 | table 不存在         |
-| 400  | 40021 | rule_name 空/超长/重复 |
-| 400  | 40031 | DSL 结构非法          |
-| 400  | 40032 | field 不允许/不在表字段中  |
-| 400  | 40034 | operator 与类型不匹配   |
-| 500  | 50001 | DB 写失败            |
-| 500  | 50002 | audit 写失败         |
-
----
-
-### 4.8.4 PUT /api/roles/{role_id}/tables/{table_id}/permissions/column（替换 ColumnPermission）
-
-**Request**
-
-```json
-{
-  "items": [
-    { "column_code": "id_card_no", "access_level": "HIDDEN" },
-    { "column_code": "audit_status", "access_level": "READONLY" }
-  ]
-}
-```
-
-**校验**
-
-1. 仅 owner。
-2. role/table 存在且属于 tenant。
-3. column_code 必须存在于 Field.code。 
-4. access_level ∈ {HIDDEN, READONLY, READWRITE}。 
-5. payload 不允许重复 column_code。
-
-**DB/事务**
-
-* 同 RowPermission：FOR UPDATE + replace + audit。
-
-**错误码场景（≥8）**
-
-| HTTP |  code | 场景                     |
-| ---- | ----: | ---------------------- |
-| 401  | 40101 | 未登录                    |
-| 403  | 40304 | 非 owner                |
-| 404  | 40402 | role 不存在               |
-| 404  | 40403 | table 不存在              |
-| 400  | 40041 | access_level 非法        |
-| 400  | 40042 | column_code 不存在        |
-| 400  | 40043 | payload 重复 column_code |
-| 500  | 50001 | DB 写失败                 |
-| 500  | 50002 | audit 写失败              |
-| 500  | 50003 | 字段元信息缺失导致 catalog 构造失败 |
-
----
-
-## 4.9 错误码表（总表，供实现统一）
-
-|  code | HTTP | 错误名                               | 触发点                         | 是否需要 detail    |
-| ----: | ---: | --------------------------------- | --------------------------- | -------------- |
-| 40101 |  401 | AUTH_REQUIRED                     | 缺 Authorization             | 否              |
-| 40102 |  401 | AUTH_INVALID_TOKEN                | JWT 无效/过期                   | 否              |
-| 40301 |  403 | TENANT_SUSPENDED                  | tenant.status=SUSPENDED     | 否              |
-| 40302 |  403 | TENANT_USER_NOT_FOUND             | tenant_user 缺失              | 否              |
-| 40303 |  403 | TENANT_USER_DISABLED              | tenant_user.status=DISABLED | 否              |
-| 40304 |  403 | PERMISSION_DENIED                 | owner/资源级权限不足               | 否              |
-| 40402 |  404 | ROLE_NOT_FOUND                    | role 不存在/跨租户                | 否              |
-| 40403 |  404 | TABLE_NOT_FOUND                   | table 不存在/跨租户               | 否              |
-| 40404 |  404 | RESOURCE_NODE_NOT_FOUND           | 资源树节点不存在                    | 否              |
-| 40031 |  400 | FILTER_DSL_INVALID_STRUCTURE      | op/conditions 结构错误          | 是（path）        |
-| 40032 |  400 | FILTER_DSL_FIELD_NOT_ALLOWED      | field 不在 catalog/含点号        | 是（field）       |
-| 40033 |  400 | FILTER_DSL_OPERATOR_NOT_ALLOWED   | operator 非白名单               | 是（operator）    |
-| 40034 |  400 | FILTER_DSL_OPERATOR_TYPE_MISMATCH | 类型约束不匹配                     | 是（field,dtype） |
-| 40042 |  400 | COLUMN_NOT_FOUND                  | column_code 不存在             | 是（column_code） |
-| 40051 |  400 | SORT_BY_HIDDEN_COLUMN             | 排序字段被隐藏                     | 是（column_code） |
-| 50001 |  500 | DB_WRITE_FAILED                   | DB 写入异常                     | 否              |
-| 50002 |  500 | AUDIT_WRITE_FAILED                | 审计写入失败（回滚）                  | 否              |
-
----
-
-## 4.10 测试用例表（覆盖 DSL/资源权限/行列权限/绕过策略）
-
-| 用例ID       | 场景                                 | 前置                          | 步骤                              | 期望                        |
-| ---------- | ---------------------------------- | --------------------------- | ------------------------------- | ------------------------- |
-| TC-DSL-001 | Group op 非法                        | 登录                          | validate(op="xor")              | 40032/40031，detail 指向 op  |
-| TC-DSL-002 | field 不在表字段                        | 表存在                         | validate(field="xxx")           | 40032                     |
-| TC-DSL-003 | 数值字段使用 contains                    | amount 为数值                  | validate(amount contains "1")   | 40034                     |
-| TC-DSL-004 | 变量格式非法                             | -                           | value={"var":"CURRENT_USER_ID"} | 40031                     |
-| TC-DSL-005 | in 空数组                             | -                           | value=[]                        | 40031（实现可细分）              |
-| TC-RP-001  | 资源权限 NONE 禁止查询                     | 用户无 TABLE_DATA              | 查询表数据                           | 403                       |
-| TC-RP-002  | Folder 默认 VIEW 生效                  | 未对资源显式配置                    | 查询该资源                           | permission=VIEW           |
-| TC-RP-003  | 资源显式 VIEW 覆盖 Folder MANAGE         | Folder=MANAGE，resource=VIEW | effective                       | 返回 VIEW（按本章算法）            |
-| TC-ROW-001 | 单角色两规则 OR                          | 两规则互斥                       | 查询                              | 返回规则并集                    |
-| TC-ROW-002 | 多角色再 OR                            | roleA/roleB                 | 查询                              | 返回并集                      |
-| TC-ROW-003 | 任一角色无规则 => 全量                      | roleA无规则                    | 查询                              | row_filter=TRUE           |
-| TC-ROW-004 | TABLE_DATA=MANAGE 绕过               | 用户 MANAGE                   | 查询                              | 不应用 row_permission        |
-| TC-COL-001 | HIDDEN 不返回                         | 配置 HIDDEN                   | 查询                              | 响应无该列                     |
-| TC-COL-002 | HIDDEN 排序报错                        | sort by hidden              | 查询                              | 400 SORT_BY_HIDDEN_COLUMN |
-| TC-COL-003 | READONLY 写入报错                      | update 包含 readonly 字段       | 写接口                             | 400 ERR_COLUMN_READONLY   |
-| TC-COL-004 | TABLE_DATA<VIEW 时即便列READWRITE也不允许写 | TABLE_DATA=VIEW             | update                          | 403                       |
-
----
-
-## 4.11 任务拆分表（可直接排期开发）
-
-| 任务ID  | 模块          | 交付物                                                                                             | 依赖          | 负责人 |
-| ----- | ----------- | ----------------------------------------------------------------------------------------------- | ----------- | --- |
-| T-401 | permissions | role_permission/row_permission/column_permission/resource_tree_node/audit_log migration + model | DB          | 后端  |
-| T-402 | permissions | PermissionEngine：effective resource/row/col 计算                                                  | T-401       | 后端  |
-| T-403 | filterdsl   | validate + compile（含变量注入）单测                                                                     | Table/Field | 后端  |
-| T-404 | api         | 4个接口实现（validate / replace resource / replace row / replace column）                              | T-401~403   | 后端  |
-| T-405 | api         | 统一错误码 + detail 规范                                                                               | T-404       | 后端  |
-| T-406 | runtime     | 查询执行链路接入：base_filter + business_filter + row + col + sort 校验                                    | SQLAdapter  | 后端  |
-| T-407 | audit       | 审计写入点：所有 replace 接口必须写 audit_log                                                                | T-404       | 后端  |
-| T-408 | frontend    | 权限配置 UI：资源树+权限矩阵、行权限编辑器、列权限配置表                                                                  | 后端接口        | 前端  |
-| T-409 | qa          | 用例覆盖（按 4.10）+ 回归                                                                                | 全部          | QA  |
-
----
-
-## 4.12 章末验收清单 + 开发自测用例清单
-
-### 4.12.1 验收清单（逐条对照）
-
-1. FilterDSL：字段/操作符/类型约束/变量注入/SQL 参数化全部按 4.2 实现，且映射失败返回 4xx，不存在 silent ignore。 
-2. RowPermission：角色内 OR、多角色 OR、与 base/business AND 叠加顺序一致；TABLE_DATA=MANAGE 绕过生效。 
-3. ColumnPermission：HIDDEN 不返回且不可排序；READONLY 写入报错；最终写入受 TABLE_DATA<EDIT 限制。  
-4. RolePermission：Folder 默认权限向下继承；资源显式配置覆盖；多角色取最大；可见性规则与 PRD 一致（TABLE_SCHEMA=NONE 且 TABLE_DATA=NONE 不展示）。  
-5. 后端强校验：所有涉及权限的接口都在后端校验资源/行/列权限；前端隐藏按钮不作为安全边界。 
-6. 审计：每次权限替换写入 audit_log，且审计失败必须回滚（不允许“权限改了但无审计”）。 
-7. 4个接口：每个接口错误码场景≥8，且返回结构统一包含 request_id。
-8. PlantUML 工件齐全：ER/时序/状态机/权限流程图均可渲染，且无 note、无样式。
-
-### 4.12.2 开发自测用例清单（最低集）
-
-* 自测-01：validate_filterdsl 覆盖 10 类错误（结构、op、field、operator、类型、变量、in/between 形态）。
-* 自测-02：role_permission replace：scope 不匹配时返回 400；同 payload 重复提交结果一致；审计表有两条记录（request_id 不同）。
-* 自测-03：row_permission：存在“无规则角色”时查询结果不受行权限限制；MANAGE 绕过生效。
-* 自测-04：column_permission：HIDDEN 字段从响应剔除；sort by hidden 返回 400；READONLY 写入返回 400。
-* 自测-05：资源树可见性：对某表同时 TABLE_SCHEMA=NONE 且 TABLE_DATA=NONE 时该表节点不返回；Folder 仅在其下存在可见资源时返回。 
+> 审计存储表结构与查询接口在“审计模块”章节定义；本章要求各 Service 在事务提交成功后写入审计（失败也需记录失败原因，可写独立失败日志）。
