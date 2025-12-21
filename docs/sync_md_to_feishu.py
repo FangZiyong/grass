@@ -19,9 +19,12 @@ import re
 import time
 import json
 import random
+import uuid
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Set, Iterable
 
 import requests
+from requests import exceptions as req_exc
 from tqdm import tqdm
 
 FEISHU_OPENAPI_BASE = "https://open.feishu.cn/open-apis"
@@ -88,11 +91,35 @@ else:
         raise RuntimeError("单文档模式缺少 FEISHU_DOCUMENT_ID / FEISHU_MD_PATH（或改用 FEISHU_MAPPING_PATH）")
 
 # ------------------------------
-# HTTP：429/5xx 重试
+# HTTP：429/5xx 退避重试 + 10s 超时重试 + 全量请求日志
 # ------------------------------
-MAX_RETRIES = 8
+MAX_RETRIES = 8          # 仅用于 429/5xx 的退避重试（总尝试次数上限）
 BASE_SLEEP = 0.8
 JITTER = 0.3
+
+HTTP_SESSION = requests.Session()
+
+# 超时控制（你要的：10 秒超时 + 最多重试 3 次）
+HTTP_READ_TIMEOUT_S = float(os.environ.get("FEISHU_HTTP_TIMEOUT", "10").strip() or "10")              # read timeout
+HTTP_CONNECT_TIMEOUT_S = float(os.environ.get("FEISHU_HTTP_CONNECT_TIMEOUT", "3").strip() or "3")     # connect timeout
+HTTP_TIMEOUT_MAX_RETRY = int(os.environ.get("FEISHU_HTTP_TIMEOUT_RETRY", "3").strip() or "3")         # 不含首次
+
+# 请求日志开关 & payload 摘要长度
+HTTP_LOG_ENABLED = os.environ.get("FEISHU_HTTP_LOG", "1").strip().lower() in ("1", "true", "yes", "y")
+HTTP_LOG_PAYLOAD_MAXLEN = int(os.environ.get("FEISHU_HTTP_LOG_PAYLOAD_MAXLEN", "220").strip() or "220")
+
+
+def _ts() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _tqdm_print(line: str) -> None:
+    if not HTTP_LOG_ENABLED:
+        return
+    try:
+        tqdm.write(line)
+    except Exception:
+        print(line)
 
 
 def _pretty(obj: Any) -> str:
@@ -102,40 +129,170 @@ def _pretty(obj: Any) -> str:
         return str(obj)
 
 
+def _mask(s: str, keep_head: int = 10, keep_tail: int = 6) -> str:
+    if not s:
+        return s
+    s = str(s)
+    if len(s) <= keep_head + keep_tail + 3:
+        return s
+    return f"{s[:keep_head]}***{s[-keep_tail:]}"
+
+
+def _sanitize_headers(headers: dict) -> dict:
+    out = {}
+    for k, v in (headers or {}).items():
+        if k.lower() == "authorization":
+            out[k] = _mask(v, 14, 6)
+        else:
+            out[k] = v
+    return out
+
+
+def _summarize_json_body(json_body: Any) -> str:
+    """
+    避免把 markdown content 整段打印出来：遇到 content 字段只打印长度 + 片段
+    """
+    if json_body is None:
+        return ""
+    try:
+        if isinstance(json_body, dict):
+            jb = dict(json_body)
+            if "content" in jb and isinstance(jb["content"], str):
+                c = jb["content"]
+                snippet = c[:HTTP_LOG_PAYLOAD_MAXLEN].replace("\n", "\\n")
+                jb["content"] = f"<str len={len(c)} snip='{snippet}...'>"
+            s = json.dumps(jb, ensure_ascii=False)
+        else:
+            s = json.dumps(json_body, ensure_ascii=False)
+    except Exception:
+        s = str(json_body)
+
+    if len(s) > HTTP_LOG_PAYLOAD_MAXLEN:
+        return s[:HTTP_LOG_PAYLOAD_MAXLEN] + "..."
+    return s
+
+
 def request_json(method: str, url: str, *, headers=None, params=None, json_body=None, hint="request") -> Dict:
+    """
+    - 每次请求打印：method/url/params/json摘要/耗时/status/feishu_logid
+    - 读超时 10s（可通过 FEISHU_HTTP_TIMEOUT 调整），超时自动重试，最多 3 次（不含首次）
+    - 对 429/5xx 做指数退避重试（MAX_RETRIES 次总尝试上限）
+    """
     headers = headers or {}
     params = params or {}
 
+    req_trace = uuid.uuid4().hex[:10]
     last_text = ""
     last_status = None
 
-    for attempt in range(MAX_RETRIES):
-        resp = requests.request(method, url, headers=headers, params=params, json=json_body, timeout=120)
+    timeout_retry_used = 0  # 不含首次
+    backoff_retry_used = 0  # 只统计 429/5xx 的退避重试次数
+
+    while True:
+        safe_headers = _sanitize_headers(headers)
+        body_summary = _summarize_json_body(json_body)
+
+        _tqdm_print(
+            f"[{_ts()}][HTTP][{req_trace}][{hint}] -> {method} {url} "
+            f"timeout_retry={timeout_retry_used}/{HTTP_TIMEOUT_MAX_RETRY} "
+            f"backoff_retry={backoff_retry_used}/{MAX_RETRIES-1} "
+            f"params={params if params else {}} headers={safe_headers} json={body_summary}"
+        )
+
+        t0 = time.time()
+        try:
+            resp = HTTP_SESSION.request(
+                method,
+                url,
+                headers=headers,
+                params=params,
+                json=json_body,
+                timeout=(HTTP_CONNECT_TIMEOUT_S, HTTP_READ_TIMEOUT_S),
+            )
+        except (req_exc.ReadTimeout, req_exc.ConnectTimeout, req_exc.Timeout) as e:
+            dt = time.time() - t0
+            timeout_retry_used += 1
+            _tqdm_print(f"[{_ts()}][HTTP][{req_trace}][{hint}] !! TIMEOUT after {dt:.2f}s err={repr(e)}")
+
+            if timeout_retry_used <= HTTP_TIMEOUT_MAX_RETRY:
+                sleep_s = min(0.6 * (2 ** (timeout_retry_used - 1)) + random.random() * JITTER, 6.0)
+                _tqdm_print(f"[{_ts()}][HTTP][{req_trace}][{hint}] .. retry(timeout) sleep {sleep_s:.2f}s")
+                time.sleep(sleep_s)
+                continue
+
+            raise RuntimeError(
+                f"{hint} 超时重试耗尽（connect_timeout={HTTP_CONNECT_TIMEOUT_S}s, read_timeout={HTTP_READ_TIMEOUT_S}s, "
+                f"max_timeout_retry={HTTP_TIMEOUT_MAX_RETRY}）\n"
+                f"method={method} url={url} params={params}"
+            ) from e
+
+        except req_exc.RequestException as e:
+            dt = time.time() - t0
+            _tqdm_print(f"[{_ts()}][HTTP][{req_trace}][{hint}] !! RequestException after {dt:.2f}s err={repr(e)}")
+
+            # 把其他网络错误也按退避重试处理（算在 backoff_retry_used 里）
+            if backoff_retry_used < MAX_RETRIES - 1:
+                sleep_s = min(BASE_SLEEP * (2 ** backoff_retry_used) + random.random() * JITTER, 10.0)
+                backoff_retry_used += 1
+                _tqdm_print(f"[{_ts()}][HTTP][{req_trace}][{hint}] .. retry(neterr) sleep {sleep_s:.2f}s")
+                time.sleep(sleep_s)
+                continue
+
+            raise RuntimeError(
+                f"{hint} 网络错误重试耗尽（MAX_RETRIES={MAX_RETRIES}）\n"
+                f"method={method} url={url} params={params}\n"
+                f"last_error={repr(e)}"
+            ) from e
+
+        dt = time.time() - t0
         last_status = resp.status_code
         last_text = (resp.text or "")[:2000]
 
+        feishu_logid = (
+            resp.headers.get("X-Tt-Logid")
+            or resp.headers.get("x-tt-logid")
+            or resp.headers.get("X-Request-Id")
+            or resp.headers.get("x-request-id")
+            or ""
+        )
+        _tqdm_print(
+            f"[{_ts()}][HTTP][{req_trace}][{hint}] <- status={resp.status_code} cost={dt:.2f}s "
+            f"len={len(resp.text or '')} feishu_logid={feishu_logid}"
+        )
+
+        # 429/5xx：指数退避
         if resp.status_code == 429 or 500 <= resp.status_code <= 599:
-            sleep_s = BASE_SLEEP * (2 ** attempt) + random.random() * JITTER
-            ra = resp.headers.get("Retry-After")
-            if ra:
-                try:
-                    sleep_s = max(sleep_s, float(ra))
-                except Exception:
-                    pass
-            time.sleep(sleep_s)
-            continue
+            if backoff_retry_used < MAX_RETRIES - 1:
+                sleep_s = BASE_SLEEP * (2 ** backoff_retry_used) + random.random() * JITTER
+                ra = resp.headers.get("Retry-After")
+                if ra:
+                    try:
+                        sleep_s = max(sleep_s, float(ra))
+                    except Exception:
+                        pass
+                backoff_retry_used += 1
+                _tqdm_print(f"[{_ts()}][HTTP][{req_trace}][{hint}] .. retry({resp.status_code}) sleep {sleep_s:.2f}s")
+                time.sleep(sleep_s)
+                continue
+
+            raise RuntimeError(
+                f"{hint} 429/5xx 重试次数耗尽（MAX_RETRIES={MAX_RETRIES}） last_http={last_status}\n"
+                f"method={method} url={url}\nresp={last_text}"
+            )
 
         try:
             data = resp.json()
-        except Exception:
+        except Exception as e:
             raise RuntimeError(
                 f"{hint} 返回非 JSON，HTTP {resp.status_code}\n"
                 f"method={method} url={url}\n"
                 f"resp={last_text}"
-            )
-        return data
+            ) from e
 
-    raise RuntimeError(f"{hint} 重试次数耗尽, last_http={last_status} last_resp={last_text}")
+        if isinstance(data, dict):
+            _tqdm_print(f"[{_ts()}][HTTP][{req_trace}][{hint}] json.code={data.get('code')} msg={data.get('msg', '')}")
+
+        return data
 
 
 def raise_if_fail(data: Dict[str, Any], *, hint: str, extra: Optional[Dict[str, Any]] = None) -> None:
@@ -322,7 +479,7 @@ def clear_document_body_keep_title(document_id: str, token_docx: str) -> None:
     body_root = document_id
 
     while True:
-        ids = get_children_first_page(document_id, body_root, token_docx, page_size=200)
+        ids = get_children_first_page(document_id, body_root, token_docx, page_size=CLEAR_PAGE_SIZE)
         if not ids:
             break
         batch_delete_children_by_index(document_id, body_root, token_docx, start_index=0, end_index=len(ids))
@@ -439,7 +596,6 @@ def create_board_block_and_get_whiteboard_id(
     raise_if_fail(resp, hint="创建画板块(create_children_blocks)", extra={"index": index, "parent_block_id": parent_block_id})
 
     data = resp.get("data") or {}
-
     children_list = data.get("children") or []
     if not children_list:
         raise RuntimeError(f"创建画板块返回 children 为空: resp={_pretty(resp)}")

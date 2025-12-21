@@ -25,7 +25,7 @@
 
 ### 1.4.2 Out of Scope（V1.0 明确不做）
 
-字段类型在线变更、跨租户联邦查询、字段级血缘可视化、通知中心/消息中心（Flow 运行通知除外）、多语言国际化。
+字段类型在线变更、跨租户联邦查询、字段级血缘可视化、通知中心/消息中心（任务失败推送到 IM 等）、多语言国际化。
 
 ## 1.5 成功指标与质量红线
 
@@ -4238,6 +4238,7 @@ metrics_expr 示例：
 | 字段           | 类型   | 必填 | 说明                             |
 | -------------- | ------ | ---: | -------------------------------- |
 | folder_node_id | BIGINT |   否 | 资源树 folder 节点（scope=FLOW） |
+| include_descendants | boolean | 否 | true | 是否包含子目录（后代）中的任务流；仅当 folder_node_id 指向目录节点时生效 |
 | keyword        | STRING |   否 | 名称/编码模糊搜索                |
 | owner_id       | BIGINT |   否 | 负责人过滤                       |
 | enabled        | BOOL   |   否 | 是否启用过滤                     |
@@ -4840,1262 +4841,982 @@ def save_graph(tenant_id, user, flow_id, payload):
 - 事件驱动触发：本版本不提供；
 - 节点类型扩展：NodeType 与 Node.config 采用 JSON，可在保持向后兼容前提下扩展。
 
-# 9 报表（数据集 / 看板 / 图表组件）
+# 9 报表（数据集 / 图表 / 仪表盘）
 
-## 9.0 章节定位与目标
-
-报表模块面向租户业务方提供**自助分析与可视化看板能力**，以“数据集（Dataset）→ 组件（Widget）→ 看板（Board）”为核心链路：
-
-- **数据集（Dataset）**：基于某张表（或视图）的可复用数据视图，封装基础过滤条件（统一 DSL），降低重复配置成本。
-- **组件（Widget）**：绑定数据源（Dataset 或 Table）与查询配置（分组/指标/排序/TopN 等），输出可视化结果（图表/指标卡/表格）。
-- **看板（Board）**：由多个 Widget 组成，可配置全局筛选、布局、默认时间范围，实现业务侧的“页面化分析”。
-
-本章覆盖报表模块的**数据模型、关键链路、接口清单与实现细节**，并明确与通用能力（资源树、查询引擎、权限体系）的调用关系，确保可直接开工实现。
+> 本章统一名词：Dataset / Chart / Dashboard（仪表盘）。历史实现中的 Board/Widget 属于旧命名，不再作为对外模型/API 口径；如需兼容，仅允许在内部做别名映射。
 
 ---
 
-## 9.1 模块边界与依赖
+## 9.1 模块定位与依赖
 
-### 9.1.1 模块边界
+### 9.1.1 资产链路
 
-报表模块负责：
+V1 的报表链路为：
 
-1. Dataset/Board/Widget 的创建、编辑、删除与资源树挂载；
-2. Dataset 基础过滤（base_filter_json）的保存与校验；
-3. Widget 查询配置的保存、校验与执行；
-4. Board 布局与全局筛选的保存、加载与渲染；
-5. 导出任务（CSV/Excel）创建与下载（异步方式，避免接口超时）；
-6. 报表相关审计事件记录。
+1) **Dataset（数据集）**：基于 Base Table 定义过滤/列选择，并刷新为 DW 物化表  
+2) **Chart（图表）**：绑定一个 Dataset，保存 query_config_json + viz_config_json  
+3) **Dashboard（仪表盘）**：通过 DashboardItem 引用多个 Chart，并以 layout_json 保存布局
 
-报表模块不负责：
+### 9.1.2 依赖的公共能力
 
-- 表结构与数据维护（建模模块负责）；
-- Flow 任务编排与运行（Flow 模块负责）；
-- 权限模型本身的定义（权限体系负责），本章仅规定调用与校验点；
-- 查询引擎的底层实现（通用能力负责），本章仅规定入参结构与使用方式。
-
-### 9.1.2 依赖模块
-
-| 依赖             | 依赖点                          | 报表模块使用方式                                                    |
-| ---------------- | ------------------------------- | ------------------------------------------------------------------- |
-| 多租户与认证体系 | TenantContext / 登录态          | 所有 API 在 tenant_id 下执行；created_by/updated_by 记录 TenantUser |
-| 权限体系         | 资源权限（DATASET/BOARD）       | 列表可见性、编辑权限、导出权限                                      |
-| 权限体系         | 表数据权限（TABLE_DATA）行/列级 | 查询执行时由查询引擎叠加 row_filter 与 col_policy                   |
-| 通用能力         | 资源树服务                      | scope=DATASET、scope=BOARD 的 folder + 资源节点（不新增 folder 表） |
-| 通用能力         | QueryBuilder/QueryRunner        | 执行 Dataset 预览、Widget 查询、Board 批量渲染、导出                |
-| 审计模块         | 审计事件落库                    | 数据集/看板/组件变更、导出、权限变更等                              |
+- 多租户隔离：TenantContext（tenant_id、timezone）
+- 资源树与授权：scope=DATASET、scope=DASHBOARD 的 ResourceNode，权限模型见第 5 章
+- Query Engine：负责将 query_config_json 编译为 SQL 并执行（读取 dataset_table）
+- Scheduler/Worker：DatasetRefresh 与 Export 统一走 TaskRunInstance 执行框架
+- 文件存储：导出文件上传到对象存储并返回 file_url
 
 ---
 
-## 9.2 名词、枚举与约束
+## 9.2 V1 边界（必须遵守）
 
-### 9.2.1 核心实体
-
-- **Dataset（数据集）**：基于某张表的可复用数据视图，保存 base_filter_json（统一过滤 DSL）。
-- **Board（看板）**：由多个 Widget 组成的页面。
-- **Widget（组件）**：图表/表格/指标卡等可视化单元，包含 query_json 与 viz_json。
-
-### 9.2.2 枚举
-
-#### 9.2.2.1 WidgetType
-
-| 枚举值 | 说明                   |
-| ------ | ---------------------- |
-| TABLE  | 明细表格               |
-| KPI    | 指标卡（单值/多值）    |
-| LINE   | 折线图                 |
-| BAR    | 柱状图                 |
-| PIE    | 饼图                   |
-| AREA   | 面积图                 |
-| TEXT   | 文本组件（不查询数据） |
-
-#### 9.2.2.2 ExportStatus
-
-| 枚举值  | 说明                   |
-| ------- | ---------------------- |
-| PENDING | 已创建，待执行         |
-| RUNNING | 生成中                 |
-| SUCCESS | 已生成，可下载         |
-| FAILED  | 生成失败               |
-| EXPIRED | 已过期（下载链接失效） |
-
-### 9.2.3 全局约束
-
-1. **资源树复用**
-
-   - 不创建 `dataset_folder` / `board_folder` 等重复表；
-   - Dataset 与 Board 通过 `resource_node_id` 挂载到资源树节点中（scope=DATASET/BOARD）。
-
-2. **权限约束**
-
-   - 访问 Dataset/Board：需具备对应资源权限（VIEW/EDIT/MANAGE）。
-   - 执行查询/导出：除资源权限外，必须通过查询引擎叠加表级行/列权限；若列权限导致所有输出列被隐藏，则拒绝查询并返回明确错误。
-
-3. **并发与一致性**
-
-   - Dataset、Board、Widget 更新采用 `version` 乐观锁；
-   - 更新时必须携带 version，DB 更新语句需包含 `WHERE id=? AND version=?`；
-   - 更新成功后 `version += 1`。
-
-4. **查询与结果规模**
-   - 预览/表格类查询默认分页，最大 `page_size=200`；
-   - 导出最大行数由全局规范控制（若未提供，则本章默认上限 1,000,000 行，超出拒绝并提示缩小筛选范围）；
-   - 图表类查询默认 limit=5000（用于避免高基数维度导致响应过大）。
+1. **Dashboard filters_json（全局筛选）固定为空（null 或 []）**  
+   - 后端在保存/更新 Dashboard 时必须强校验：若 filters_json 非空，返回错误 `DASHBOARD_FILTERS_NOT_SUPPORTED`  
+2. **不支持整页 Dashboard 导出**（PDF/全页截图等）  
+   - 仅支持**单个 Chart**导出：数据（CSV）或图片（PNG）  
+3. Dataset 刷新仅支持**全量覆盖式物化**  
+4. 不支持外部文件数据源直接作为 Dataset 输入（后续版本能力）
 
 ---
 
-## 9.3 数据模型与表结构
+## 9.3 数据集（Dataset）
 
-> 字段表仅包含字段定义；索引必须单独列出。  
-> JSON 字段必须补充结构定义（字段/类型/必填/枚举/上限/示例）。
+### 9.3.1 概念与落地
 
-### 9.3.1 表：dataset（数据集）
+- Dataset 是“可复用的数据结果表”资产：**先定义、再刷新、再消费**
+- Dataset 的定义保存在元数据表 `dataset`
+- Dataset 刷新后在 DW 生成一张物化表（以下简称 dataset_table）：
+  - 表名：`ds_{tenant_id}_{dataset_id}`（示例）
+  - 写入策略：临时表写入 + 原子 swap
+- **所有 Chart 查询必须读取 dataset_table**，不得绕过 Dataset 直接读 base_table
 
-| 字段名           | 类型         | 是否可空 | 默认值            | 枚举/约束                       | 说明                                      |
-| ---------------- | ------------ | -------: | ----------------- | ------------------------------- | ----------------------------------------- |
-| id               | BIGINT       |       否 |                   | PK                              | 主键                                      |
-| tenant_id        | BIGINT       |       否 |                   | IDX                             | 租户 ID                                   |
-| resource_node_id | BIGINT       |       否 |                   | UK(tenant_id, resource_node_id) | 资源树节点（scope=DATASET，type=DATASET） |
-| code             | VARCHAR(64)  |       否 |                   | UK(tenant_id, code)             | 数据集编码                                |
-| display_name     | VARCHAR(50)  |       否 |                   | 1–50 字符                       | 数据集名称                                |
-| description      | VARCHAR(500) |       是 | NULL              |                                 | 描述                                      |
-| base_table_id    | BIGINT       |       否 |                   |                                 | 绑定建模表（Table.id）                    |
-| base_filter_json | JSON         |       否 | '{}'              | 见 9.3.5                        | 基础过滤 DSL（统一 DSL）                  |
-| version          | INT          |       否 | 1                 | >=1                             | 乐观锁版本                                |
-| is_deleted       | TINYINT      |       否 | 0                 | 0/1                             | 软删除                                    |
-| created_by       | BIGINT       |       否 |                   |                                 | 创建人 TenantUser.id                      |
-| updated_by       | BIGINT       |       否 |                   |                                 | 更新人 TenantUser.id                      |
-| created_at       | DATETIME     |       否 | CURRENT_TIMESTAMP |                                 | 创建时间                                  |
-| updated_at       | DATETIME     |       否 | CURRENT_TIMESTAMP | ON UPDATE                       | 更新时间                                  |
+### 9.3.2 状态机（与 PRD 10.5 对齐）
 
-**索引**
+#### 状态枚举（必须实现）
 
-- 唯一索引
-  - `(tenant_id, code)`：编码唯一
-  - `(tenant_id, resource_node_id)`：资源树一一对应
-- 普通索引
-  - `(tenant_id, base_table_id)`：按表查数据集
-  - `(tenant_id, updated_at DESC)`：列表默认排序
-  - `(tenant_id, is_deleted)`：过滤软删除
+- `DRAFT`（可选）：仅保存配置，尚未首次刷新  
+  - 若产品侧不需要草稿，可用 `ACTIVE + last_success_at=NULL` 表示“未就绪”
+- `ACTIVE`：可正常刷新、可被查询（**满足可查询还需 last_success_at 非空**）
+- `REFRESHING`：刷新进行中（同一数据集禁止并发刷新）
+- `FAILED`：刷新失败（配置错误、源表不可用、超时等）
+- `BLOCKED`：刷新被阻断（Owner 合规校验不通过，详见 9.3.3）
+- `PAUSED`：Owner/管理员主动暂停（仅影响 CRON；手动刷新仍可触发）
 
----
+#### 展示态（UI Tag，非存储枚举）
 
-### 9.3.2 表：board（看板）
+- `READY`：`status=ACTIVE` 且 `last_success_at != NULL`
+- `NOT_READY`：`status=ACTIVE` 且 `last_success_at == NULL`（创建后未首次刷新）
 
-| 字段名             | 类型         | 是否可空 | 默认值            | 枚举/约束                       | 说明                                  |
-| ------------------ | ------------ | -------: | ----------------- | ------------------------------- | ------------------------------------- |
-| id                 | BIGINT       |       否 |                   | PK                              | 主键                                  |
-| tenant_id          | BIGINT       |       否 |                   | IDX                             | 租户                                  |
-| resource_node_id   | BIGINT       |       否 |                   | UK(tenant_id, resource_node_id) | 资源树节点（scope=BOARD，type=BOARD） |
-| code               | VARCHAR(64)  |       否 |                   | UK(tenant_id, code)             | 看板编码                              |
-| display_name       | VARCHAR(50)  |       否 |                   | 1–50                            | 看板名称                              |
-| description        | VARCHAR(500) |       是 | NULL              |                                 | 描述                                  |
-| global_filter_json | JSON         |       否 | '{}'              | 见 9.3.6                        | 全局筛选（可选）                      |
-| layout_json        | JSON         |       否 | '{}'              | 见 9.3.7                        | 布局与展示配置                        |
-| version            | INT          |       否 | 1                 | >=1                             | 乐观锁版本                            |
-| is_deleted         | TINYINT      |       否 | 0                 | 0/1                             | 软删除                                |
-| created_by         | BIGINT       |       否 |                   |                                 | 创建人                                |
-| updated_by         | BIGINT       |       否 |                   |                                 | 更新人                                |
-| created_at         | DATETIME     |       否 | CURRENT_TIMESTAMP |                                 | 创建时间                              |
-| updated_at         | DATETIME     |       否 | CURRENT_TIMESTAMP | ON UPDATE                       | 更新时间                              |
+> 说明：PRD 在刷新章节使用了 “首次刷新成功进入 READY” 的表述；实现上以 **展示态 READY** 表达即可，避免引入第二套存储状态源。
 
-**索引**
+#### 迁移规则（核心）
 
-- 唯一索引
-  - `(tenant_id, code)`
-  - `(tenant_id, resource_node_id)`
-- 普通索引
-  - `(tenant_id, updated_at DESC)`
-  - `(tenant_id, is_deleted)`
+- 创建：
+  - 有草稿：`DRAFT`
+  - 无草稿：`ACTIVE` 且 `last_success_at=NULL`
+- 启用：`DRAFT -> ACTIVE`（不改变 last_success_at）
+- 刷新触发：
+  - `ACTIVE/FAILED/PAUSED -> REFRESHING`
+  - `BLOCKED`：禁止刷新（返回 `DATASET_OWNER_BLOCKED`）
+  - `REFRESHING`：拒绝并发刷新（返回 `DATASET_REFRESH_ALREADY_RUNNING`）
+- 刷新成功：`REFRESHING -> ACTIVE`，并写入：
+  - `last_success_at=now`
+  - `last_failed_reason=NULL`
+  - `last_refresh_duration_ms`
+- 刷新失败：`REFRESHING -> FAILED`，并写入：
+  - `last_failed_reason`
+  - `last_failure_at=now`
+- Owner 校验失败：`ACTIVE/FAILED/PAUSED/DRAFT -> BLOCKED`
+- 暂停：`ACTIVE/FAILED -> PAUSED`
+- 恢复：`PAUSED -> ACTIVE`（不改变 last_success_at）
+
+#### 可查询判定（统一规则）
+
+- 当且仅当：
+  - `status in (ACTIVE, FAILED, PAUSED)` 且
+  - `last_success_at != NULL` 且
+  - `dataset_table 存在`
+- 否则对外统一报：`DATASET_NOT_READY`
 
 ---
 
-### 9.3.3 表：board_widget（看板组件）
+### 9.3.3 Owner 合规校验（强制，阻断刷新）
 
-| 字段名        | 类型         | 是否可空 | 默认值            | 枚举/约束  | 说明                            |
-| ------------- | ------------ | -------: | ----------------- | ---------- | ------------------------------- |
-| id            | BIGINT       |       否 |                   | PK         | 主键                            |
-| tenant_id     | BIGINT       |       否 |                   | IDX        | 租户                            |
-| board_id      | BIGINT       |       否 |                   | IDX        | 所属看板                        |
-| type          | VARCHAR(16)  |       否 |                   | WidgetType | 组件类型                        |
-| title         | VARCHAR(50)  |       否 |                   | 1–50       | 组件标题                        |
-| description   | VARCHAR(200) |       是 | NULL              |            | 组件说明                        |
-| dataset_id    | BIGINT       |       是 | NULL              |            | 数据源 Dataset；TEXT 类型可为空 |
-| query_json    | JSON         |       是 | NULL              | 见 9.3.8   | 查询配置（TEXT 可为空）         |
-| viz_json      | JSON         |       否 | '{}'              | 见 9.3.9   | 可视化配置                      |
-| position_json | JSON         |       否 | '{}'              | 见 9.3.10  | 布局位置（x,y,w,h）             |
-| version       | INT          |       否 | 1                 | >=1        | 乐观锁版本                      |
-| is_deleted    | TINYINT      |       否 | 0                 | 0/1        | 软删除                          |
-| created_by    | BIGINT       |       否 |                   |            | 创建人                          |
-| updated_by    | BIGINT       |       否 |                   |            | 更新人                          |
-| created_at    | DATETIME     |       否 | CURRENT_TIMESTAMP |            | 创建时间                        |
-| updated_at    | DATETIME     |       否 | CURRENT_TIMESTAMP | ON UPDATE  | 更新时间                        |
+> PRD 要求：数据集的范围（列范围 + 行范围）以“创建时快照”为准，不得因 Owner 权限扩大而自动扩大；也不得因权限收紧而悄悄改变既有范围（必须阻断刷新并提示原因）。
 
-**索引**
+#### 9.3.3.1 数据集范围快照定义（存储）
 
-- 普通索引
-  - `(board_id, is_deleted)`：加载看板全部组件
-  - `(tenant_id, dataset_id)`：按数据集查引用
-  - `(tenant_id, updated_at DESC)`：最近修改
+- **列范围快照（Allowed Columns Snapshot）**：创建时 Owner 在来源表上可见的列集合（去掉 HIDDEN），存入 `allowed_columns_snapshot_json`
+- **行范围快照（RowScopeFilter Snapshot）**：创建时 Owner 在来源表上的行权限合并结果（RowPermission 的 OR 合并），存入 `row_scope_filter_snapshot_json`
+- **数据集基础过滤（DatasetBaseFilter）**：用户配置的 `base_filter_json`（FilterDSL）
+- **最终范围表达式**：
+  - `FinalScope = RowScopeFilterSnapshot AND DatasetBaseFilter`
+  - RowScopeFilterSnapshot 为空视为 TRUE；DatasetBaseFilter 为空视为 TRUE
+
+#### 9.3.3.2 刷新前必须校验的项目（按顺序执行，任一失败则阻断）
+
+1) **配置可用性校验**
+- base_table 仍存在（table_catalog 可解析）
+- 选择字段仍存在且类型兼容（字段删除/类型变更会导致失败）
+- `base_filter_json` 可解析、可编译（FilterDSL 合法）
+
+2) **Owner 基本有效性**
+- owner_user_id 必须存在且属于当前租户（TenantUser）
+- Owner 未被禁用、未离开租户、未被系统封禁
+
+3) **Owner 列权限覆盖校验（关键）**
+- 计算 Owner 在来源表上的当前列权限结果 `current_allowed_columns`
+- 要求：`allowed_columns_snapshot ⊆ current_allowed_columns`
+  - 若任一快照列在当前变为 HIDDEN/不可见 → 不通过（返回 `DATASET_OWNER_COLUMN_PERMISSION_SHRINK`）
+
+4) **Owner 行权限覆盖校验（关键）**
+- 计算 Owner 在来源表上的当前行权限合并结果 `current_row_scope_filter`（OR 合并后归一化）
+- 要求：`RowScopeFilterSnapshot` 必须被 `current_row_scope_filter` 覆盖  
+  - V1 实现约束：仅支持“OR-of-clauses”的行权限归一化结构（与 RowPermission 合并规则一致）
+  - 校验方式：`snapshot_clauses ⊆ current_clauses`
+  - 若 Owner 权限收紧导致缺少任一快照 clause → 不通过（返回 `DATASET_OWNER_ROW_PERMISSION_SHRINK`）
+  - 若 Owner 权限扩大（current_clauses 增多）→ 允许刷新（数据集范围不扩大，仍按快照）
+
+5) **通过则允许刷新，否则进入 BLOCKED**
+- 若 3/4 任一失败：
+  - `dataset.status = BLOCKED`
+  - 写入 `blocked_reason_code` 与 `blocked_reason_detail_json`
+  - 返回 `DATASET_OWNER_BLOCKED`（并携带原因详情，供前端引导“转移 Owner/调整范围/重新创建”）
+
+#### 9.3.3.3 产出结构（供前端展示）
+
+- `blocked_reason_code`：
+  - `OWNER_NOT_FOUND`
+  - `OWNER_DISABLED`
+  - `OWNER_COLUMN_PERMISSION_SHRINK`
+  - `OWNER_ROW_PERMISSION_SHRINK`
+  - `BASE_FILTER_INVALID`
+  - `BASE_TABLE_NOT_FOUND`
+- `blocked_reason_detail_json`：
+  - missing_columns：数组
+  - missing_row_clauses：数组（规范化后的 clause 哈希或可读表达式）
+  - base_filter_error：可选（解析错误信息）
 
 ---
 
-### 9.3.4 表：report_export_job（导出任务）
+### 9.3.4### 9.3.4 刷新触发与 cron
 
-| 字段名        | 类型          | 是否可空 | 默认值            | 枚举/约束            | 说明                                 |
-| ------------- | ------------- | -------: | ----------------- | -------------------- | ------------------------------------ |
-| id            | BIGINT        |       否 |                   | PK                   | 主键                                 |
-| tenant_id     | BIGINT        |       否 |                   | IDX                  | 租户                                 |
-| object_type   | VARCHAR(16)   |       否 |                   | DATASET/WIDGET/BOARD | 导出对象类型                         |
-| object_id     | BIGINT        |       否 |                   |                      | 导出对象 ID                          |
-| request_json  | JSON          |       否 | '{}'              | 见 9.3.11            | 导出请求快照（含过滤、字段、格式等） |
-| status        | VARCHAR(16)   |       否 | 'PENDING'         | ExportStatus         | 状态                                 |
-| file_name     | VARCHAR(200)  |       是 | NULL              |                      | 生成文件名                           |
-| file_url      | VARCHAR(2000) |       是 | NULL              |                      | 下载 URL（内部存储地址/签名地址）    |
-| error_message | VARCHAR(2000) |       是 | NULL              |                      | 失败原因摘要                         |
-| expired_at    | DATETIME      |       是 | NULL              |                      | 过期时间                             |
-| created_by    | BIGINT        |       否 |                   |                      | 发起人                               |
-| created_at    | DATETIME      |       否 | CURRENT_TIMESTAMP |                      | 创建时间                             |
-| updated_at    | DATETIME      |       否 | CURRENT_TIMESTAMP | ON UPDATE            | 更新时间                             |
+- 刷新触发类型：
+  - MANUAL：手动刷新
+  - CRON：定时刷新
+- cron 规则：
+  - cron 语法必须合法
+  - 最小间隔 5 分钟
+  - 启用 cron 后必须计算 `next_run_at`（按 tenant timezone）
 
-**索引**
+### 9.3.5 物化执行（Worker）
 
-- 普通索引
-  - `(tenant_id, created_by, created_at DESC)`：我的导出任务
-  - `(tenant_id, status)`：后台扫描任务
-  - `(object_type, object_id)`：对象关联
+输入：
+
+- base_table 的真实 DW 表名（由 table_catalog 映射）
+- base_filter_json（Dataset 定义过滤）
+- Dataset 列选择（如 dataset_columns_json 或从 Dataset 字段中派生）
+- 当前 owner 的行/列权限（若平台对 base_table 实施 row/col permission）
+
+输出：
+
+- dataset_table（覆盖式物化）
+
+执行步骤（成功路径）：
+
+1. 校验 dataset 当前状态允许刷新（非 DRAFT；非 BLOCKED）
+2. 校验 owner 合规（见 9.3.3）
+3. dataset.status = REFRESHING；写 dataset.last_run_id
+4. 创建 refresh_run（RUNNING）
+5. 生成临时表名 `tmp_{dataset_table}_{run_id}`
+6. 编译 SELECT SQL（FROM base_table + filters + column projection）
+7. `CREATE TABLE tmp AS SELECT ...`
+8. 原子 swap：tmp -> dataset_table（或 rename swap）
+9. 统计行数 row_count
+10. refresh_run=SUCCESS；dataset.status=ACTIVE；last_success_at=now
+11. 计算 next_run_at（如果 cron_enabled）
+
+失败路径（任意一步失败）：
+
+- refresh_run=FAILED，记录 error_code/error_message（截断 2KB）
+- dataset.status=FAILED（若 owner 校验失败则 BLOCKED）
+- 清理 tmp 表（best-effort）
+
+### 9.3.6 API
+
+#### 9.3.6.1 GET /api/datasets
+
+用途：数据集列表（资源树过滤）
+
+Query：
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+| --- | --- | --- | --- | --- |
+| folder_node_id | string | 否 | null | 资源树目录节点 id（scope=DATASET） |
+| include_descendants | boolean | 否 | true | 是否包含后代节点 |
+| keyword | string | 否 | null | 关键字（name） |
+| page | int | 否 | 1 | - |
+| page_size | int | 否 | 20 | 最大 100 |
+
+返回字段（核心）：
+- dataset_id, name, status
+- owner_user（id/name）
+- next_run_at, last_success_at
+- base_table_id
+
+错误码（至少）：
+- AUTH_REQUIRED
+- TENANT_NOT_FOUND
+- DATASET_FORBIDDEN_FOLDER
+- PARAM_INVALID_PAGE
+- PARAM_INVALID_PAGE_SIZE
+- RESOURCE_NODE_NOT_FOUND
+- RESOURCE_NODE_SCOPE_MISMATCH
+- INTERNAL_ERROR
+
+#### 9.3.6.2 POST /api/datasets
+
+用途：创建数据集（DRAFT）
+
+Body：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| name | string | 是 | 名称 |
+| folder_node_id | string | 是 | scope=DATASET 的目录节点 |
+| base_table_id | string | 是 | 基础表 |
+| owner_user_id | string | 是 | owner |
+
+返回：dataset_id + 初始字段
+
+错误码：
+- DATASET_NAME_DUPLICATE
+- RESOURCE_NODE_SCOPE_MISMATCH
+- BASE_TABLE_NOT_FOUND
+- OWNER_NOT_FOUND
+- OWNER_NOT_IN_TENANT
+- DATASET_FORBIDDEN_CREATE
+- PARAM_INVALID
+- INTERNAL_ERROR
+
+#### 9.3.6.3 GET /api/datasets/{dataset_id}
+
+返回：Dataset 详情（含 base_filter_json、cron、状态、最近一次 run 概要）
+
+错误码：
+- DATASET_NOT_FOUND
+- DATASET_FORBIDDEN
+- INTERNAL_ERROR
+
+#### 9.3.6.4 PATCH /api/datasets/{dataset_id}
+
+可更新字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| name | string | - |
+| base_filter_json | json | 过滤 DSL |
+| owner_user_id | string | 变更 owner |
+| refresh_mode | enum(MANUAL/CRON) | - |
+| cron_expr | string | cron |
+| cron_enabled | boolean | 启停 |
+
+强校验：
+- base_filter_json 必须通过 DSL 校验
+- cron_enabled=true 时必须可计算 next_run_at
+
+错误码（节选）：
+- DATASET_NOT_FOUND
+- DATASET_FORBIDDEN
+- DATASET_STATUS_NOT_EDITABLE
+- DATASET_FILTER_INVALID
+- DATASET_CRON_INVALID
+- OWNER_BLOCKED
+- PARAM_INVALID
+- INTERNAL_ERROR
+
+#### 9.3.6.5 POST /api/datasets/{dataset_id}/enable
+
+用途：从 DRAFT 启用为 ACTIVE（配置完整性校验）
+
+校验项：
+- base_table_id、owner_user_id、folder_node_id 合法
+- base_filter_json 结构合法
+
+错误码：
+- DATASET_NOT_FOUND
+- DATASET_FORBIDDEN
+- DATASET_STATUS_NOT_ENABLEABLE
+- DATASET_CONFIG_INVALID
+- INTERNAL_ERROR
+
+#### 9.3.6.6 POST /api/datasets/{dataset_id}/refresh
+
+用途：手动触发刷新（MANUAL）
+
+流程：
+1) owner 合规校验  
+2) 创建 refresh_run（RUNNING）  
+3) 提交 TaskRunInstance（task_type=DATASET_REFRESH, task_id=dataset_id）  
+4) 返回 run_id
+
+错误码：
+- DATASET_NOT_FOUND
+- DATASET_FORBIDDEN
+- DATASET_STATUS_NOT_REFRESHABLE
+- DATASET_OWNER_BLOCKED
+- TASK_SUBMIT_FAILED
+- INTERNAL_ERROR
+
+#### 9.3.6.7 GET /api/datasets/{dataset_id}/refresh-runs
+
+用途：刷新日志列表（默认最近 20 条）
+
+Query：page/page_size（最大 100）
+
+错误码：
+- DATASET_NOT_FOUND
+- DATASET_FORBIDDEN
+- PARAM_INVALID
+- INTERNAL_ERROR
+
+#### 9.3.6.8 POST /api/datasets/{dataset_id}/preview
+
+用途：预览数据（不落表）
+
+Body：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| runtime_filter_json | json | 否 | 运行时过滤 |
+| limit | int | 否 | 默认 200，最大 200 |
+
+规则：
+- 若 dataset.status=ACTIVE 且 last_success_at 非空 且 dataset_table 存在：从 dataset_table 读
+- 否则：从 base_table 以当前定义“模拟执行”（不写入 dataset_table）
+
+错误码：
+- DATASET_NOT_FOUND
+- DATASET_FORBIDDEN
+- DATASET_FILTER_INVALID
+- DATASET_PREVIEW_FAILED
+- INTERNAL_ERROR
+
+### 9.3.7 表结构
+
+#### 9.3.7.1 表：dataset
+
+| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
+| --- | --- | --- | --- | --- | --- |
+| dataset_id | string | 系统 | 创建 | 否 | CREATE_DATASET |
+| tenant_id | string | TenantContext | 创建 | 否 | - |
+| folder_node_id | string | 前端 | 创建/移动 | 是 | UPDATE_DATASET |
+| name | string | 前端 | 创建/更新 | 是 | UPDATE_DATASET |
+| base_table_id | string | 前端 | 创建 | 否（V1） | - |
+| owner_user_id | string | 前端 | 创建/更新 | 是 | UPDATE_DATASET |
+| base_filter_json | json | 前端 | 更新 | 是 | UPDATE_DATASET |
+| allowed_columns_snapshot_json | json | 系统 | 创建/显式修改范围 | 是（仅范围编辑） | UPDATE_DATASET_SCOPE |
+| row_scope_filter_snapshot_json | json | 系统 | 创建/显式修改范围 | 是（仅范围编辑） | UPDATE_DATASET_SCOPE |
+| blocked_reason_code | string | 系统 | 进入 BLOCKED | 否 | - |
+| blocked_reason_detail_json | json | 系统 | 进入 BLOCKED | 否 | - |
+| last_failure_at | datetime | 系统 | 刷新失败 | 否 | - |
+| last_failed_reason | string | 系统 | 刷新失败 | 否 | - |
+| last_refresh_duration_ms | int | 系统 | 刷新结束 | 否 | - |
+| status | enum | 系统 | 状态迁移 | 否 | - |
+| dataset_table_name | string | 系统 | 创建 | 否 | - |
+| refresh_mode | enum | 前端 | 更新 | 是 | UPDATE_DATASET |
+| cron_expr | string | 前端 | 更新 | 是 | UPDATE_DATASET |
+| cron_enabled | boolean | 前端 | 更新 | 是 | UPDATE_DATASET |
+| next_run_at | datetime | 系统 | 计算 | 否 | - |
+| last_run_id | string | 系统 | 刷新触发 | 否 | - |
+| last_success_at | datetime | 系统 | 刷新成功 | 否 | - |
+| created_at/updated_at | datetime | 系统 | 创建/更新 | 否 | - |
+
+#### 9.3.7.2 表：dataset_refresh_run
+
+| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
+| --- | --- | --- | --- | --- | --- |
+| run_id | string | 系统 | 触发刷新 | 否 | - |
+| tenant_id | string | TenantContext | 触发刷新 | 否 | - |
+| dataset_id | string | 系统 | 触发刷新 | 否 | - |
+| trigger | enum(MANUAL/CRON) | 系统 | 触发刷新 | 否 | - |
+| status | enum(RUNNING/SUCCESS/FAILED) | 系统 | 运行/结束 | 否 | - |
+| started_at/finished_at | datetime | 系统 | 运行/结束 | 否 | - |
+| row_count | bigint | DW | 成功结束 | 否 | - |
+| error_code | string | 系统 | 失败结束 | 否 | - |
+| error_message | string | 系统 | 失败结束 | 否 | - |
 
 ---
 
-### 9.3.5 dataset.base_filter_json（统一 FilterDSL）
+## 9.4 图表（Chart）
 
-> FilterDSL 语法与全局 DSL 保持一致；本章仅给出执行侧最小要求，用于校验与查询编译。
+### 9.4.1 资产定义
 
-| 字段  | 类型          | 必填 | 枚举/约束 | 说明       |
-| ----- | ------------- | ---: | --------- | ---------- |
-| op    | STRING        |   是 | AND/OR    | 组合方式   |
-| items | ARRAY\<JSON\> |   是 | 0–200     | 子条件列表 |
+- Chart 绑定 dataset_id
+- Chart 保存两份配置：
+  - query_config_json：如何查询数据
+  - viz_config_json：如何展示
 
-**items 元素：比较条件**
+### 9.4.2 QueryConfig（V1 结构校验）
 
-| 字段   | 类型   | 必填 | 枚举/约束                                                                                           | 说明                          |
-| ------ | ------ | ---: | --------------------------------------------------------------------------------------------------- | ----------------------------- |
-| field  | STRING |   是 |                                                                                                     | 字段名                        |
-| cmp    | STRING |   是 | =, !=, >, >=, <, <=, IN, NOT_IN, LIKE, BETWEEN, IS_NULL, NOT_NULL, CONTAINS, STARTS_WITH, ENDS_WITH | 比较符                        |
-| value  | ANY    |   否 |                                                                                                     | 值（IS_NULL/NOT_NULL 可省略） |
-| value2 | ANY    |   否 |                                                                                                     | BETWEEN 第二值                |
-
-**示例**
+最小示例：
 
 ```json
 {
-  "op": "AND",
+  "version": 1,
+  "dimensions": [{"field": "city", "alias": "城市"}],
+  "metrics": [{"agg": "sum", "field": "gmv", "alias": "GMV"}],
+  "filters": [],
+  "orders": [{"by": "GMV", "dir": "desc"}],
+  "limit": 100
+}
+```
+
+校验规则（必须）：
+
+- version=1
+- dimensions/metrics 至少一个非空
+- 所有 field 必须存在于 dataset_table 的列集合（由 dataset schema 缓存提供）
+- orders.by 只能引用 alias 或 field
+- limit 最大 10000（超过返回 CHART_LIMIT_TOO_LARGE）
+
+### 9.4.3 VizConfig（V1 结构校验）
+
+最小示例：
+
+```json
+{
+  "version": 1,
+  "chart_type": "bar",
+  "x": "城市",
+  "y": ["GMV"],
+  "options": {"stack": false}
+}
+```
+
+校验规则（必须）：
+
+- chart_type 必须属于白名单：bar/line/pie/table（V1）
+- x/y 引用必须存在于 query 输出字段集合
+
+### 9.4.4 执行规则（Preview / Render / Export 共用）
+
+1. **读表**：FROM dataset.dataset_table_name
+2. **权限**：执行前必须校验用户对 dataset 的 DATASET>=VIEW；同时对底层表字段行列权限按第 5 章规则应用（若平台启用）
+3. **运行时过滤**：preview 可叠加 runtime_filter_json（仅本次执行，不落库）
+4. **分页限制**：
+   - table 型预览默认 limit=200，最大 200
+   - 其他图表默认 limit=1000，最大 10000
+
+### 9.4.5 API
+
+#### 9.4.5.1 POST /api/charts/preview
+
+用途：不保存 Chart 的临时预览
+
+Body：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| dataset_id | string | 是 | Dataset |
+| query_config_json | json | 是 | QueryConfig |
+| viz_config_json | json | 否 | 可选（table 预览可不传） |
+| runtime_filter_json | json | 否 | 仅本次 |
+| limit | int | 否 | - |
+
+返回：
+- data：表格数据或图表数据序列
+- schema：列信息（name/type）
+- warnings：可选（如字段被权限裁剪）
+
+错误码（节选）：
+- DATASET_NOT_FOUND
+- DATASET_NOT_READY
+- DATASET_FORBIDDEN
+- CHART_QUERY_INVALID
+- CHART_VIZ_INVALID
+- QUERY_EXEC_TIMEOUT
+- QUERY_RESULT_TOO_LARGE
+- INTERNAL_ERROR
+
+#### 9.4.5.2 POST /api/charts
+
+用途：保存 Chart
+
+规则：
+- 允许在被 Dashboard 引用时更新（不锁定）；更新会立即影响所有引用该 Chart 的 Dashboard 渲染结果。
+
+Body：
+
+| 字段 | 类型 | 必填 |
+| --- | --- | --- |
+| name | string | 是 |
+| dataset_id | string | 是 |
+| query_config_json | json | 是 |
+| viz_config_json | json | 是 |
+
+错误码：
+- CHART_NAME_DUPLICATE
+- DATASET_NOT_READY
+- CHART_QUERY_INVALID
+- CHART_VIZ_INVALID
+- CHART_FORBIDDEN_CREATE
+- INTERNAL_ERROR
+
+#### 9.4.5.3 GET /api/charts
+
+Query：
+- dataset_id（可选）
+- keyword（可选）
+- page/page_size
+
+返回：仅返回用户有权限访问的数据集下的 charts（DATASET>=VIEW）
+
+错误码：
+- PARAM_INVALID
+- INTERNAL_ERROR
+
+#### 9.4.5.4 GET /api/charts/{chart_id}
+
+#### 9.4.5.5 PATCH /api/charts/{chart_id}
+
+可更新：name/query_config_json/viz_config_json
+
+错误码：
+- CHART_NOT_FOUND
+- CHART_FORBIDDEN
+- CHART_QUERY_INVALID
+- CHART_VIZ_INVALID
+- CHART_DELETE_CONFIRM_REQUIRED（删除前需要二次确认，返回影响范围）
+- INTERNAL_ERROR
+
+#### 9.4.5.6 DELETE /api/charts/{chart_id}
+
+规则（与 PRD 对齐：允许删除，但必须做影响提示）：
+- 若 ref_count>0（被 Dashboard 引用）：
+  - 第一次调用（未携带 force=true）：返回 `CHART_DELETE_CONFIRM_REQUIRED`，并在响应中带 `affected_dashboards_count`（可选带前 N 个 dashboard_id）
+  - 确认后再次调用：`DELETE ...?force=true`，执行级联清理（详见 9.5 dashboard_item / layout_json 一致性规则）
+- 若 ref_count=0：直接删除
+
+
+### 9.4.6 表结构
+
+#### 9.4.6.1 表：chart
+
+| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
+| --- | --- | --- | --- | --- | --- |
+| chart_id | string | 系统 | 创建 | 否 | CREATE_CHART |
+| tenant_id | string | TenantContext | 创建 | 否 | - |
+| name | string | 前端 | 创建/更新 | 是 | UPDATE_CHART |
+| dataset_id | string | 前端 | 创建 | 否 | - |
+| query_config_json | json | 前端 | 创建/更新 | 是 | UPDATE_CHART |
+| viz_config_json | json | 前端 | 创建/更新 | 是 | UPDATE_CHART |
+| ref_count | int | 系统 | 引用变更 | 否 | - |
+| created_by/updated_by | string | TenantUser | 创建/更新 | 否 | - |
+| created_at/updated_at | datetime | 系统 | 创建/更新 | 否 | - |
+
+---
+
+## 9.5 仪表盘（Dashboard）
+
+### 9.5.1 资源树组织
+
+- Dashboard 资产在资源树 scope=DASHBOARD 下组织：
+  - 目录节点：node_type=FOLDER
+  - 叶子节点：node_type=DASHBOARD（resource_id=dashboard_id）
+
+### 9.5.2 Dashboard 定义
+
+- dashboard.filters_json：V1 固定为空（null 或 []）
+- dashboard.layout_json：保存所有 DashboardItem 的位置/尺寸（唯一真实来源）
+- dashboard_item：只负责“引用关系”，不保存位置
+
+layout_json 示例：
+
+```json
+{
+  "version": 1,
+  "cols": 24,
   "items": [
-    { "field": "pay_time", "cmp": ">=", "value": "2025-01-01" },
-    { "field": "pay_amount", "cmp": ">", "value": 0 },
-    { "field": "channel", "cmp": "IN", "value": ["douyin", "kuaishou"] }
+    {"id": "di_1", "x": 0, "y": 0, "w": 12, "h": 8}
   ]
 }
 ```
 
+### 9.5.3 API
+
+#### 9.5.3.1 GET /api/dashboards
+
+Query：
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+| --- | --- | --- | --- | --- |
+| folder_node_id | string | 否 | null | scope=DASHBOARD |
+| include_descendants | boolean | 否 | true | - |
+| keyword | string | 否 | null | - |
+| page | int | 否 | 1 | - |
+| page_size | int | 否 | 20 | 最大 100 |
+
+#### 9.5.3.2 POST /api/dashboards
+
+Body：name、folder_node_id、description（可选）
+
+行为：
+1) 创建 dashboard  
+2) 创建资源树叶子节点并绑定 dashboard_id  
+
+错误码：
+- DASHBOARD_NAME_DUPLICATE
+- DASHBOARD_FORBIDDEN_CREATE
+- RESOURCE_NODE_SCOPE_MISMATCH
+- INTERNAL_ERROR
+
+#### 9.5.3.3 GET /api/dashboards/{dashboard_id}
+
+返回：
+- dashboard（含 layout_json、auto_refresh）
+- items（dashboard_item 列表）
+- charts（批量返回 items 引用的 charts，便于前端一次拿齐配置）
+
+错误码：
+- DASHBOARD_NOT_FOUND
+- DASHBOARD_FORBIDDEN
+- INTERNAL_ERROR
+
+#### 9.5.3.4 PATCH /api/dashboards/{dashboard_id}
+
+可更新：name/description/auto_refresh/auto_refresh_interval_min
+
+强校验：
+- filters_json 若出现且非空：拒绝（DASHBOARD_FILTERS_NOT_SUPPORTED）
+
+错误码：
+- DASHBOARD_NOT_FOUND
+- DASHBOARD_FORBIDDEN
+- DASHBOARD_FILTERS_NOT_SUPPORTED
+- PARAM_INVALID
+- INTERNAL_ERROR
+
+#### 9.5.3.5 POST /api/dashboards/{dashboard_id}/items
+
+用途：添加一个 Chart 到 Dashboard（创建 DashboardItem）
+
+Body：chart_id
+
+行为：
+1) 校验用户对 dashboard 有 DASHBOARD>=EDIT  
+2) 校验 chart 可访问（DATASET>=VIEW）  
+3) 创建 dashboard_item  
+4) chart.ref_count +1  
+5) 返回 dashboard_item_id（默认位置由前端后续提交 layout）
+
+错误码：
+- DASHBOARD_NOT_FOUND
+- DASHBOARD_FORBIDDEN
+- CHART_NOT_FOUND
+- CHART_FORBIDDEN
+- DASHBOARD_ITEM_LIMIT_EXCEEDED（可选：上限 50）
+- INTERNAL_ERROR
+
+#### 9.5.3.6 DELETE /api/dashboards/{dashboard_id}/items/{dashboard_item_id}
+
+行为：
+1) 删除 dashboard_item  
+2) 从 dashboard.layout_json.items 中移除对应项（若存在）  
+3) chart.ref_count -1
+
+错误码：
+- DASHBOARD_NOT_FOUND
+- DASHBOARD_FORBIDDEN
+- DASHBOARD_ITEM_NOT_FOUND
+- INTERNAL_ERROR
+
+#### 9.5.3.7 PUT /api/dashboards/{dashboard_id}/layout
+
+Body：layout_json（必须）
+
+校验（与 PRD layout_json schema 对齐）：
+- version=1
+- cols 固定为 24（V1）
+- items 数量 <= 50
+- layout_json 序列化后大小 <= 256KB
+- items[].id 必须对应该 dashboard 下的 dashboard_item_id
+- items[].id 不得重复
+- x/y/w/h 均为非负整数，且 w>0、h>0
+- x + w <= cols
+
+错误码：
+- DASHBOARD_NOT_FOUND
+- DASHBOARD_FORBIDDEN
+- DASHBOARD_LAYOUT_INVALID
+- INTERNAL_ERROR
+
+
+
+#### 9.5.3.X POST /api/dashboards/{dashboard_id}/items
+
+用途：向仪表盘添加一个图表卡片（创建 dashboard_item）
+
+Body：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| chart_id | string | 是 | 目标图表 |
+| title_override | string | 否 | 局部标题覆盖 |
+| note | string | 否 | 局部备注 |
+
+行为：
+1) 校验 dashboard 存在且可编辑（DASHBOARD>=EDIT）
+2) 校验 chart 存在且可访问（CHART>=VIEW）
+3) 校验 dashboard 当前 item 数量 < 50（上限由 PRD 固定）
+4) 创建 dashboard_item
+5) chart.ref_count += 1
+6) 返回 dashboard_item_id
+7) **位置/尺寸不在本接口写入**：前端必须随后调用 `PUT /api/dashboards/{id}/layout` 保存布局
+
+错误码（至少）：
+- DASHBOARD_NOT_FOUND
+- DASHBOARD_FORBIDDEN
+- CHART_NOT_FOUND
+- CHART_FORBIDDEN
+- DASHBOARD_ITEM_LIMIT_EXCEEDED
+- VALIDATION_FAILED
+- INTERNAL_ERROR
+
+#### 9.5.3.X PATCH /api/dashboards/{dashboard_id}/items/{dashboard_item_id}
+
+用途：编辑卡片局部标题/备注（title_override / note）
+
+Body（至少包含一个字段）：
+
+| 字段 | 类型 | 必填 |
+| --- | --- | --- |
+| title_override | string | 否 |
+| note | string | 否 |
+
+规则：
+- 仅更新 dashboard_item，不影响 chart
+- 允许空字符串（表示清空）
+
+错误码：
+- DASHBOARD_NOT_FOUND
+- DASHBOARD_FORBIDDEN
+- DASHBOARD_ITEM_NOT_FOUND
+- VALIDATION_FAILED
+- INTERNAL_ERROR
+
+#### 9.5.3.X DELETE /api/dashboards/{dashboard_id}/items/{dashboard_item_id}
+
+用途：从仪表盘移除一个卡片
+
+行为：
+1) 校验 dashboard 可编辑
+2) 校验 dashboard_item 属于该 dashboard
+3) 删除 dashboard_item
+4) chart.ref_count -= 1
+5) 后端必须同步更新 dashboard.layout_json：剔除 items[].id=dashboard_item_id
+6) 写审计：REMOVE_DASHBOARD_ITEM
+
+错误码：
+- DASHBOARD_NOT_FOUND
+- DASHBOARD_FORBIDDEN
+- DASHBOARD_ITEM_NOT_FOUND
+- DASHBOARD_LAYOUT_WRITE_FAILED
+- INTERNAL_ERROR
+
+#### 9.5.3.8（不提供）服务端 render 接口
+
+- PRD 的打开/渲染流程为“前端并发拉取 dashboard_items + charts + chart preview”，因此 V1 **不对外提供** `POST /api/dashboards/{dashboard_id}/render`。
+- 若后续需要做服务端聚合优化，可作为内部接口实现，但不得作为对外稳定 API（避免与前端渲染职责冲突）。
+
+
+### 9.5.4 表结构
+
+#### 9.5.4.1 表：dashboard
+
+| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
+| --- | --- | --- | --- | --- | --- |
+| dashboard_id | string | 系统 | 创建 | 否 | CREATE_DASHBOARD |
+| tenant_id | string | TenantContext | 创建 | 否 | - |
+| resource_node_id | string | 系统 | 创建 | 否 | - |
+| name | string | 前端 | 创建/更新 | 是 | UPDATE_DASHBOARD |
+| description | string | 前端 | 创建/更新 | 是 | UPDATE_DASHBOARD |
+| filters_json | json | 系统 | 创建/更新 | 否（V1 固定空） | - |
+| layout_json | json | 前端 | 更新布局 | 是 | UPDATE_DASHBOARD_LAYOUT |
+| auto_refresh | boolean | 前端 | 更新 | 是 | UPDATE_DASHBOARD |
+| auto_refresh_interval_min | int | 前端 | 更新 | 是 | UPDATE_DASHBOARD |
+| created_by/updated_by | string | TenantUser | 创建/更新 | 否 | - |
+| created_at/updated_at | datetime | 系统 | 创建/更新 | 否 | - |
+
+#### 9.5.4.2 表：dashboard_item
+
+| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
+| --- | --- | --- | --- | --- | --- |
+| dashboard_item_id | string | 系统 | 添加图表 | 否 | ADD_DASHBOARD_ITEM |
+| tenant_id | string | TenantContext | 创建 | 否 | - |
+| dashboard_id | string | 系统 | 创建 | 否 | - |
+| chart_id | string | 前端 | 创建 | 否 | - |
+| created_by | string | TenantUser | 创建 | 否 | - |
+| created_at | datetime | 系统 | 创建 | 否 | - |
+
 ---
 
-### 9.3.6 board.global_filter_json（全局筛选）
 
-> 全局筛选用于看板顶部筛选条，渲染时将其与每个 Widget.query_json.filter_json 合并。
 
-| 字段      | 类型          | 必填 | 说明                          |
-| --------- | ------------- | ---: | ----------------------------- |
-| filter    | JSON          |   否 | FilterDSL；为空表示无全局过滤 |
-| variables | ARRAY\<JSON\> |   否 | 变量定义列表（可选）          |
+#### 9.5.4.2 表：dashboard_item
 
-**variables 项**
+> 说明：dashboard_item 只负责“引用关系 + 局部展示覆盖”，**位置与尺寸仅存于 dashboard.layout_json**（唯一真实来源）。
 
-| 字段          | 类型            | 必填 | 说明                                  |
-| ------------- | --------------- | ---: | ------------------------------------- |
-| key           | STRING          |   是 | 变量名（用于 Widget 引用）            |
-| label         | STRING          |   是 | 展示名                                |
-| value_type    | STRING          |   是 | STRING/NUMBER/DATE/DATETIME/BOOL/ENUM |
-| default_value | ANY             |   否 | 默认值                                |
-| enum_options  | ARRAY\<STRING\> |   否 | ENUM 可选项                           |
+| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
+| --- | --- | --- | --- | --- | --- |
+| dashboard_item_id | string | 系统 | 创建 | 否 | ADD_DASHBOARD_ITEM |
+| tenant_id | string | TenantContext | 创建 | 否 | - |
+| dashboard_id | string | 前端 | 创建 | 否 | - |
+| chart_id | string | 前端 | 创建 | 否 | - |
+| title_override | string | 前端 | 创建/更新 | 是 | UPDATE_DASHBOARD_ITEM |
+| note | string | 前端 | 创建/更新 | 是 | UPDATE_DASHBOARD_ITEM |
+| created_by/updated_by | string | TenantUser | 创建/更新 | 否 | - |
+| created_at/updated_at | datetime | 系统 | 创建/更新 | 否 | - |
 
-**示例**
+一致性规则（必须实现）：
+1. 新增 item：
+   - 插入 dashboard_item
+   - 同步 `chart.ref_count += 1`
+   - 前端随后调用 `PUT /api/dashboards/{id}/layout` 把该 item.id 写入 layout_json
+2. 删除 item：
+   - 删除 dashboard_item
+   - 同步 `chart.ref_count -= 1`
+   - 后端必须同步从 `dashboard.layout_json.items[]` 中剔除对应 id（防止脏布局）
+3. 删除 chart（force=true）：
+   - 必须级联删除所有引用它的 dashboard_item
+   - 必须对每个受影响 dashboard 做 layout_json 剔除
+   - 受影响 dashboard 需要写审计：REMOVE_DASHBOARD_ITEM（system actor=chart_delete）
 
-```json
-{
-  "filter": {
-    "op": "AND",
-    "items": [
-      {
-        "field": "dt",
-        "cmp": "BETWEEN",
-        "value": "2025-12-01",
-        "value2": "2025-12-31"
-      }
-    ]
-  },
-  "variables": [
-    {
-      "key": "channel",
-      "label": "渠道",
-      "value_type": "ENUM",
-      "default_value": "douyin",
-      "enum_options": ["douyin", "kuaishou"]
-    }
-  ]
-}
-```
+## 9.6 导出（Export）
 
----
+### 9.6.1 支持范围（V1）
 
-### 9.3.7 board.layout_json（看板布局配置）
+- 仅支持**单 Chart**导出：
+  - DATA + CSV
+  - IMAGE + PNG
+- 明确不支持：Dashboard 全量导出
 
-| 字段          | 类型   | 必填 | 说明                       |
-| ------------- | ------ | ---: | -------------------------- |
-| grid          | JSON   |   是 | 网格配置                   |
-| theme         | JSON   |   否 | 主题（可选）               |
-| last_saved_at | STRING |   否 | 前端最后保存时间（展示用） |
+### 9.6.2 API
 
-**grid**
+#### 9.6.2.1 POST /api/charts/{chart_id}/exports
 
-| 字段       | 类型         | 必填 | 说明             |
-| ---------- | ------------ | ---: | ---------------- |
-| cols       | INT          |   是 | 列数（默认 24）  |
-| row_height | INT          |   是 | 行高（默认 16）  |
-| margin     | ARRAY\<INT\> |   是 | [x,y] 默认 [8,8] |
+Body：
 
----
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| export_type | enum(DATA/IMAGE) | 是 | - |
+| format | enum(CSV/PNG) | 是 | - |
 
-### 9.3.8 board_widget.query_json（查询配置 QuerySpec）
+流程：
+1) 校验 chart 可访问  
+2) 创建 export_job（PENDING）  
+3) 提交 TaskRunInstance（task_type=EXPORT, task_id=export_job_id）  
+4) 返回 export_job_id  
 
-> QuerySpec 由 QueryBuilder 编译为 SQL。source 固定为 dataset（本版本）或 table（可选扩展）。  
-> 若 WidgetType=TEXT，则 query_json 允许为 null。
+错误码：
+- CHART_NOT_FOUND
+- CHART_FORBIDDEN
+- EXPORT_TYPE_NOT_SUPPORTED
+- EXPORT_FORMAT_NOT_SUPPORTED
+- TASK_SUBMIT_FAILED
+- INTERNAL_ERROR
 
-| 字段          | 类型            | 必填 | 枚举/约束     | 说明                       |
-| ------------- | --------------- | ---: | ------------- | -------------------------- |
-| source_type   | STRING          |   是 | DATASET/TABLE | 数据源类型                 |
-| source_id     | BIGINT          |   是 |               | dataset_id 或 table_id     |
-| select_fields | ARRAY\<STRING\> |   否 | 0–200         | 明细字段（TABLE 类型常用） |
-| group_by      | ARRAY\<STRING\> |   否 | 0–20          | 分组字段（图表常用）       |
-| metrics       | ARRAY\<JSON\>   |   否 | 0–50          | 指标（聚合）               |
-| filter_json   | JSON            |   否 | FilterDSL     | 局部过滤                   |
-| order_by      | ARRAY\<JSON\>   |   否 | 0–20          | 排序                       |
-| limit         | INT             |   否 | 1–100000      | 限制行数                   |
-| page          | INT             |   否 | >=1           | 仅 TABLE 组件支持分页      |
-| page_size     | INT             |   否 | 1–200         | 仅 TABLE 组件支持分页      |
-| topn          | JSON            |   否 | 见下          | TopN（可选）               |
+#### 9.6.2.2 GET /api/exports/{export_job_id}
 
-**metrics 项**
+返回：status/file_url/error_message
 
-| 字段  | 类型   | 必填 | 枚举/约束             | 说明                         |
-| ----- | ------ | ---: | --------------------- | ---------------------------- |
-| as    | STRING |   是 | 1–64                  | 输出别名                     |
-| func  | STRING |   是 | COUNT/SUM/AVG/MIN/MAX | 聚合函数                     |
-| field | STRING |   否 |                       | 输入字段（COUNT(\*) 可为空） |
+### 9.6.3 Worker 执行
 
-**order_by 项**
+- DATA/CSV：执行 chart preview 逻辑得到结果集，生成 CSV 上传
+- IMAGE/PNG：后端根据 viz_config 渲染为图片（或调用渲染服务），上传
 
-| 字段      | 类型   | 必填 | 说明                                |
-| --------- | ------ | ---: | ----------------------------------- |
-| field     | STRING |   是 | 排序字段（可为 group/metric 的 as） |
-| direction | STRING |   是 | ASC/DESC                            |
+### 9.6.4 表结构
 
-**topn**
+#### 表：export_job
 
-| 字段  | 类型   | 必填 | 说明                       |
-| ----- | ------ | ---: | -------------------------- |
-| by    | STRING |   是 | 依据字段（通常为指标别名） |
-| n     | INT    |   是 | 1–200                      |
-| order | STRING |   是 | ASC/DESC                   |
-
-**示例（按渠道聚合 Top10）**
-
-```json
-{
-  "source_type": "DATASET",
-  "source_id": 1001,
-  "group_by": ["channel"],
-  "metrics": [{ "as": "pay_sum", "func": "SUM", "field": "pay_amount" }],
-  "filter_json": {
-    "op": "AND",
-    "items": [{ "field": "pay_amount", "cmp": ">", "value": 0 }]
-  },
-  "order_by": [{ "field": "pay_sum", "direction": "DESC" }],
-  "limit": 200
-}
-```
+| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
+| --- | --- | --- | --- | --- | --- |
+| export_job_id | string | 系统 | 创建 | 否 | CREATE_EXPORT |
+| tenant_id | string | TenantContext | 创建 | 否 | - |
+| object_type | enum(CHART) | 系统 | 创建 | 否 | - |
+| object_id | string | chart_id | 创建 | 否 | - |
+| export_type | enum(DATA/IMAGE) | 前端 | 创建 | 否 | - |
+| format | enum(CSV/PNG) | 前端 | 创建 | 否 | - |
+| status | enum(PENDING/RUNNING/SUCCESS/FAILED) | 系统 | 运行/结束 | 否 | - |
+| file_url | string | 系统 | 成功结束 | 否 | - |
+| error_message | string | 系统 | 失败结束 | 否 | - |
+| created_by | string | TenantUser | 创建 | 否 | - |
+| created_at/updated_at | datetime | 系统 | 创建/更新 | 否 | - |
 
 ---
 
-### 9.3.9 board_widget.viz_json（可视化配置 VizSpec）
+## 9.7 PlantUML（关键流程）
 
-| 字段     | 类型   | 必填 | 说明                                            |
-| -------- | ------ | ---: | ----------------------------------------------- |
-| viz_type | STRING |   是 | 与 WidgetType 对应：LINE/BAR/PIE/KPI/TABLE/TEXT |
-| mapping  | JSON   |   否 | 字段映射（x/y/series 等）                       |
-| format   | JSON   |   否 | 数值格式（小数位、单位等）                      |
-| options  | JSON   |   否 | 组件选项（legend、stack 等）                    |
-
-**示例（折线图映射）**
-
-```json
-{
-  "viz_type": "LINE",
-  "mapping": { "x": "dt", "y": "pay_sum", "series": "channel" },
-  "format": { "y": { "decimals": 2, "unit": "¥" } },
-  "options": { "legend": true }
-}
-```
-
----
-
-### 9.3.10 board_widget.position_json（布局位置）
-
-| 字段 | 类型 | 必填 | 说明           |
-| ---- | ---- | ---: | -------------- |
-| x    | INT  |   是 | 网格 x         |
-| y    | INT  |   是 | 网格 y         |
-| w    | INT  |   是 | 宽度（网格列） |
-| h    | INT  |   是 | 高度（网格行） |
-
----
-
-### 9.3.11 report_export_job.request_json（导出请求快照）
-
-| 字段              | 类型            | 必填 | 说明                                    |
-| ----------------- | --------------- | ---: | --------------------------------------- |
-| format            | STRING          |   是 | CSV/XLSX                                |
-| columns           | ARRAY\<STRING\> |   否 | 导出列（为空表示默认输出）              |
-| query             | JSON            |   否 | QuerySpec（对象为 WIDGET/BOARD 时必填） |
-| board_id          | BIGINT          |   否 | BOARD 导出时记录                        |
-| widget_ids        | ARRAY\<BIGINT\> |   否 | BOARD 导出选择的组件列表                |
-| created_at_client | STRING          |   否 | 客户端生成时间（可选）                  |
-
----
-
-## 9.4 关键流程与 PlantUML
-
-### 9.4.1 看板渲染（批量查询）
+### 9.7.1 Dataset Refresh（MANUAL）
 
 ```plantuml
 @startuml
 actor User
-participant "BoardUI" as UI
-participant "ReportAPI" as API
-participant "PermissionService" as PS
-participant "BoardService" as BS
-participant "DatasetService" as DS
-participant "QueryBuilder" as QB
-participant "QueryRunner" as QR
-participant "BoardRepo" as BR
-participant "WidgetRepo" as WR
+participant "API" as API
+participant "Scheduler" as SCH
+participant "Worker" as WK
+database "MetaDB" as MDB
+database "DW" as DW
 
-User -> UI : 打开看板
-UI -> API : GET /api/boards/{id}/render?with_data=true
-API -> BR : load board
-BR --> API : board
-API -> PS : check BOARD>=VIEW
-PS --> API : ok
-API -> WR : list widgets by board_id
-WR --> API : widgets
+User -> API: POST /api/datasets/{id}/refresh
+API -> MDB: load dataset + owner
+API -> MDB: create refresh_run(status=RUNNING)
+API -> MDB: update dataset(status=REFRESHING)
 
-API -> BS : render(board,widgets,user,tenant)
-BS -> DS : load datasets referenced
-DS --> BS : datasets
-loop each widget
-  BS -> QB : build_sql(querySpec + board_global_filter + dataset_base_filter + row/col policy)
-  QB --> BS : sql
-  BS -> QR : execute(sql)
-  QR --> BS : rows
+API -> SCH: submit TaskRunInstance(DATASET_REFRESH)
+SCH -> WK: dispatch run
+WK -> MDB: load dataset definition
+WK -> DW: create tmp table as select ...
+WK -> DW: swap tmp -> dataset_table
+WK -> MDB: update refresh_run(status=SUCCESS)
+WK -> MDB: update dataset(status=ACTIVE)
+
+API --> User: run_id
+@enduml
+```
+
+### 9.7.2 Dashboard Render（with_data=true）
+
+```plantuml
+@startuml
+actor User
+participant "API" as API
+database "MetaDB" as MDB
+database "DW" as DW
+
+User -> API: GET /api/dashboards/{id}
+API -> MDB: load dashboard + dashboard_items + layout_json
+API --> User: dashboard + items + layout_json
+
+loop for each dashboard_item
+  User -> API: POST /api/charts/preview(chart_id, runtime_filter_json=null)
+  API -> MDB: load chart + dataset
+  API -> DW: execute query on dataset_table
+  API --> User: chart preview data
 end
-BS --> API : render_result
-API --> UI : {board, widgets, data}
+
 @enduml
 ```
 
 ---
 
-### 9.4.2 数据集预览（分页查询）
-
-```plantuml
-@startuml
-actor User
-participant "DatasetUI" as UI
-participant "ReportAPI" as API
-participant "PermissionService" as PS
-participant "DatasetRepo" as DR
-participant "QueryBuilder" as QB
-participant "QueryRunner" as QR
-
-User -> UI : 预览数据集
-UI -> API : POST /api/datasets/{id}/preview {filter,order_by,page,page_size}
-API -> DR : load dataset
-DR --> API : dataset
-API -> PS : check DATASET>=VIEW
-PS --> API : ok
-API -> QB : build_sql(dataset_base_filter + runtime_filter + row/col policy + paging)
-QB --> API : sql
-API -> QR : execute(sql)
-QR --> API : rows,total(optional)
-API --> UI : {rows,page,page_size}
-@enduml
-```
-
----
-
-### 9.4.3 导出（异步任务）
-
-```plantuml
-@startuml
-actor User
-participant "ReportAPI" as API
-participant "PermissionService" as PS
-participant "ExportService" as ES
-participant "ExportJobRepo" as ER
-participant "Executor(Async)" as EXE
-participant "QueryBuilder" as QB
-participant "QueryRunner" as QR
-
-User -> API : POST /api/exports {object_type,object_id,format,query}
-API -> PS : check resource permission + table permission (via QB policy)
-PS --> API : ok
-API -> ES : create_export_job(...)
-ES -> ER : insert job(PENDING)
-ER --> ES : job_id
-ES -> EXE : enqueue(job_id)
-EXE --> ES : accepted
-ES --> API : {job_id}
-
-EXE -> ER : load job
-ER --> EXE : job
-EXE -> ER : update RUNNING
-EXE -> QB : build_sql(...)
-QB --> EXE : sql
-EXE -> QR : execute_stream(sql)
-QR --> EXE : stream
-EXE -> EXE : write file + upload
-EXE -> ER : update SUCCESS(file_url,expired_at)
-@enduml
-```
-
----
-
-## 9.5 接口清单与实现要求
-
-> 统一返回结构：`{"code":"OK|ERROR_CODE","message":"","data":...,"request_id":"..."}`  
-> 分页参数：`page`（从 1 开始）、`page_size`（默认 20，最大 200）
-
-### 9.5.1 接口清单总览
-
-#### A. 资源树（复用资源树服务，不在报表模块重复建模）
-
-- GET /api/resource-tree?scope=DATASET
-- GET /api/resource-tree?scope=BOARD
-- POST /api/resource-tree/folders（创建 Folder）
-- PATCH /api/resource-tree/nodes/{node_id}（重命名/移动）
-- DELETE /api/resource-tree/nodes/{node_id}（删除）
-
-#### B. 数据集 Dataset
-
-- GET /api/datasets（列表）
-- POST /api/datasets（新建）
-- GET /api/datasets/{dataset_id}（详情）
-- PATCH /api/datasets/{dataset_id}（编辑）
-- DELETE /api/datasets/{dataset_id}（删除）
-- POST /api/datasets/{dataset_id}/preview（预览查询）
-- POST /api/datasets/{dataset_id}/validate（校验配置）
-
-#### C. 看板 Board
-
-- GET /api/boards（列表）
-- POST /api/boards（新建）
-- GET /api/boards/{board_id}（详情）
-- PATCH /api/boards/{board_id}（编辑基本信息）
-- DELETE /api/boards/{board_id}（删除）
-- GET /api/boards/{board_id}/widgets（组件列表）
-- POST /api/boards/{board_id}/widgets（新增组件）
-- PATCH /api/boards/{board_id}/widgets/{widget_id}（编辑组件）
-- DELETE /api/boards/{board_id}/widgets/{widget_id}（删除组件）
-- PUT /api/boards/{board_id}/layout（保存布局与全局筛选）
-- GET /api/boards/{board_id}/render（渲染：可带数据）
-
-#### D. 导出 Export
-
-- POST /api/exports（创建导出任务）
-- GET /api/exports（导出任务列表）
-- GET /api/exports/{export_id}（导出任务详情）
-- GET /api/exports/{export_id}/download（下载：重定向/返回签名 URL）
-- DELETE /api/exports/{export_id}（删除导出任务记录，可选）
-
-#### E. 权限配置（复用授权接口，资源类型=DATASET/BOARD）
-
-- GET /api/permissions/resources/{resource_node_id}?scope=DATASET|BOARD
-- POST /api/permissions/grants
-- DELETE /api/permissions/grants/{grant_id}
-
----
-
-## 9.6 错误码（报表模块）
-
-| 错误码                             | HTTP | 触发场景                                 | 处理建议             |
-| ---------------------------------- | ---: | ---------------------------------------- | -------------------- |
-| DATASET\_\_NOT_FOUND               |  404 | dataset_id 不存在/不属于租户/已删除      | 检查 ID              |
-| BOARD\_\_NOT_FOUND                 |  404 | board_id 不存在/不属于租户/已删除        | 检查 ID              |
-| WIDGET\_\_NOT_FOUND                |  404 | widget_id 不存在/不属于 board/已删除     | 重新加载             |
-| DATASET\_\_NO_PERMISSION_VIEW      |  403 | DATASET<VIEW                             | 申请权限             |
-| DATASET\_\_NO_PERMISSION_EDIT      |  403 | DATASET<EDIT                             | 申请权限             |
-| DATASET\_\_NO_PERMISSION_MANAGE    |  403 | DATASET<MANAGE                           | 申请权限             |
-| BOARD\_\_NO_PERMISSION_VIEW        |  403 | BOARD<VIEW                               | 申请权限             |
-| BOARD\_\_NO_PERMISSION_EDIT        |  403 | BOARD<EDIT                               | 申请权限             |
-| BOARD\_\_NO_PERMISSION_MANAGE      |  403 | BOARD<MANAGE                             | 申请权限             |
-| REPORT\_\_INVALID_CODE             |  400 | code 不合法                              | 修正编码             |
-| REPORT\_\_INVALID_NAME             |  400 | 名称长度不合法                           | 1–50                 |
-| REPORT\_\_VERSION_CONFLICT         |  409 | version 不匹配                           | 刷新后重试           |
-| REPORT\_\_RESOURCE_NODE_NOT_FOUND  |  404 | folder_node_id 不存在/scope 不匹配       | 选择正确目录         |
-| REPORT\_\_TABLE_NOT_FOUND          |  404 | base_table_id 不存在                     | 重新选择表           |
-| REPORT\_\_FIELD_NOT_FOUND          |  404 | 查询引用字段不存在                       | 修正字段配置         |
-| REPORT\_\_FILTER_INVALID           |  400 | FilterDSL 不合法                         | 修正 DSL             |
-| REPORT\_\_QUERY_INVALID            |  400 | QuerySpec 不合法                         | 修正查询配置         |
-| REPORT\_\_VIZ_INVALID              |  400 | VizSpec 不合法                           | 修正可视化配置       |
-| REPORT\_\_COLUMN_ALL_HIDDEN        |  403 | 列权限导致所有输出列被隐藏               | 调整权限或选择可见列 |
-| REPORT\_\_TABLE_PERMISSION_DENIED  |  403 | TABLE_DATA<VIEW（查询）或<EXPORT（导出） | 申请表权限           |
-| REPORT\_\_QUERY_ENGINE_UNAVAILABLE |  503 | QueryRunner 不可用                       | 稍后重试             |
-| REPORT\_\_QUERY_EXEC_ERROR         |  500 | SQL 执行失败                             | 查看错误详情         |
-| EXPORT\_\_NOT_FOUND                |  404 | export_id 不存在/不属于租户              | 检查 ID              |
-| EXPORT\_\_NO_PERMISSION            |  403 | 无导出权限或非本人且无管理权限           | 申请权限             |
-| EXPORT\_\_LIMIT_EXCEEDED           |  400 | 导出行数超上限                           | 缩小范围             |
-| EXPORT\_\_NOT_READY                |  409 | 下载时 status!=SUCCESS                   | 等待完成             |
-| EXPORT\_\_EXPIRED                  |  410 | expired_at 已过期                        | 重新发起导出         |
-| DB\_\_ERROR                        |  500 | DB 异常                                  | 重试/告警            |
-
----
-
-## 9.7 接口详细说明（字段级、校验、异常分支、伪代码）
-
-### 9.7.1 GET /api/datasets
-
-**用途：**数据集列表（目录筛选、搜索、分页）。
-
-**权限：**
-
-- 返回结果仅包含用户具备 `DATASET≥VIEW` 的数据集。
-
-**入参（Query）**
-
-| 字段           | 类型   | 必填 | 说明                           |
-| -------------- | ------ | ---: | ------------------------------ |
-| folder_node_id | BIGINT |   否 | 资源树 folder（scope=DATASET） |
-| keyword        | STRING |   否 | 名称/编码模糊搜索              |
-| base_table_id  | BIGINT |   否 | 按表过滤                       |
-| page           | INT    |   否 | 默认 1                         |
-| page_size      | INT    |   否 | 默认 20，最大 200              |
-
-**出参 data（示例）**
-
-```json
-{
-  "items": [
-    {
-      "id": 1001,
-      "code": "pay_ds",
-      "display_name": "支付数据集",
-      "base_table_id": 20001,
-      "updated_at": "2025-12-20 10:00:00"
-    }
-  ],
-  "page": 1,
-  "page_size": 20,
-  "total": 1
-}
-```
-
-**校验与异常分支**
-
-1. folder_node_id 非空：
-   - 必须存在且 scope=DATASET，否则 REPORT\_\_RESOURCE_NODE_NOT_FOUND；
-2. keyword 长度 >100：PARAM\_\_INVALID；
-3. page_size >200：强制截断为 200；
-4. 列表可见性：先由权限服务筛选可见 resource_node_id，再查表。
-
-**错误码**
-
-- REPORT\_\_RESOURCE_NODE_NOT_FOUND
-- DB\_\_ERROR
-
-**伪代码**
-
-```python
-def list_datasets(tenant_id, user, q):
-    allowed_nodes = permission_service.list_visible_resource_nodes(
-        tenant_id=tenant_id, user=user, scope="DATASET", min_level="VIEW",
-        folder_node_id=q.folder_node_id
-    )
-    return dataset_repo.page_list(
-        tenant_id=tenant_id, resource_node_ids=allowed_nodes,
-        keyword=q.keyword, base_table_id=q.base_table_id,
-        page=q.page, page_size=min(q.page_size, 200),
-        order_by="updated_at DESC"
-    )
-```
-
----
-
-### 9.7.2 POST /api/datasets
-
-**用途：**新建数据集（创建资源树节点 + dataset 记录）。
-
-**权限：**
-
-- 在目标 folder_node 上需具备 `DATASET≥EDIT`（创建入口）。
-
-**入参（Body）**
-
-| 字段             | 类型   | 必填 | 说明                                  |
-| ---------------- | ------ | ---: | ------------------------------------- |
-| folder_node_id   | BIGINT |   是 | scope=DATASET 的 folder               |
-| code             | STRING |   是 | 1–64，正则 `^[a-zA-Z][a-zA-Z0-9_-]*$` |
-| display_name     | STRING |   是 | 1–50                                  |
-| description      | STRING |   否 | ≤500                                  |
-| base_table_id    | BIGINT |   是 | 建模表 id                             |
-| base_filter_json | JSON   |   否 | FilterDSL，默认 {}                    |
-
-**出参 data**
-
-```json
-{ "id": 1001 }
-```
-
-**校验与异常分支（覆盖）**
-
-1. folder_node_id 存在且 scope=DATASET，否则 REPORT\_\_RESOURCE_NODE_NOT_FOUND；
-2. 权限：DATASET≥EDIT；
-3. code 格式校验，不合法 REPORT\_\_INVALID_CODE；
-4. code 租户内唯一，冲突返回 409（REPORT**INVALID_CODE 可拆分为 REPORT**DUPLICATE_CODE，若全局已定义可复用）；
-5. display_name 长度校验，不合法 REPORT\_\_INVALID_NAME；
-6. base_table_id 存在，否则 REPORT\_\_TABLE_NOT_FOUND；
-7. base_filter_json 语法校验，不合法 REPORT\_\_FILTER_INVALID；
-8. 创建资源树节点失败：DB\_\_ERROR 或资源树错误码；
-9. 写入 dataset 失败：删除资源树节点补偿；
-10. 写审计失败：不影响主流程，仅记录 warning。
-
-**错误码**
-
-- REPORT\_\_RESOURCE_NODE_NOT_FOUND
-- REPORT**INVALID_CODE / REPORT**INVALID_NAME
-- REPORT\_\_TABLE_NOT_FOUND
-- REPORT\_\_FILTER_INVALID
-- DB\_\_ERROR
-
-**伪代码**
-
-```python
-def create_dataset(tenant_id, user, body):
-    permission_service.assert_resource_level(tenant_id, user, body.folder_node_id, "DATASET", "EDIT")
-    validate_code(body.code)
-    validate_name(body.display_name)
-    table = modeling_repo.get_table(tenant_id, body.base_table_id)
-    if not table: raise Err("REPORT__TABLE_NOT_FOUND")
-    validate_filter_dsl(body.base_filter_json)
-
-    node_id = resource_tree_service.create_node(
-        tenant_id=tenant_id, scope="DATASET", node_type="DATASET",
-        parent_node_id=body.folder_node_id, display_name=body.display_name, code=body.code
-    )
-
-    try:
-        dataset_id = dataset_repo.insert({
-            "tenant_id": tenant_id,
-            "resource_node_id": node_id,
-            "code": body.code,
-            "display_name": body.display_name,
-            "description": body.description,
-            "base_table_id": body.base_table_id,
-            "base_filter_json": body.base_filter_json or {},
-            "version": 1,
-            "is_deleted": 0,
-            "created_by": user.id,
-            "updated_by": user.id,
-        })
-    except Exception:
-        resource_tree_service.delete_node(tenant_id, node_id)
-        raise
-
-    audit_service.write("CREATE_DATASET", actor=user, obj={"dataset_id": dataset_id, "code": body.code})
-    return dataset_id
-```
-
----
-
-### 9.7.3 GET /api/datasets/{dataset_id}
-
-**用途：**数据集详情（用于编辑页回填）。
-
-**权限：**DATASET≥VIEW
-
-**出参 data（示例）**
-
-```json
-{
-  "id":1001,"code":"pay_ds","display_name":"支付数据集","description":"",
-  "base_table_id":20001,"base_filter_json":{...},"version":1,"updated_at":"..."
-}
-```
-
-**错误码**
-
-- DATASET\_\_NOT_FOUND
-- DATASET\_\_NO_PERMISSION_VIEW
-
----
-
-### 9.7.4 PATCH /api/datasets/{dataset_id}
-
-**用途：**编辑数据集（名称/描述/基础过滤/绑定表）。
-
-**权限：**DATASET≥EDIT
-
-**入参（Body）**
-
-| 字段             | 类型   | 必填 | 说明               |
-| ---------------- | ------ | ---: | ------------------ |
-| version          | INT    |   是 | 乐观锁版本         |
-| display_name     | STRING |   否 | 1–50               |
-| description      | STRING |   否 | ≤500               |
-| base_table_id    | BIGINT |   否 | 修改绑定表（谨慎） |
-| base_filter_json | JSON   |   否 | FilterDSL          |
-
-**校验与异常分支**
-
-1. dataset 存在且未删除，否则 DATASET\_\_NOT_FOUND；
-2. 权限：DATASET≥EDIT；
-3. version 必填，若不匹配返回 REPORT\_\_VERSION_CONFLICT；
-4. 若更新 display_name：同步更新资源树节点 display_name；
-5. 若修改 base_table_id：必须存在；并校验 base_filter_json 引用字段均存在；
-6. 更新 SQL 必须带 version 条件，更新成功后 version+1；
-7. 写审计：UPDATE_DATASET。
-
-**错误码**
-
-- DATASET\_\_NOT_FOUND
-- DATASET\_\_NO_PERMISSION_EDIT
-- REPORT\_\_VERSION_CONFLICT
-- REPORT\_\_TABLE_NOT_FOUND
-- REPORT\_\_FILTER_INVALID
-
----
-
-### 9.7.5 DELETE /api/datasets/{dataset_id}
-
-**用途：**删除数据集（软删除 + 资源树节点删除/标记）。
-
-**权限：**DATASET=MANAGE
-
-**异常分支**
-
-- 若存在被 board_widget 引用：
-  - 本版本策略：拒绝删除并返回 REPORT\_\_DATASET_IN_USE（若错误码体系已有通用 CONFLICT 可复用）
-  - 返回内容需列出引用的 board_id 列表（最多 20 个，超出截断）
-
----
-
-### 9.7.6 POST /api/datasets/{dataset_id}/preview
-
-**用途：**预览数据集（分页）。
-
-**权限：**
-
-- DATASET≥VIEW
-
-**入参（Body）**
-
-| 字段          | 类型            | 必填 | 说明                                 |
-| ------------- | --------------- | ---: | ------------------------------------ |
-| filter_json   | JSON            |   否 | 运行时附加过滤（FilterDSL）          |
-| order_by      | ARRAY           |   否 | 排序                                 |
-| page          | INT             |   否 | 默认 1                               |
-| page_size     | INT             |   否 | 默认 50，最大 200                    |
-| select_fields | ARRAY\<STRING\> |   否 | 预览指定字段（为空表示默认可见字段） |
-
-**出参 data**
-
-```json
-{
-  "columns": [
-    { "name": "pay_time", "type": "DATETIME" },
-    { "name": "pay_amount", "type": "DECIMAL" }
-  ],
-  "rows": [{ "pay_time": "2025-12-01 00:00:00", "pay_amount": 123.45 }],
-  "page": 1,
-  "page_size": 50
-}
-```
-
-**校验与异常分支（执行链路必须覆盖）**
-
-1. dataset 存在且未删除；
-2. 权限：DATASET≥VIEW；
-3. filter_json 语法校验；
-4. select_fields 非空时：
-   - 必须为 base_table 的字段；
-   - 且必须满足列权限可见（否则 REPORT**FIELD_NOT_FOUND 或 REPORT**COLUMN_ALL_HIDDEN）；
-5. 调用 QueryBuilder 构造 SQL：
-   - 合并顺序：`dataset.base_filter_json AND runtime.filter_json AND row_policy_filter`
-   - 列策略：按 col_policy 输出列清单（隐藏列不出现在 columns/rows 中）；
-6. 若最终输出列=0：返回 REPORT\_\_COLUMN_ALL_HIDDEN；
-7. QueryRunner 执行失败：返回 REPORT\_\_QUERY_EXEC_ERROR，message 保留可展示摘要。
-
-**错误码**
-
-- DATASET\_\_NOT_FOUND
-- DATASET\_\_NO_PERMISSION_VIEW
-- REPORT\_\_FILTER_INVALID
-- REPORT\_\_COLUMN_ALL_HIDDEN
-- REPORT\_\_QUERY_ENGINE_UNAVAILABLE
-- REPORT\_\_QUERY_EXEC_ERROR
-
-**伪代码**
-
-```python
-def preview_dataset(tenant_id, user, dataset_id, body):
-    ds = dataset_repo.get(tenant_id, dataset_id)
-    if not ds or ds.is_deleted: raise Err("DATASET__NOT_FOUND")
-    permission_service.assert_dataset_level(tenant_id, user, ds.resource_node_id, "VIEW")
-
-    validate_filter_dsl(body.filter_json)
-
-    policy = permission_service.get_table_policy(tenant_id, user, ds.base_table_id)  # row_filter + col_policy
-    sql = query_builder.build_dataset_preview_sql(
-        table_id=ds.base_table_id,
-        base_filter=ds.base_filter_json,
-        runtime_filter=body.filter_json,
-        row_policy=policy.row_filter,
-        col_policy=policy.col_policy,
-        select_fields=body.select_fields,
-        order_by=body.order_by,
-        page=body.page or 1,
-        page_size=min(body.page_size or 50, 200),
-    )
-    rows, columns = query_runner.execute(sql)
-    if not columns: raise Err("REPORT__COLUMN_ALL_HIDDEN")
-    return rows, columns
-```
-
----
-
-### 9.7.7 GET /api/boards
-
-**用途：**看板列表（目录筛选、搜索、分页）。
-
-**权限：**仅返回 `BOARD≥VIEW` 的看板。
-
-入参与分页规则同 GET /api/datasets（scope=BOARD）。
-
----
-
-### 9.7.8 POST /api/boards
-
-**用途：**新建看板（创建资源树节点 + board 记录）。
-
-**权限：**在目标 folder_node 上需 `BOARD≥EDIT`。
-
-**入参（Body）**
-
-| 字段           | 类型   | 必填 | 说明                  |
-| -------------- | ------ | ---: | --------------------- |
-| folder_node_id | BIGINT |   是 | scope=BOARD 的 folder |
-| code           | STRING |   是 | 1–64                  |
-| display_name   | STRING |   是 | 1–50                  |
-| description    | STRING |   否 | ≤500                  |
-
-**出参**
-
-- `{ "id": 3001 }`
-
-异常分支同 Dataset 创建（校验 + 资源树 + DB + 审计）。
-
----
-
-### 9.7.9 GET /api/boards/{board_id}
-
-**用途：**看板详情（基础信息 + layout + global_filter）。
-
-**权限：**BOARD≥VIEW
-
-**出参 data（示例）**
-
-```json
-{
-  "id":3001,"code":"biz_board","display_name":"业务看板","description":"",
-  "global_filter_json":{...},
-  "layout_json":{...},
-  "version":1
-}
-```
-
----
-
-### 9.7.10 PUT /api/boards/{board_id}/layout
-
-**用途：**保存看板布局与全局筛选（不包含组件 CRUD）。
-
-**权限：**BOARD≥EDIT
-
-**入参（Body）**
-
-| 字段               | 类型 | 必填 | 说明       |
-| ------------------ | ---- | ---: | ---------- |
-| version            | INT  |   是 | 乐观锁版本 |
-| global_filter_json | JSON |   否 | 见 9.3.6   |
-| layout_json        | JSON |   否 | 见 9.3.7   |
-
-**校验与异常分支**
-
-1. board 存在且未删除；
-2. 权限：BOARD≥EDIT；
-3. version 校验，不匹配 REPORT\_\_VERSION_CONFLICT；
-4. global_filter_json.filter 为 FilterDSL 时必须通过语法校验；
-5. layout_json.grid.cols/row_height/margin 必填且范围校验；
-6. 更新成功：version+1；
-7. 写审计：UPDATE_BOARD_LAYOUT。
-
----
-
-### 9.7.11 GET /api/boards/{board_id}/widgets
-
-**用途：**加载看板全部组件（编辑/渲染前置）。
-
-**权限：**BOARD≥VIEW
-
-**出参 data**
-
-```json
-{
-  "items":[
-    {"id":90001,"type":"LINE","title":"支付趋势","dataset_id":1001,"query_json":{...},"viz_json":{...},"position_json":{...},"version":1}
-  ]
-}
-```
-
----
-
-### 9.7.12 POST /api/boards/{board_id}/widgets
-
-**用途：**新增组件。
-
-**权限：**BOARD≥EDIT
-
-**入参（Body）**
-
-| 字段          | 类型   | 必填 | 说明                      |
-| ------------- | ------ | ---: | ------------------------- |
-| type          | STRING |   是 | WidgetType                |
-| title         | STRING |   是 | 1–50                      |
-| description   | STRING |   否 | ≤200                      |
-| dataset_id    | BIGINT |   否 | TEXT 可为空，其它类型必填 |
-| query_json    | JSON   |   否 | TEXT 可为空；其它必填     |
-| viz_json      | JSON   |   否 | 默认 {}，需与 type 匹配   |
-| position_json | JSON   |   是 | x,y,w,h                   |
-| version       | INT    |   否 | 新建忽略                  |
-
-**校验与异常分支（必须覆盖）**
-
-1. board 存在 + 权限 BOARD≥EDIT；
-2. type 合法，否则 REPORT\_\_QUERY_INVALID（或 WIDGET_TYPE_INVALID）；
-3. TEXT 类型：
-   - dataset_id 与 query_json 可为空；
-   - viz_json 必须包含展示内容（建议：`options.text`，若未提供则返回 REPORT\_\_VIZ_INVALID）；
-4. 非 TEXT 类型：
-   - dataset_id 必须存在且未删除；
-   - 发起人需具备 DATASET≥VIEW（至少可读）；
-5. query_json 校验：
-   - source_type 必须与 dataset_id 一致（DATASET + source_id=dataset_id）；
-   - 引用字段必须在 dataset.base_table 中存在；
-6. viz_json 校验：mapping 引用字段必须存在于查询输出列（group/metric as）；
-7. position_json 校验：w/h 范围（w 1–24，h 1–200）；
-8. 写 DB 失败 DB\_\_ERROR；
-9. 写审计：CREATE_WIDGET。
-
----
-
-### 9.7.13 PATCH /api/boards/{board_id}/widgets/{widget_id}
-
-**用途：**编辑组件（标题/查询/可视化/位置）。
-
-**权限：**BOARD≥EDIT
-
-**入参（Body）**
-
-| 字段          | 类型   | 必填 | 说明                      |
-| ------------- | ------ | ---: | ------------------------- |
-| version       | INT    |   是 | 乐观锁版本                |
-| title         | STRING |   否 | 1–50                      |
-| description   | STRING |   否 | ≤200                      |
-| dataset_id    | BIGINT |   否 | 允许更换数据集（非 TEXT） |
-| query_json    | JSON   |   否 | QuerySpec                 |
-| viz_json      | JSON   |   否 | VizSpec                   |
-| position_json | JSON   |   否 | x,y,w,h                   |
-
-**异常分支**
-
-- widget 不属于 board：WIDGET\_\_NOT_FOUND
-- version 冲突：REPORT\_\_VERSION_CONFLICT
-- query/viz 校验失败：REPORT**QUERY_INVALID / REPORT**VIZ_INVALID
-
----
-
-### 9.7.14 DELETE /api/boards/{board_id}/widgets/{widget_id}
-
-**用途：**删除组件（软删除）。
-
-**权限：**BOARD≥EDIT
-
----
-
-### 9.7.15 GET /api/boards/{board_id}/render
-
-**用途：**渲染看板（可选择仅返回结构或结构+数据）。
-
-**权限：**BOARD≥VIEW
-
-**入参（Query）**
-
-| 字段                | 类型 | 必填 | 说明                                               |
-| ------------------- | ---- | ---: | -------------------------------------------------- |
-| with_data           | BOOL |   否 | 默认 false；true 时返回每个 widget 的 query result |
-| runtime_filter_json | JSON |   否 | 运行时全局过滤（覆盖/合并规则见下）                |
-
-**合并规则**
-
-- 全局过滤：`effective_global_filter = board.global_filter_json.filter AND runtime_filter_json`
-- 每个 widget 的最终过滤：
-  - `dataset.base_filter_json AND effective_global_filter AND widget.query_json.filter_json AND row_policy_filter`
-
-**出参 data（示例）**
-
-```json
-{
-  "board": {...},
-  "widgets":[
-    {"id":90001,"type":"LINE","title":"支付趋势","position_json":{...},"viz_json":{...},
-     "data":{"columns":[...],"rows":[...]} }
-  ]
-}
-```
-
-**异常分支（必须覆盖）**
-
-1. board 不存在：BOARD\_\_NOT_FOUND；
-2. 权限不足：BOARD\_\_NO_PERMISSION_VIEW；
-3. runtime_filter_json 语法错误：REPORT\_\_FILTER_INVALID；
-4. 任一 widget 查询编译失败：返回 REPORT\_\_QUERY_INVALID，并在 data 中标记该 widget 为 error（可选；若选择全失败则直接返回错误）；
-5. QueryRunner 部分失败：
-   - 本版本策略：单个 widget 失败不阻断整体返回；
-   - 返回结构中该 widget.data = `{ "error_code": "...", "message": "..." }`；
-   - 仅当 QueryRunner 整体不可用时返回 REPORT\_\_QUERY_ENGINE_UNAVAILABLE。
-
----
-
-### 9.7.16 导出接口
-
-#### 9.7.16.1 POST /api/exports
-
-**用途：**创建导出任务（异步）。
-
-**权限：**
-
-- object_type=DATASET：需 DATASET≥VIEW 且表权限满足导出要求；
-- object_type=WIDGET：需 BOARD≥VIEW（看板可见）且组件数据源可读；
-- object_type=BOARD：需 BOARD≥VIEW。
-
-**入参（Body）**
-
-| 字段        | 类型            | 必填 | 说明                                                 |
-| ----------- | --------------- | ---: | ---------------------------------------------------- |
-| object_type | STRING          |   是 | DATASET/WIDGET/BOARD                                 |
-| object_id   | BIGINT          |   是 | 对象 ID                                              |
-| format      | STRING          |   是 | CSV/XLSX                                             |
-| columns     | ARRAY\<STRING\> |   否 | 指定导出列                                           |
-| query       | JSON            |   否 | QuerySpec（WIDGET/BOARD 导出必填；DATASET 导出可选） |
-| board_id    | BIGINT          |   否 | BOARD 导出可选                                       |
-| widget_ids  | ARRAY\<BIGINT\> |   否 | BOARD 导出指定组件                                   |
-
-**校验与异常分支（必须覆盖）**
-
-1. 对象存在性校验（dataset/widget/board）；
-2. 权限校验（资源权限）；
-3. format 校验；
-4. query 校验（需要时）；
-5. 预估导出行数：
-   - 若 QueryRunner 支持 `COUNT` 预估：先执行 count；
-   - 若无法预估：要求必须提供更强的过滤或 limit；
-6. 超出上限：EXPORT\_\_LIMIT_EXCEEDED；
-7. 插入导出任务记录 PENDING；
-8. 投递异步队列失败：将任务置为 FAILED，返回 REPORT\_\_QUERY_ENGINE_UNAVAILABLE；
-9. 写审计：CREATE_EXPORT。
-
-#### 9.7.16.2 GET /api/exports/{export_id}/download
-
-- status != SUCCESS：EXPORT\_\_NOT_READY
-- expired_at < now：EXPORT\_\_EXPIRED
-- 返回 `302 Location: <signed_url>` 或返回 `{url: ...}`（两种方式选一，需全局统一）
-
----
-
-## 9.8 导出异步执行器（实现规则）
-
-### 9.8.1 执行步骤
-
-1. 拉取 export_job（status=PENDING）；
-2. 将 status 更新为 RUNNING；
-3. 按 object_type 构造 QuerySpec：
-   - DATASET：基于 dataset.base_filter_json + request.filter（若提供）
-   - WIDGET：基于 widget.query_json，并合并 dataset.base_filter_json
-   - BOARD：对 widget_ids 批量导出（按组件分别生成文件，或合并为多 sheet）
-4. 调用 QueryBuilder 构造 SQL（含 row/col 权限策略）；
-5. QueryRunner 以流式方式执行并返回迭代器；
-6. 写入文件（CSV/XLSX）：
-   - CSV：UTF-8 with BOM，避免 Excel 乱码
-   - XLSX：每 sheet 最大行数上限需要校验（超出分 sheet 或拒绝）
-7. 上传文件并生成 file_url（签名过期时间 expired_at）；
-8. 更新任务为 SUCCESS；
-9. 任一异常：更新任务为 FAILED，写 error_message（不写堆栈）。
-
-### 9.8.2 失败重试策略
-
-- 仅对 `REPORT__QUERY_ENGINE_UNAVAILABLE` / 网络失败执行自动重试（最多 3 次，指数退避）；
-- SQL 语法/权限/字段不存在等业务错误不重试，直接 FAILED。
-
----
-
-## 9.9 审计事件（报表模块）
-
-### 9.9.1 需要记录的审计事件
-
-- CREATE_DATASET / UPDATE_DATASET / DELETE_DATASET
-- CREATE_BOARD / UPDATE_BOARD_BASIC / UPDATE_BOARD_LAYOUT / DELETE_BOARD
-- CREATE_WIDGET / UPDATE_WIDGET / DELETE_WIDGET
-- CREATE_EXPORT / EXPORT_SUCCESS / EXPORT_FAILED
-- UPDATE_DATASET_PERMISSION / UPDATE_BOARD_PERMISSION
-
-### 9.9.2 审计字段最小集
-
-- actor（TenantUser.id / SYSTEM）
-- action_type
-- object_type（DATASET/BOARD/WIDGET/EXPORT）
-- object_id / object_code（若有）
-- diff（编辑类事件：前后值）
-- result（success/failed + reason）
-- request_id
-
----
-
-## 9.10 本版本范围总结
-
-- 支持 Dataset/Board/Widget 的资源树组织、CRUD、可见性控制；
-- 支持 Widget 基于 Dataset 的查询与看板批量渲染；
-- 支持导出任务（异步）与下载；
-- 支持全链路审计记录。
-
+## 9.8 关键一致性校验（写死在后端）
+
+- Dashboard.filters_json 必须为 null 或 []（V1）
+- DashboardItem 不得保存 position_json（V1 不存在该字段；如遗留字段必须强制为 null）
+- ExportJob.object_type 仅允许 CHART（V1）
+- Dataset last_success_at 为空或 dataset_table 不存在时：
+  - 禁止 Chart 保存（返回 DATASET_NOT_READY）
+  - 禁止 Chart preview/export（返回 DATASET_NOT_READY）
 # 10 审计模块（Audit Logs）
 
 ## 10.0 章节定位与目标
@@ -6171,8 +5892,8 @@ def preview_dataset(tenant_id, user, dataset_id, body):
 | FLOW          | 任务流                     |                  flow.id |
 | FLOW_RUN      | 运行实例                   |              flow_run.id |
 | DATASET       | 数据集                     |               dataset.id |
-| BOARD         | 看板                       |                 board.id |
-| WIDGET        | 看板组件                   |          board_widget.id |
+| DASHBOARD         | 看板                       |                 board.id |
+| CHART        | 看板组件                   |          board_widget.id |
 | EXPORT_JOB    | 导出任务                   |     report_export_job.id |
 | QUERY_RUN     | 查询执行记录               | query_run.id（若已实现） |
 | TENANT        | 租户（平台后台使用）       |        tenant.id（可选） |
@@ -6217,9 +5938,9 @@ def preview_dataset(tenant_id, user, dataset_id, body):
 - 数据集：
   - CREATE_DATASET / UPDATE_DATASET / DELETE_DATASET
 - 看板：
-  - CREATE_BOARD / UPDATE_BOARD_BASIC / UPDATE_BOARD_LAYOUT / DELETE_BOARD
+  - CREATE_DASHBOARD / UPDATE_DASHBOARD_BASIC / UPDATE_DASHBOARD_LAYOUT / DELETE_DASHBOARD
 - 组件：
-  - CREATE_WIDGET / UPDATE_WIDGET / DELETE_WIDGET
+  - CREATE_CHART / UPDATE_CHART / DELETE_CHART
 - 导出：
   - CREATE_EXPORT / EXPORT_SUCCESS / EXPORT_FAILED
 
@@ -6686,7 +6407,6 @@ def get_audit_log_detail(ctx, audit_id):
 ### 10.7.4 GET /api/audit-logs/meta/target-types
 
 **用途：**返回 target_type 枚举列表。
-
 **权限：**Owner only。
 
 **出参 data（示例）**
@@ -6700,8 +6420,8 @@ def get_audit_log_detail(ctx, audit_id):
     "FIELD",
     "FLOW",
     "DATASET",
-    "BOARD",
-    "WIDGET",
+    "DASHBOARD",
+    "CHART",
     "EXPORT_JOB",
     "QUERY_RUN"
   ]
@@ -6850,7 +6570,7 @@ def get_audit_log_detail(ctx, audit_id):
 2. **失败尝试可追溯**
    - 尝试删除被数据集引用的字段 → 操作失败 → 审计记录 result=FAILED 且 error_message 可读。
 3. **报表资产审计**
-   - 创建看板 → 添加组件 → 保存布局 → 至少产生 CREATE_BOARD / CREATE_WIDGET / UPDATE_BOARD_LAYOUT。
+   - 创建看板 → 添加组件 → 保存布局 → 至少产生 CREATE_DASHBOARD / CREATE_CHART / UPDATE_DASHBOARD_LAYOUT。
 4. **权限不可越权**
    - 非 Owner 访问 `/api/audit-logs` 返回 AUDIT\_\_NO_PERMISSION；
    - Owner 可正常访问并查询。
