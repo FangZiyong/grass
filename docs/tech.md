@@ -221,7 +221,7 @@ APP -> NTF : create notification (when needed)
 
 ---
 
-# 3 全局规范（只写规则）
+# 3 全局规范
 
 ## 3.1 多租户隔离规范（强制）
 
