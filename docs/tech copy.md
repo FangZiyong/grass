@@ -221,7 +221,7 @@ APP -> NTF : create notification (when needed)
 
 ---
 
-# 3 全局规范（只写规则）
+# 3 全局规范
 
 ## 3.1 多租户隔离规范（强制）
 
@@ -4889,44 +4889,116 @@ V1 的报表链路为：
   - 写入策略：临时表写入 + 原子 swap
 - **所有 Chart 查询必须读取 dataset_table**，不得绕过 Dataset 直接读 base_table
 
-### 9.3.2 状态机
+### 9.3.2 状态机（与 PRD 10.5 对齐）
 
-状态枚举：
+#### 状态枚举（必须实现）
 
-- `DRAFT`：草稿（配置不完整，不可刷新）
-- `ACTIVE`：已启用但未成功刷新（不可用于 Chart/Dashboard）
-- `REFRESHING`：刷新中
-- `READY`：至少一次刷新成功（可用于 Chart/Dashboard）
-- `FAILED`：最近一次刷新失败  
-  - 若历史存在成功版本：允许读取上一次成功版本  
-  - 若无成功版本：视同不可用（对外报 DATASET_NOT_READY）
-- `BLOCKED`：Owner 不合规（禁用/离开/无权限），禁止刷新
-- `PAUSED`：暂停定时刷新（仅影响 CRON 触发；手动刷新仍可触发）
+- `DRAFT`（可选）：仅保存配置，尚未首次刷新  
+  - 若产品侧不需要草稿，可用 `ACTIVE + last_success_at=NULL` 表示“未就绪”
+- `ACTIVE`：可正常刷新、可被查询（**满足可查询还需 last_success_at 非空**）
+- `REFRESHING`：刷新进行中（同一数据集禁止并发刷新）
+- `FAILED`：刷新失败（配置错误、源表不可用、超时等）
+- `BLOCKED`：刷新被阻断（Owner 合规校验不通过，详见 9.3.3）
+- `PAUSED`：Owner/管理员主动暂停（仅影响 CRON；手动刷新仍可触发）
 
-迁移规则（核心）：
+#### 展示态（UI Tag，非存储枚举）
 
-- 创建：DRAFT
-- 启用：DRAFT -> ACTIVE
-- 刷新触发：ACTIVE/READY/FAILED -> REFRESHING
-- 刷新成功：REFRESHING -> READY
-- 刷新失败：REFRESHING -> FAILED
-- Owner 校验失败：任意状态 -> BLOCKED
+- `READY`：`status=ACTIVE` 且 `last_success_at != NULL`
+- `NOT_READY`：`status=ACTIVE` 且 `last_success_at == NULL`（创建后未首次刷新）
 
-### 9.3.3 Owner 合规校验（强制）
+> 说明：PRD 在刷新章节使用了 “首次刷新成功进入 READY” 的表述；实现上以 **展示态 READY** 表达即可，避免引入第二套存储状态源。
 
-Dataset 绑定 owner_user_id（TenantUser），刷新前必须校验：
+#### 迁移规则（核心）
 
-1. owner_user_id 存在、未被禁用、仍属于当前租户
-2. owner 对 base_table_id 具备 TABLE>=VIEW
-3. owner 对本 Dataset 具备 DATASET>=EDIT（用于刷新授权）
+- 创建：
+  - 有草稿：`DRAFT`
+  - 无草稿：`ACTIVE` 且 `last_success_at=NULL`
+- 启用：`DRAFT -> ACTIVE`（不改变 last_success_at）
+- 刷新触发：
+  - `ACTIVE/FAILED/PAUSED -> REFRESHING`
+  - `BLOCKED`：禁止刷新（返回 `DATASET_OWNER_BLOCKED`）
+  - `REFRESHING`：拒绝并发刷新（返回 `DATASET_REFRESH_ALREADY_RUNNING`）
+- 刷新成功：`REFRESHING -> ACTIVE`，并写入：
+  - `last_success_at=now`
+  - `last_failed_reason=NULL`
+  - `last_refresh_duration_ms`
+- 刷新失败：`REFRESHING -> FAILED`，并写入：
+  - `last_failed_reason`
+  - `last_failure_at=now`
+- Owner 校验失败：`ACTIVE/FAILED/PAUSED/DRAFT -> BLOCKED`
+- 暂停：`ACTIVE/FAILED -> PAUSED`
+- 恢复：`PAUSED -> ACTIVE`（不改变 last_success_at）
 
-失败处理：
+#### 可查询判定（统一规则）
 
-- dataset.status = BLOCKED
-- 创建 refresh_run（FAILED，error_code=OWNER_BLOCKED）
-- CRON 触发不重试；等待 owner 修复或管理员更换 owner
+- 当且仅当：
+  - `status in (ACTIVE, FAILED, PAUSED)` 且
+  - `last_success_at != NULL` 且
+  - `dataset_table 存在`
+- 否则对外统一报：`DATASET_NOT_READY`
 
-### 9.3.4 刷新触发与 cron
+---
+
+### 9.3.3 Owner 合规校验（强制，阻断刷新）
+
+> PRD 要求：数据集的范围（列范围 + 行范围）以“创建时快照”为准，不得因 Owner 权限扩大而自动扩大；也不得因权限收紧而悄悄改变既有范围（必须阻断刷新并提示原因）。
+
+#### 9.3.3.1 数据集范围快照定义（存储）
+
+- **列范围快照（Allowed Columns Snapshot）**：创建时 Owner 在来源表上可见的列集合（去掉 HIDDEN），存入 `allowed_columns_snapshot_json`
+- **行范围快照（RowScopeFilter Snapshot）**：创建时 Owner 在来源表上的行权限合并结果（RowPermission 的 OR 合并），存入 `row_scope_filter_snapshot_json`
+- **数据集基础过滤（DatasetBaseFilter）**：用户配置的 `base_filter_json`（FilterDSL）
+- **最终范围表达式**：
+  - `FinalScope = RowScopeFilterSnapshot AND DatasetBaseFilter`
+  - RowScopeFilterSnapshot 为空视为 TRUE；DatasetBaseFilter 为空视为 TRUE
+
+#### 9.3.3.2 刷新前必须校验的项目（按顺序执行，任一失败则阻断）
+
+1) **配置可用性校验**
+- base_table 仍存在（table_catalog 可解析）
+- 选择字段仍存在且类型兼容（字段删除/类型变更会导致失败）
+- `base_filter_json` 可解析、可编译（FilterDSL 合法）
+
+2) **Owner 基本有效性**
+- owner_user_id 必须存在且属于当前租户（TenantUser）
+- Owner 未被禁用、未离开租户、未被系统封禁
+
+3) **Owner 列权限覆盖校验（关键）**
+- 计算 Owner 在来源表上的当前列权限结果 `current_allowed_columns`
+- 要求：`allowed_columns_snapshot ⊆ current_allowed_columns`
+  - 若任一快照列在当前变为 HIDDEN/不可见 → 不通过（返回 `DATASET_OWNER_COLUMN_PERMISSION_SHRINK`）
+
+4) **Owner 行权限覆盖校验（关键）**
+- 计算 Owner 在来源表上的当前行权限合并结果 `current_row_scope_filter`（OR 合并后归一化）
+- 要求：`RowScopeFilterSnapshot` 必须被 `current_row_scope_filter` 覆盖  
+  - V1 实现约束：仅支持“OR-of-clauses”的行权限归一化结构（与 RowPermission 合并规则一致）
+  - 校验方式：`snapshot_clauses ⊆ current_clauses`
+  - 若 Owner 权限收紧导致缺少任一快照 clause → 不通过（返回 `DATASET_OWNER_ROW_PERMISSION_SHRINK`）
+  - 若 Owner 权限扩大（current_clauses 增多）→ 允许刷新（数据集范围不扩大，仍按快照）
+
+5) **通过则允许刷新，否则进入 BLOCKED**
+- 若 3/4 任一失败：
+  - `dataset.status = BLOCKED`
+  - 写入 `blocked_reason_code` 与 `blocked_reason_detail_json`
+  - 返回 `DATASET_OWNER_BLOCKED`（并携带原因详情，供前端引导“转移 Owner/调整范围/重新创建”）
+
+#### 9.3.3.3 产出结构（供前端展示）
+
+- `blocked_reason_code`：
+  - `OWNER_NOT_FOUND`
+  - `OWNER_DISABLED`
+  - `OWNER_COLUMN_PERMISSION_SHRINK`
+  - `OWNER_ROW_PERMISSION_SHRINK`
+  - `BASE_FILTER_INVALID`
+  - `BASE_TABLE_NOT_FOUND`
+- `blocked_reason_detail_json`：
+  - missing_columns：数组
+  - missing_row_clauses：数组（规范化后的 clause 哈希或可读表达式）
+  - base_filter_error：可选（解析错误信息）
+
+---
+
+### 9.3.4### 9.3.4 刷新触发与 cron
 
 - 刷新触发类型：
   - MANUAL：手动刷新
@@ -4960,7 +5032,7 @@ Dataset 绑定 owner_user_id（TenantUser），刷新前必须校验：
 7. `CREATE TABLE tmp AS SELECT ...`
 8. 原子 swap：tmp -> dataset_table（或 rename swap）
 9. 统计行数 row_count
-10. refresh_run=SUCCESS；dataset.status=READY；last_success_at=now
+10. refresh_run=SUCCESS；dataset.status=ACTIVE；last_success_at=now
 11. 计算 next_run_at（如果 cron_enabled）
 
 失败路径（任意一步失败）：
@@ -5119,7 +5191,7 @@ Body：
 | limit | int | 否 | 默认 200，最大 200 |
 
 规则：
-- 若 dataset.status=READY 且 dataset_table 存在：从 dataset_table 读
+- 若 dataset.status=ACTIVE 且 last_success_at 非空 且 dataset_table 存在：从 dataset_table 读
 - 否则：从 base_table 以当前定义“模拟执行”（不写入 dataset_table）
 
 错误码：
@@ -5142,6 +5214,13 @@ Body：
 | base_table_id | string | 前端 | 创建 | 否（V1） | - |
 | owner_user_id | string | 前端 | 创建/更新 | 是 | UPDATE_DATASET |
 | base_filter_json | json | 前端 | 更新 | 是 | UPDATE_DATASET |
+| allowed_columns_snapshot_json | json | 系统 | 创建/显式修改范围 | 是（仅范围编辑） | UPDATE_DATASET_SCOPE |
+| row_scope_filter_snapshot_json | json | 系统 | 创建/显式修改范围 | 是（仅范围编辑） | UPDATE_DATASET_SCOPE |
+| blocked_reason_code | string | 系统 | 进入 BLOCKED | 否 | - |
+| blocked_reason_detail_json | json | 系统 | 进入 BLOCKED | 否 | - |
+| last_failure_at | datetime | 系统 | 刷新失败 | 否 | - |
+| last_failed_reason | string | 系统 | 刷新失败 | 否 | - |
+| last_refresh_duration_ms | int | 系统 | 刷新结束 | 否 | - |
 | status | enum | 系统 | 状态迁移 | 否 | - |
 | dataset_table_name | string | 系统 | 创建 | 否 | - |
 | refresh_mode | enum | 前端 | 更新 | 是 | UPDATE_DATASET |
@@ -5263,6 +5342,9 @@ Body：
 
 用途：保存 Chart
 
+规则：
+- 允许在被 Dashboard 引用时更新（不锁定）；更新会立即影响所有引用该 Chart 的 Dashboard 渲染结果。
+
 Body：
 
 | 字段 | 类型 | 必填 |
@@ -5304,13 +5386,17 @@ Query：
 - CHART_FORBIDDEN
 - CHART_QUERY_INVALID
 - CHART_VIZ_INVALID
-- CHART_IN_USE_LOCKED（可选：引用后禁止结构变更）
+- CHART_DELETE_CONFIRM_REQUIRED（删除前需要二次确认，返回影响范围）
 - INTERNAL_ERROR
 
 #### 9.4.5.6 DELETE /api/charts/{chart_id}
 
-规则：
-- 若 ref_count>0（被 Dashboard 引用），拒绝删除：CHART_IN_USE
+规则（与 PRD 对齐：允许删除，但必须做影响提示）：
+- 若 ref_count>0（被 Dashboard 引用）：
+  - 第一次调用（未携带 force=true）：返回 `CHART_DELETE_CONFIRM_REQUIRED`，并在响应中带 `affected_dashboards_count`（可选带前 N 个 dashboard_id）
+  - 确认后再次调用：`DELETE ...?force=true`，执行级联清理（详见 9.5 dashboard_item / layout_json 一致性规则）
+- 若 ref_count=0：直接删除
+
 
 ### 9.4.6 表结构
 
@@ -5349,9 +5435,9 @@ layout_json 示例：
 ```json
 {
   "version": 1,
-  "cols": 12,
+  "cols": 24,
   "items": [
-    {"dashboard_item_id": "di_1", "x": 0, "y": 0, "w": 6, "h": 8}
+    {"id": "di_1", "x": 0, "y": 0, "w": 12, "h": 8}
   ]
 }
 ```
@@ -5448,11 +5534,15 @@ Body：chart_id
 
 Body：layout_json（必须）
 
-校验：
+校验（与 PRD layout_json schema 对齐）：
 - version=1
-- cols 4~24
-- items 中 dashboard_item_id 必须属于当前 dashboard
-- x/y/w/h 均为非负整数
+- cols 固定为 24（V1）
+- items 数量 <= 50
+- layout_json 序列化后大小 <= 256KB
+- items[].id 必须对应该 dashboard 下的 dashboard_item_id
+- items[].id 不得重复
+- x/y/w/h 均为非负整数，且 w>0、h>0
+- x + w <= cols
 
 错误码：
 - DASHBOARD_NOT_FOUND
@@ -5460,20 +5550,84 @@ Body：layout_json（必须）
 - DASHBOARD_LAYOUT_INVALID
 - INTERNAL_ERROR
 
-#### 9.5.3.8 POST /api/dashboards/{dashboard_id}/render
 
-用途：服务端渲染（可选能力；前端也可自行并发调用 /api/charts/preview）
+
+#### 9.5.3.X POST /api/dashboards/{dashboard_id}/items
+
+用途：向仪表盘添加一个图表卡片（创建 dashboard_item）
 
 Body：
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| with_data | boolean | 否 | false | 是否返回每个 item 的数据（true 会触发批量查询） |
-| runtime_filter_json | json | 否 | - | V1 不支持 Dashboard 全局筛选；此字段仅用于后端批量 render 时传递给每个 chart preview（必须保持空或仅用于 debug） |
+| chart_id | string | 是 | 目标图表 |
+| title_override | string | 否 | 局部标题覆盖 |
+| note | string | 否 | 局部备注 |
 
-返回：
-- layout_json
-- items：每个 item 包含 chart 配置；若 with_data=true，附带 data
+行为：
+1) 校验 dashboard 存在且可编辑（DASHBOARD>=EDIT）
+2) 校验 chart 存在且可访问（CHART>=VIEW）
+3) 校验 dashboard 当前 item 数量 < 50（上限由 PRD 固定）
+4) 创建 dashboard_item
+5) chart.ref_count += 1
+6) 返回 dashboard_item_id
+7) **位置/尺寸不在本接口写入**：前端必须随后调用 `PUT /api/dashboards/{id}/layout` 保存布局
+
+错误码（至少）：
+- DASHBOARD_NOT_FOUND
+- DASHBOARD_FORBIDDEN
+- CHART_NOT_FOUND
+- CHART_FORBIDDEN
+- DASHBOARD_ITEM_LIMIT_EXCEEDED
+- VALIDATION_FAILED
+- INTERNAL_ERROR
+
+#### 9.5.3.X PATCH /api/dashboards/{dashboard_id}/items/{dashboard_item_id}
+
+用途：编辑卡片局部标题/备注（title_override / note）
+
+Body（至少包含一个字段）：
+
+| 字段 | 类型 | 必填 |
+| --- | --- | --- |
+| title_override | string | 否 |
+| note | string | 否 |
+
+规则：
+- 仅更新 dashboard_item，不影响 chart
+- 允许空字符串（表示清空）
+
+错误码：
+- DASHBOARD_NOT_FOUND
+- DASHBOARD_FORBIDDEN
+- DASHBOARD_ITEM_NOT_FOUND
+- VALIDATION_FAILED
+- INTERNAL_ERROR
+
+#### 9.5.3.X DELETE /api/dashboards/{dashboard_id}/items/{dashboard_item_id}
+
+用途：从仪表盘移除一个卡片
+
+行为：
+1) 校验 dashboard 可编辑
+2) 校验 dashboard_item 属于该 dashboard
+3) 删除 dashboard_item
+4) chart.ref_count -= 1
+5) 后端必须同步更新 dashboard.layout_json：剔除 items[].id=dashboard_item_id
+6) 写审计：REMOVE_DASHBOARD_ITEM
+
+错误码：
+- DASHBOARD_NOT_FOUND
+- DASHBOARD_FORBIDDEN
+- DASHBOARD_ITEM_NOT_FOUND
+- DASHBOARD_LAYOUT_WRITE_FAILED
+- INTERNAL_ERROR
+
+#### 9.5.3.8（不提供）服务端 render 接口
+
+- PRD 的打开/渲染流程为“前端并发拉取 dashboard_items + charts + chart preview”，因此 V1 **不对外提供** `POST /api/dashboards/{dashboard_id}/render`。
+- 若后续需要做服务端聚合优化，可作为内部接口实现，但不得作为对外稳定 API（避免与前端渲染职责冲突）。
+
 
 ### 9.5.4 表结构
 
@@ -5505,6 +5659,37 @@ Body：
 | created_at | datetime | 系统 | 创建 | 否 | - |
 
 ---
+
+
+
+#### 9.5.4.2 表：dashboard_item
+
+> 说明：dashboard_item 只负责“引用关系 + 局部展示覆盖”，**位置与尺寸仅存于 dashboard.layout_json**（唯一真实来源）。
+
+| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
+| --- | --- | --- | --- | --- | --- |
+| dashboard_item_id | string | 系统 | 创建 | 否 | ADD_DASHBOARD_ITEM |
+| tenant_id | string | TenantContext | 创建 | 否 | - |
+| dashboard_id | string | 前端 | 创建 | 否 | - |
+| chart_id | string | 前端 | 创建 | 否 | - |
+| title_override | string | 前端 | 创建/更新 | 是 | UPDATE_DASHBOARD_ITEM |
+| note | string | 前端 | 创建/更新 | 是 | UPDATE_DASHBOARD_ITEM |
+| created_by/updated_by | string | TenantUser | 创建/更新 | 否 | - |
+| created_at/updated_at | datetime | 系统 | 创建/更新 | 否 | - |
+
+一致性规则（必须实现）：
+1. 新增 item：
+   - 插入 dashboard_item
+   - 同步 `chart.ref_count += 1`
+   - 前端随后调用 `PUT /api/dashboards/{id}/layout` 把该 item.id 写入 layout_json
+2. 删除 item：
+   - 删除 dashboard_item
+   - 同步 `chart.ref_count -= 1`
+   - 后端必须同步从 `dashboard.layout_json.items[]` 中剔除对应 id（防止脏布局）
+3. 删除 chart（force=true）：
+   - 必须级联删除所有引用它的 dashboard_item
+   - 必须对每个受影响 dashboard 做 layout_json 剔除
+   - 受影响 dashboard 需要写审计：REMOVE_DASHBOARD_ITEM（system actor=chart_delete）
 
 ## 9.6 导出（Export）
 
@@ -5584,15 +5769,17 @@ database "DW" as DW
 
 User -> API: POST /api/datasets/{id}/refresh
 API -> MDB: load dataset + owner
-API -> MDB: create refresh_run(RUNNING)
-update dataset(status=REFRESHING)
+API -> MDB: create refresh_run(status=RUNNING)
+API -> MDB: update dataset(status=REFRESHING)
+
 API -> SCH: submit TaskRunInstance(DATASET_REFRESH)
 SCH -> WK: dispatch run
 WK -> MDB: load dataset definition
 WK -> DW: create tmp table as select ...
 WK -> DW: swap tmp -> dataset_table
-WK -> MDB: refresh_run=SUCCESS
- dataset=READY
+WK -> MDB: update refresh_run(status=SUCCESS)
+WK -> MDB: update dataset(status=ACTIVE)
+
 API --> User: run_id
 @enduml
 ```
@@ -5606,13 +5793,17 @@ participant "API" as API
 database "MetaDB" as MDB
 database "DW" as DW
 
-User -> API: POST /api/dashboards/{id}/render(with_data=true)
-API -> MDB: load dashboard + items
-loop for each item
-  API -> MDB: load chart
+User -> API: GET /api/dashboards/{id}
+API -> MDB: load dashboard + dashboard_items + layout_json
+API --> User: dashboard + items + layout_json
+
+loop for each dashboard_item
+  User -> API: POST /api/charts/preview(chart_id, runtime_filter_json=null)
+  API -> MDB: load chart + dataset
   API -> DW: execute query on dataset_table
+  API --> User: chart preview data
 end
-API --> User: layout_json + items(+data)
+
 @enduml
 ```
 
@@ -5623,7 +5814,7 @@ API --> User: layout_json + items(+data)
 - Dashboard.filters_json 必须为 null 或 []（V1）
 - DashboardItem 不得保存 position_json（V1 不存在该字段；如遗留字段必须强制为 null）
 - ExportJob.object_type 仅允许 CHART（V1）
-- Dataset 未进入 READY 且不存在成功版本时：
+- Dataset last_success_at 为空或 dataset_table 不存在时：
   - 禁止 Chart 保存（返回 DATASET_NOT_READY）
   - 禁止 Chart preview/export（返回 DATASET_NOT_READY）
 # 10 审计模块（Audit Logs）
@@ -6216,7 +6407,6 @@ def get_audit_log_detail(ctx, audit_id):
 ### 10.7.4 GET /api/audit-logs/meta/target-types
 
 **用途：**返回 target_type 枚举列表。
-
 **权限：**Owner only。
 
 **出参 data（示例）**

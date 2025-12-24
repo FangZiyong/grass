@@ -1,7 +1,7 @@
 # Django 后端目录设计（与 PRD/技术文档对齐，V1.2）
 
-- 生成日期：2025-12-25
-- 变更：同步 tech.md 修正（资源树接口统一；移除废弃 {id} 路径；render 标注为内部/实验）
+- 生成日期：2025-12-23
+- 变更：补齐 platform_admin 接口组、补齐 platform 审计 meta 接口；修正 platform_admin 目录说明；新增 Endpoint→ 代码落点映射表（便于编程模型按图索骥）。
 
 ---
 
@@ -391,20 +391,29 @@ src/apps/resource_tree/
 - `services.py`
   - `list_children(scope, parent_id)`：按 scope 获取子节点（过滤 NONE 权限）
   - `create_folder(scope, parent_id, name)`
-  - `update_node(scope, node_id, name/parent/order)`
+  - `update_node(scope, id, name/parent/order)`
   - `move_nodes(scope, moves[])`
   - `reorder(scope, parent_id, ordered_ids[])`
-  - `delete_node(scope, node_id)`：需校验空文件夹或采用递归删除策略（与产品决策一致）
+  - `delete_folder(scope, id)`：需校验空文件夹或采用递归删除策略（与产品决策一致）
 
 ## API（接口清单与代码落点）
 
 | 方法   | 路径                                        | 说明                                   | View（views\_\*.py）          | Serializer               | Service（函数）                | 权限                    |
 | ------ | ------------------------------------------- | -------------------------------------- | ----------------------------- | ------------------------ | ------------------------------ | ----------------------- |
+| GET    | `/api/resource-tree`                        | （见 tech.md 描述）                    | `TBD`                         | `TBD`                    | `TBD`                          | TBD                     |
+| POST   | `/api/resource-tree/folders`                | （见 tech.md 描述）                    | `TBD`                         | `TBD`                    | `TBD`                          | TBD                     |
+| DELETE | `/api/resource-tree/nodes/{node_id}`        | （见 tech.md 描述）                    | `TBD`                         | `TBD`                    | `TBD`                          | TBD                     |
+| PATCH  | `/api/resource-tree/nodes/{node_id}`        | （见 tech.md 描述）                    | `TBD`                         | `TBD`                    | `TBD`                          | TBD                     |
+| GET    | `/api/resource-trees/TABLE/children`        | （见 tech.md 描述）                    | `TBD`                         | `TBD`                    | `TBD`                          | TBD                     |
+| POST   | `/api/resource-trees/TABLE/folders`         | （见 tech.md 描述）                    | `TBD`                         | `TBD`                    | `TBD`                          | TBD                     |
+| POST   | `/api/resource-trees/TABLE/move`            | （见 tech.md 描述）                    | `TBD`                         | `TBD`                    | `TBD`                          | TBD                     |
+| DELETE | `/api/resource-trees/TABLE/nodes/{node_id}` | （见 tech.md 描述）                    | `TBD`                         | `TBD`                    | `TBD`                          | TBD                     |
+| PATCH  | `/api/resource-trees/TABLE/nodes/{node_id}` | （见 tech.md 描述）                    | `TBD`                         | `TBD`                    | `TBD`                          | TBD                     |
 | GET    | `/api/resource-trees/{scope}/children`      | 获取 scope 下 children（node_id 可选） | `views_tree.ChildrenView`     | `TreeChildrenSerializer` | `tree_service.list_children()` | 资源可见（NONE 不可见） |
 | POST   | `/api/resource-trees/{scope}/folders`       | 创建文件夹                             | `views_tree.FolderCreateView` | `FolderCreateSerializer` | `tree_service.create_folder()` | 对应 scope:EDIT         |
+| DELETE | `/api/resource-trees/{scope}/folders/{id}`  | 删除文件夹（需空/或递归策略）          | `views_tree.FolderDeleteView` | `EmptySerializer`        | `tree_service.delete_folder()` | 对应 scope:MANAGE       |
 | POST   | `/api/resource-trees/{scope}/move`          | 移动节点（跨父节点）                   | `views_tree.MoveView`         | `MoveSerializer`         | `tree_service.move_nodes()`    | 对应 scope:EDIT         |
-| PATCH  | `/api/resource-trees/{scope}/nodes/{node_id}`    | 重命名/移动前置校验用字段更新          | `views_tree.NodeUpdateView`   | `NodeUpdateSerializer`   | `tree_service.update_node()`   | 对应 scope:EDIT         |
-| DELETE | `/api/resource-trees/{scope}/nodes/{node_id}`    | 删除节点/目录（需为空；或按产品策略递归/软删） | `views_tree.NodeDeleteView`   | `EmptySerializer`        | `tree_service.delete_node()`   | 对应 scope:MANAGE       |
+| PATCH  | `/api/resource-trees/{scope}/nodes/{id}`    | 重命名/移动前置校验用字段更新          | `views_tree.NodeUpdateView`   | `NodeUpdateSerializer`   | `tree_service.update_node()`   | 对应 scope:EDIT         |
 | POST   | `/api/resource-trees/{scope}/reorder`       | 同层排序调整                           | `views_tree.ReorderView`      | `ReorderSerializer`      | `tree_service.reorder()`       | 对应 scope:EDIT         |
 
 ---
@@ -680,7 +689,9 @@ src/apps/reports/
 | DELETE | `/api/dashboards/{dashboard_id}/items/{dashboard_item_id}` | 删除 DashboardItem                                   | `views_dashboards.DashboardItemDeleteView` | `EmptySerializer`               | `dashboard_service.remove_item()`     | DASHBOARD:EDIT |
 | PATCH  | `/api/dashboards/{dashboard_id}/items/{dashboard_item_id}` | 更新 DashboardItem（位置/尺寸等）                    | `views_dashboards.DashboardItemUpdateView` | `DashboardItemUpdateSerializer` | `dashboard_service.update_item()`     | DASHBOARD:EDIT |
 | PUT    | `/api/dashboards/{dashboard_id}/layout`                    | 覆盖更新 layout_json                                 | `views_dashboards.DashboardLayoutPutView`  | `DashboardLayoutSerializer`     | `dashboard_service.set_layout()`      | DASHBOARD:EDIT |
-| POST   | `/api/dashboards/{dashboard_id}/render`                    | 渲染/预览（内部/实验） Dashboard（批量执行 charts）                    | `views_dashboards.DashboardRenderView`     | `DashboardRenderSerializer`     | `dashboard_service.render()`          | DASHBOARD:VIEW |
+| POST   | `/api/dashboards/{dashboard_id}/render`                    | 渲染 Dashboard（批量执行 charts）                    | `views_dashboards.DashboardRenderView`     | `DashboardRenderSerializer`     | `dashboard_service.render()`          | DASHBOARD:VIEW |
+| GET    | `/api/dashboards/{id}`                                     | （见 tech.md 描述）                                  | `TBD`                                      | `TBD`                           | `TBD`                                 | TBD            |
+| PUT    | `/api/dashboards/{id}/layout`                              | （见 tech.md 描述）                                  | `TBD`                                      | `TBD`                           | `TBD`                                 | TBD            |
 | GET    | `/api/datasets`                                            | Dataset 列表                                         | `views_datasets.DatasetListView`           | `DatasetSerializer`             | `dataset_service.list()`              | DATASET:VIEW   |
 | POST   | `/api/datasets`                                            | 创建 Dataset（定义 base_table + base_filter + cron） | `views_datasets.DatasetCreateView`         | `DatasetCreateSerializer`       | `dataset_service.create()`            | DATASET:MANAGE |
 | GET    | `/api/datasets/{dataset_id}`                               | Dataset 详情                                         | `views_datasets.DatasetDetailView`         | `DatasetDetailSerializer`       | `dataset_service.get()`               | DATASET:VIEW   |
@@ -779,6 +790,8 @@ src/apps/flows/
 | GET    | `/api/flows/{flow_id}/schedule`     | 读取调度信息（cron/next_run）     | `views_flow_schedule.ScheduleGetView` | `FlowScheduleSerializer`      | `schedule_service.get()`        | FLOW:VIEW   |
 | PUT    | `/api/flows/{flow_id}/schedule`     | 更新调度（cron/enabled/timezone） | `views_flow_schedule.SchedulePutView` | `FlowSchedulePutSerializer`   | `schedule_service.update()`     | FLOW:MANAGE |
 | POST   | `/api/flows/{flow_id}/validate`     | 校验 DAG 与 node_config           | `views_flow_graph.GraphValidateView`  | `FlowGraphValidateSerializer` | `flow_service.validate_graph()` | FLOW:EDIT   |
+| PUT    | `/api/flows/{id}/graph`             | （见 tech.md 描述）               | `TBD`                                 | `TBD`                         | `TBD`                           | TBD         |
+| POST   | `/api/flows/{id}/runs`              | （见 tech.md 描述）               | `TBD`                                 | `TBD`                         | `TBD`                           | TBD         |
 
 ---
 
@@ -882,6 +895,7 @@ src/apps/audit_logs/
 | GET  | `/api/audit-logs/meta/actions`      | 操作类型枚举（分组）  | `views_meta.ActionsMetaView`     | `ActionMetaSerializer`     | `audit_meta_service.actions()`      | owner-only（V1） |
 | GET  | `/api/audit-logs/meta/target-types` | 目标类型枚举          | `views_meta.TargetTypesMetaView` | `TargetTypeMetaSerializer` | `audit_meta_service.target_types()` | owner-only（V1） |
 | GET  | `/api/audit-logs/{audit_id}`        | 审计详情              | `views_audit.AuditLogDetailView` | `AuditLogDetailSerializer` | `audit_service.get()`               | owner-only（V1） |
+| GET  | `/api/audit-logs/{id}`              | （见 tech.md 描述）   | `TBD`                            | `TBD`                      | `TBD`                               | TBD              |
 
 ---
 

@@ -1813,11 +1813,11 @@ API --> Client : ok
 
 ### 6.2.4 接口清单
 
-- `GET /api/resource-trees/{scope}/children?parent_id={id|null}`
+- `GET /api/resource-trees/{scope}/children?parent_id={node_id|null}`
 - `POST /api/resource-trees/{scope}/folders`
-- `PATCH /api/resource-trees/{scope}/nodes/{id}`
+- `PATCH /api/resource-trees/{scope}/nodes/{node_id}`
 - `POST /api/resource-trees/{scope}/move`
-- `DELETE /api/resource-trees/{scope}/folders/{id}`
+- `DELETE /api/resource-trees/{scope}/nodes/{node_id}`
 - `POST /api/resource-trees/{scope}/reorder`
 
 ---
@@ -3786,7 +3786,7 @@ participant "FlowRepo" as FR
 participant "ModelingRepo" as MR
 
 User -> UI : 画布编辑并点击保存
-UI -> API : PUT /api/flows/{id}/graph {nodes,edges}
+UI -> API : PUT /api/flows/{flow_id}/graph {nodes,edges}
 API -> PS : check FLOW>=EDIT on flow
 PS --> API : ok
 API -> SVC : validate_and_save_graph(flow_id,payload)
@@ -3826,7 +3826,7 @@ participant "FlowRepo" as FR
 participant "Executor" as EXE
 
 User -> UI : 点击“运行一次”
-UI -> API : POST /api/flows/{id}/runs
+UI -> API : POST /api/flows/{flow_id}/runs
 API -> PS : check FLOW>=RUN on flow
 PS --> API : ok
 API -> SVC : create_run(flow_id, trigger=MANUAL, user)
@@ -4148,10 +4148,12 @@ metrics_expr 示例：
 
 #### A. 资源树（scope=FLOW，复用资源树服务）
 
-- GET /api/resource-tree?scope=FLOW
-- POST /api/resource-tree/folders（创建 Folder）
-- PATCH /api/resource-tree/nodes/{node_id}（重命名/移动）
-- DELETE /api/resource-tree/nodes/{node_id}（删除 Folder/Flow 节点）
+- GET `/api/resource-trees/FLOW/children?parent_id={node_id|null}`
+- POST `/api/resource-trees/FLOW/folders`（创建 Folder）
+- PATCH `/api/resource-trees/FLOW/nodes/{node_id}`（重命名/移动/排序）
+- POST `/api/resource-trees/FLOW/move`（移动；支持单节点或批量）
+- POST `/api/resource-trees/FLOW/reorder`（同级排序调整）
+- DELETE `/api/resource-trees/FLOW/nodes/{node_id}`（删除 Folder/Flow 节点）
 
 #### B. Flow 定义
 
@@ -5571,7 +5573,7 @@ Body：
 4) 创建 dashboard_item
 5) chart.ref_count += 1
 6) 返回 dashboard_item_id
-7) **位置/尺寸不在本接口写入**：前端必须随后调用 `PUT /api/dashboards/{id}/layout` 保存布局
+7) **位置/尺寸不在本接口写入**：前端必须随后调用 `PUT /api/dashboards/{dashboard_id}/layout` 保存布局
 
 错误码（至少）：
 - DASHBOARD_NOT_FOUND
@@ -5626,7 +5628,7 @@ Body（至少包含一个字段）：
 #### 9.5.3.8（不提供）服务端 render 接口
 
 - PRD 的打开/渲染流程为“前端并发拉取 dashboard_items + charts + chart preview”，因此 V1 **不对外提供** `POST /api/dashboards/{dashboard_id}/render`。
-- 若后续需要做服务端聚合优化，可作为内部接口实现，但不得作为对外稳定 API（避免与前端渲染职责冲突）。
+- 若后续需要做服务端聚合优化，该接口可作为**内部/实验接口**实现（建议通过 Feature Flag 开关，例如 `DASHBOARD_RENDER_SERVER`），但不得作为对外稳定契约；返回字段可随版本调整，外部调用方不得依赖。
 
 
 ### 9.5.4 表结构
@@ -5681,7 +5683,7 @@ Body（至少包含一个字段）：
 1. 新增 item：
    - 插入 dashboard_item
    - 同步 `chart.ref_count += 1`
-   - 前端随后调用 `PUT /api/dashboards/{id}/layout` 把该 item.id 写入 layout_json
+   - 前端随后调用 `PUT /api/dashboards/{dashboard_id}/layout` 把该 item.id 写入 layout_json
 2. 删除 item：
    - 删除 dashboard_item
    - 同步 `chart.ref_count -= 1`
@@ -5793,7 +5795,7 @@ participant "API" as API
 database "MetaDB" as MDB
 database "DW" as DW
 
-User -> API: GET /api/dashboards/{id}
+User -> API: GET /api/dashboards/{dashboard_id}
 API -> MDB: load dashboard + dashboard_items + layout_json
 API --> User: dashboard + items + layout_json
 
@@ -6133,7 +6135,7 @@ AR --> API : items,total
 API --> UI : {items,page,total}
 
 User -> UI : 查看详情
-UI -> API : GET /api/audit-logs/{id}
+UI -> API : GET /api/audit-logs/{audit_id}
 API -> PS : assert owner (tenant)
 PS --> API : ok
 API -> AR : get by id (tenant_id)
