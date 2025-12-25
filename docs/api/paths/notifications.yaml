@@ -1,0 +1,93 @@
+p__api__notifications:
+  get:
+    tags:
+    - Notifications
+    summary: GET /api/notifications
+    operationId: get_api_notifications
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../components/parameters.yaml#/Page
+    - $ref: ../components/parameters.yaml#/PageSize
+    - $ref: ../components/parameters.yaml#/Keyword
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_notifications
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__notifications__mark_read:
+  post:
+    tags:
+    - Notifications
+    summary: POST /api/notifications/mark-read
+    operationId: post_api_notifications_mark_read
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_notifications_mark_read
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_notifications_mark_read
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__notifications__unread_count:
+  get:
+    tags:
+    - Notifications
+    summary: GET /api/notifications/unread-count
+    operationId: get_api_notifications_unread_count
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../components/parameters.yaml#/Page
+    - $ref: ../components/parameters.yaml#/PageSize
+    - $ref: ../components/parameters.yaml#/Keyword
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_notifications_unread_count
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError

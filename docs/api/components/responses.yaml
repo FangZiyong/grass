@@ -1,0 +1,36 @@
+BadRequest:
+  description: Bad Request / validation error
+  content:
+    application/json:
+      schema:
+        $ref: ./schemas.yaml#/ApiEnvelopeError
+Unauthorized:
+  description: Unauthorized
+  content:
+    application/json:
+      schema:
+        $ref: ./schemas.yaml#/ApiEnvelopeError
+Forbidden:
+  description: Forbidden
+  content:
+    application/json:
+      schema:
+        $ref: ./schemas.yaml#/ApiEnvelopeError
+NotFound:
+  description: Not Found
+  content:
+    application/json:
+      schema:
+        $ref: ./schemas.yaml#/ApiEnvelopeError
+Conflict:
+  description: Conflict / concurrency conflict
+  content:
+    application/json:
+      schema:
+        $ref: ./schemas.yaml#/ApiEnvelopeError
+InternalError:
+  description: Internal Error
+  content:
+    application/json:
+      schema:
+        $ref: ./schemas.yaml#/ApiEnvelopeError

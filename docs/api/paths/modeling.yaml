@@ -1,0 +1,584 @@
+p__api__modeling__tables:
+  get:
+    tags:
+    - Modeling
+    summary: GET /api/modeling/tables
+    operationId: get_api_modeling_tables
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../components/parameters.yaml#/Page
+    - $ref: ../components/parameters.yaml#/PageSize
+    - $ref: ../components/parameters.yaml#/Keyword
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_modeling_tables
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  post:
+    tags:
+    - Modeling
+    summary: POST /api/modeling/tables
+    operationId: post_api_modeling_tables
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_modeling_tables
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_modeling_tables
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__modeling__tables__ref_table_id__reference_candidates:
+  parameters:
+  - name: ref_table_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  get:
+    tags:
+    - Modeling
+    summary: GET /api/modeling/tables/{ref_table_id}/reference-candidates
+    operationId: get_api_modeling_tables_ref_table_id_reference_candidates
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_modeling_tables_ref_table_id_reference_candidates
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__modeling__tables__table_id:
+  parameters:
+  - name: table_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  delete:
+    tags:
+    - Modeling
+    summary: DELETE /api/modeling/tables/{table_id}
+    operationId: delete_api_modeling_tables_table_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_delete_api_modeling_tables_table_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  get:
+    tags:
+    - Modeling
+    summary: GET /api/modeling/tables/{table_id}
+    operationId: get_api_modeling_tables_table_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_modeling_tables_table_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  patch:
+    tags:
+    - Modeling
+    summary: PATCH /api/modeling/tables/{table_id}
+    operationId: patch_api_modeling_tables_table_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_patch_api_modeling_tables_table_id
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_patch_api_modeling_tables_table_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__modeling__tables__table_id__data__query:
+  parameters:
+  - name: table_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  post:
+    tags:
+    - Modeling
+    summary: POST /api/modeling/tables/{table_id}/data/query
+    operationId: post_api_modeling_tables_table_id_data_query
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_modeling_tables_table_id_data_query
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_modeling_tables_table_id_data_query
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__modeling__tables__table_id__fields:
+  parameters:
+  - name: table_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  get:
+    tags:
+    - Modeling
+    summary: GET /api/modeling/tables/{table_id}/fields
+    operationId: get_api_modeling_tables_table_id_fields
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_modeling_tables_table_id_fields
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  post:
+    tags:
+    - Modeling
+    summary: POST /api/modeling/tables/{table_id}/fields
+    operationId: post_api_modeling_tables_table_id_fields
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_modeling_tables_table_id_fields
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_modeling_tables_table_id_fields
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__modeling__tables__table_id__fields__reorder:
+  parameters:
+  - name: table_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  post:
+    tags:
+    - Modeling
+    summary: POST /api/modeling/tables/{table_id}/fields/reorder
+    operationId: post_api_modeling_tables_table_id_fields_reorder
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_modeling_tables_table_id_fields_reorder
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_modeling_tables_table_id_fields_reorder
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__modeling__tables__table_id__fields__field_id:
+  parameters:
+  - name: table_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: field_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  delete:
+    tags:
+    - Modeling
+    summary: DELETE /api/modeling/tables/{table_id}/fields/{field_id}
+    operationId: delete_api_modeling_tables_table_id_fields_field_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_delete_api_modeling_tables_table_id_fields_field_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  patch:
+    tags:
+    - Modeling
+    summary: PATCH /api/modeling/tables/{table_id}/fields/{field_id}
+    operationId: patch_api_modeling_tables_table_id_fields_field_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_patch_api_modeling_tables_table_id_fields_field_id
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_patch_api_modeling_tables_table_id_fields_field_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__modeling__tables__table_id__records:
+  parameters:
+  - name: table_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  post:
+    tags:
+    - Modeling
+    summary: POST /api/modeling/tables/{table_id}/records
+    operationId: post_api_modeling_tables_table_id_records
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_modeling_tables_table_id_records
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_modeling_tables_table_id_records
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__modeling__tables__table_id__records__batch_delete:
+  parameters:
+  - name: table_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  post:
+    tags:
+    - Modeling
+    summary: POST /api/modeling/tables/{table_id}/records/batch-delete
+    operationId: post_api_modeling_tables_table_id_records_batch_delete
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_modeling_tables_table_id_records_batch_delete
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_modeling_tables_table_id_records_batch_delete
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__modeling__tables__table_id__records__id:
+  parameters:
+  - name: table_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  delete:
+    tags:
+    - Modeling
+    summary: DELETE /api/modeling/tables/{table_id}/records/{id}
+    operationId: delete_api_modeling_tables_table_id_records_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_delete_api_modeling_tables_table_id_records_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  get:
+    tags:
+    - Modeling
+    summary: GET /api/modeling/tables/{table_id}/records/{id}
+    operationId: get_api_modeling_tables_table_id_records_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_modeling_tables_table_id_records_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  patch:
+    tags:
+    - Modeling
+    summary: PATCH /api/modeling/tables/{table_id}/records/{id}
+    operationId: patch_api_modeling_tables_table_id_records_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_patch_api_modeling_tables_table_id_records_id
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_patch_api_modeling_tables_table_id_records_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError

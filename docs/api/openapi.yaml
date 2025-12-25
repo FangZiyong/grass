@@ -1,0 +1,220 @@
+openapi: 3.1.0
+info:
+  title: Platform API (Contract-First Skeleton)
+  version: 1.0.0
+  description: Generated skeleton from tech.md. Fill schemas under components/schemas.yaml
+    and refine parameters/responses.
+servers:
+- url: /
+security:
+- bearerAuth: []
+tags:
+- name: Accounts
+- name: Auth
+- name: AdminUsers
+- name: AdminTenants
+- name: ResourceTrees
+- name: IAM
+- name: Modeling
+- name: Datasets
+- name: Query
+- name: Flows
+- name: Execution
+- name: Reports
+- name: AuditLogs
+- name: Notifications
+- name: Assist
+- name: Exports
+paths:
+  /admin/api/tenants:
+    $ref: ./paths/admin.tenants.yaml#/p__admin__api__tenants
+  /admin/api/tenants/{id}:
+    $ref: ./paths/admin.tenants.yaml#/p__admin__api__tenants__id
+  /admin/api/tenants/{id}/enable:
+    $ref: ./paths/admin.tenants.yaml#/p__admin__api__tenants__id__enable
+  /admin/api/tenants/{id}/suspend:
+    $ref: ./paths/admin.tenants.yaml#/p__admin__api__tenants__id__suspend
+  /admin/api/tenants/{tenantId}/users:
+    $ref: ./paths/admin.tenants.yaml#/p__admin__api__tenants__tenantId__users
+  /admin/api/tenants/{tenantId}/users/{tenantUserId}:
+    $ref: ./paths/admin.tenants.yaml#/p__admin__api__tenants__tenantId__users__tenantUserId
+  /admin/api/users:
+    $ref: ./paths/admin.users.yaml#/p__admin__api__users
+  /admin/api/users/{id}:
+    $ref: ./paths/admin.users.yaml#/p__admin__api__users__id
+  /admin/api/users/{id}/disable:
+    $ref: ./paths/admin.users.yaml#/p__admin__api__users__id__disable
+  /admin/api/users/{id}/enable:
+    $ref: ./paths/admin.users.yaml#/p__admin__api__users__id__enable
+  /admin/api/users/{id}/reset_password:
+    $ref: ./paths/admin.users.yaml#/p__admin__api__users__id__reset_password
+  /api/assist/code-suggest:
+    $ref: ./paths/assist.yaml#/p__api__assist__code_suggest
+  /api/audit-logs:
+    $ref: ./paths/audit_logs.yaml#/p__api__audit_logs
+  /api/audit-logs/meta/actions:
+    $ref: ./paths/audit_logs.yaml#/p__api__audit_logs__meta__actions
+  /api/audit-logs/meta/target-types:
+    $ref: ./paths/audit_logs.yaml#/p__api__audit_logs__meta__target_types
+  /api/audit-logs/{audit_id}:
+    $ref: ./paths/audit_logs.yaml#/p__api__audit_logs__audit_id
+  /api/auth/login:
+    $ref: ./paths/auth.yaml#/p__api__auth__login
+  /api/auth/logout:
+    $ref: ./paths/auth.yaml#/p__api__auth__logout
+  /api/auth/refresh:
+    $ref: ./paths/auth.yaml#/p__api__auth__refresh
+  /api/charts:
+    $ref: ./paths/reports.yaml#/p__api__charts
+  /api/charts/preview:
+    $ref: ./paths/reports.yaml#/p__api__charts__preview
+  /api/charts/{chart_id}:
+    $ref: ./paths/reports.yaml#/p__api__charts__chart_id
+  /api/charts/{chart_id}/exports:
+    $ref: ./paths/reports.yaml#/p__api__charts__chart_id__exports
+  /api/dashboards:
+    $ref: ./paths/reports.yaml#/p__api__dashboards
+  /api/dashboards/{dashboard_id}:
+    $ref: ./paths/reports.yaml#/p__api__dashboards__dashboard_id
+  /api/dashboards/{dashboard_id}/items:
+    $ref: ./paths/reports.yaml#/p__api__dashboards__dashboard_id__items
+  /api/dashboards/{dashboard_id}/items/{dashboard_item_id}:
+    $ref: ./paths/reports.yaml#/p__api__dashboards__dashboard_id__items__dashboard_item_id
+  /api/dashboards/{dashboard_id}/layout:
+    $ref: ./paths/reports.yaml#/p__api__dashboards__dashboard_id__layout
+  /api/dashboards/{dashboard_id}/render:
+    $ref: ./paths/reports.yaml#/p__api__dashboards__dashboard_id__render
+  /api/datasets:
+    $ref: ./paths/datasets.yaml#/p__api__datasets
+  /api/datasets/{dataset_id}:
+    $ref: ./paths/datasets.yaml#/p__api__datasets__dataset_id
+  /api/datasets/{dataset_id}/enable:
+    $ref: ./paths/datasets.yaml#/p__api__datasets__dataset_id__enable
+  /api/datasets/{dataset_id}/preview:
+    $ref: ./paths/datasets.yaml#/p__api__datasets__dataset_id__preview
+  /api/datasets/{dataset_id}/refresh:
+    $ref: ./paths/datasets.yaml#/p__api__datasets__dataset_id__refresh
+  /api/datasets/{dataset_id}/refresh-runs:
+    $ref: ./paths/datasets.yaml#/p__api__datasets__dataset_id__refresh_runs
+  /api/datasets/{id}/refresh:
+    $ref: ./paths/datasets.yaml#/p__api__datasets__id__refresh
+  /api/exports/{export_job_id}:
+    $ref: ./paths/exports.yaml#/p__api__exports__export_job_id
+  /api/flow-node-runs/{node_run_id}:
+    $ref: ./paths/execution.yaml#/p__api__flow_node_runs__node_run_id
+  /api/flow-runs/{run_id}:
+    $ref: ./paths/execution.yaml#/p__api__flow_runs__run_id
+  /api/flow-runs/{run_id}/logs:
+    $ref: ./paths/execution.yaml#/p__api__flow_runs__run_id__logs
+  /api/flow-runs/{run_id}/node-runs:
+    $ref: ./paths/execution.yaml#/p__api__flow_runs__run_id__node_runs
+  /api/flows:
+    $ref: ./paths/flows.yaml#/p__api__flows
+  /api/flows/tree:
+    $ref: ./paths/flows.yaml#/p__api__flows__tree
+  /api/flows/{flow_id}:
+    $ref: ./paths/flows.yaml#/p__api__flows__flow_id
+  /api/flows/{flow_id}/graph:
+    $ref: ./paths/flows.yaml#/p__api__flows__flow_id__graph
+  /api/flows/{flow_id}/logs:
+    $ref: ./paths/flows.yaml#/p__api__flows__flow_id__logs
+  /api/flows/{flow_id}/runs:
+    $ref: ./paths/flows.yaml#/p__api__flows__flow_id__runs
+  /api/flows/{flow_id}/schedule:
+    $ref: ./paths/flows.yaml#/p__api__flows__flow_id__schedule
+  /api/flows/{flow_id}/validate:
+    $ref: ./paths/flows.yaml#/p__api__flows__flow_id__validate
+  /api/me:
+    $ref: ./paths/accounts.yaml#/p__api__me
+  /api/modeling/tables:
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables
+  /api/modeling/tables/{ref_table_id}/reference-candidates:
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__ref_table_id__reference_candidates
+  /api/modeling/tables/{table_id}:
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id
+  /api/modeling/tables/{table_id}/data/query:
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id__data__query
+  /api/modeling/tables/{table_id}/fields:
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id__fields
+  /api/modeling/tables/{table_id}/fields/reorder:
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id__fields__reorder
+  /api/modeling/tables/{table_id}/fields/{field_id}:
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id__fields__field_id
+  /api/modeling/tables/{table_id}/records:
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id__records
+  /api/modeling/tables/{table_id}/records/batch-delete:
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id__records__batch_delete
+  /api/modeling/tables/{table_id}/records/{id}:
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id__records__id
+  /api/notifications:
+    $ref: ./paths/notifications.yaml#/p__api__notifications
+  /api/notifications/mark-read:
+    $ref: ./paths/notifications.yaml#/p__api__notifications__mark_read
+  /api/notifications/unread-count:
+    $ref: ./paths/notifications.yaml#/p__api__notifications__unread_count
+  /api/permissions/grants:
+    $ref: ./paths/iam.yaml#/p__api__permissions__grants
+  /api/permissions/grants/{grant_id}:
+    $ref: ./paths/iam.yaml#/p__api__permissions__grants__grant_id
+  /api/permissions/resources/{resource_node_id}:
+    $ref: ./paths/iam.yaml#/p__api__permissions__resources__resource_node_id
+  /api/platform/audit-logs:
+    $ref: ./paths/iam.yaml#/p__api__platform__audit_logs
+  /api/platform/audit-logs/{audit_id}:
+    $ref: ./paths/iam.yaml#/p__api__platform__audit_logs__audit_id
+  /api/query/export/csv:
+    $ref: ./paths/query.yaml#/p__api__query__export__csv
+  /api/query/run:
+    $ref: ./paths/query.yaml#/p__api__query__run
+  /api/query/validate:
+    $ref: ./paths/query.yaml#/p__api__query__validate
+  /api/resource-trees/TABLE/children:
+    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__TABLE__children
+  /api/resource-trees/TABLE/folders:
+    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__TABLE__folders
+  /api/resource-trees/TABLE/move:
+    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__TABLE__move
+  /api/resource-trees/TABLE/nodes/{node_id}:
+    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__TABLE__nodes__node_id
+  /api/resource-trees/{scope}/children:
+    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__scope__children
+  /api/resource-trees/{scope}/folders:
+    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__scope__folders
+  /api/resource-trees/{scope}/move:
+    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__scope__move
+  /api/resource-trees/{scope}/nodes/{node_id}:
+    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__scope__nodes__node_id
+  /api/resource-trees/{scope}/reorder:
+    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__scope__reorder
+  /api/tenants:
+    $ref: ./paths/accounts.yaml#/p__api__tenants
+  /api/tenants/switch:
+    $ref: ./paths/accounts.yaml#/p__api__tenants__switch
+  /api/tenants/{tenant_id}/roles:
+    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__roles
+  /api/tenants/{tenant_id}/roles/{role_id}:
+    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__roles__role_id
+  /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions:
+    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__roles__role_id__resource_permissions
+  /api/tenants/{tenant_id}/tables/{table_id}/column-permissions:
+    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__tables__table_id__column_permissions
+  /api/tenants/{tenant_id}/tables/{table_id}/row-permissions:
+    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__tables__table_id__row_permissions
+  /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}:
+    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__tables__table_id__row_permissions__row_perm_id
+  /api/tenants/{tenant_id}/users/{tenant_user_id}/owner:
+    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__users__tenant_user_id__owner
+  /api/tenants/{tenant_id}/users/{tenant_user_id}/roles:
+    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__users__tenant_user_id__roles
+  /api/tenants/{tenant_id}/users/{tenant_user_id}/roles/{role_id}:
+    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__users__tenant_user_id__roles__role_id
+components:
+  securitySchemes:
+    bearerAuth:
+      $ref: ./components/security.yaml#/bearerAuth
+  schemas:
+    $ref: ./components/schemas.yaml
+  parameters:
+    $ref: ./components/parameters.yaml
+  responses:
+    $ref: ./components/responses.yaml

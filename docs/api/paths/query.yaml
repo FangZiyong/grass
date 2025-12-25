@@ -1,0 +1,99 @@
+p__api__query__export__csv:
+  post:
+    tags:
+    - Query
+    summary: POST /api/query/export/csv
+    operationId: post_api_query_export_csv
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_query_export_csv
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_query_export_csv
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__query__run:
+  post:
+    tags:
+    - Query
+    summary: POST /api/query/run
+    operationId: post_api_query_run
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_query_run
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_query_run
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__query__validate:
+  post:
+    tags:
+    - Query
+    summary: POST /api/query/validate
+    operationId: post_api_query_validate
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_query_validate
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_query_validate
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError

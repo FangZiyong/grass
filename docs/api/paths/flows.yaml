@@ -1,0 +1,456 @@
+p__api__flows:
+  get:
+    tags:
+    - Flows
+    summary: GET /api/flows
+    operationId: get_api_flows
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../components/parameters.yaml#/Page
+    - $ref: ../components/parameters.yaml#/PageSize
+    - $ref: ../components/parameters.yaml#/Keyword
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_flows
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  post:
+    tags:
+    - Flows
+    summary: POST /api/flows
+    operationId: post_api_flows
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_flows
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_flows
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__flows__tree:
+  get:
+    tags:
+    - Flows
+    summary: GET /api/flows/tree
+    operationId: get_api_flows_tree
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../components/parameters.yaml#/Page
+    - $ref: ../components/parameters.yaml#/PageSize
+    - $ref: ../components/parameters.yaml#/Keyword
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_flows_tree
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__flows__flow_id:
+  parameters:
+  - name: flow_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  delete:
+    tags:
+    - Flows
+    summary: DELETE /api/flows/{flow_id}
+    operationId: delete_api_flows_flow_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_delete_api_flows_flow_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  get:
+    tags:
+    - Flows
+    summary: GET /api/flows/{flow_id}
+    operationId: get_api_flows_flow_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_flows_flow_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  patch:
+    tags:
+    - Flows
+    summary: PATCH /api/flows/{flow_id}
+    operationId: patch_api_flows_flow_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_patch_api_flows_flow_id
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_patch_api_flows_flow_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__flows__flow_id__graph:
+  parameters:
+  - name: flow_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  get:
+    tags:
+    - Flows
+    summary: GET /api/flows/{flow_id}/graph
+    operationId: get_api_flows_flow_id_graph
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_flows_flow_id_graph
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  put:
+    tags:
+    - Flows
+    summary: PUT /api/flows/{flow_id}/graph
+    operationId: put_api_flows_flow_id_graph
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_put_api_flows_flow_id_graph
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_put_api_flows_flow_id_graph
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__flows__flow_id__logs:
+  parameters:
+  - name: flow_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  get:
+    tags:
+    - Flows
+    summary: GET /api/flows/{flow_id}/logs
+    operationId: get_api_flows_flow_id_logs
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_flows_flow_id_logs
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__flows__flow_id__runs:
+  parameters:
+  - name: flow_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  get:
+    tags:
+    - Flows
+    summary: GET /api/flows/{flow_id}/runs
+    operationId: get_api_flows_flow_id_runs
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_flows_flow_id_runs
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  post:
+    tags:
+    - Flows
+    summary: POST /api/flows/{flow_id}/runs
+    operationId: post_api_flows_flow_id_runs
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_flows_flow_id_runs
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_flows_flow_id_runs
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__flows__flow_id__schedule:
+  parameters:
+  - name: flow_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  get:
+    tags:
+    - Flows
+    summary: GET /api/flows/{flow_id}/schedule
+    operationId: get_api_flows_flow_id_schedule
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_flows_flow_id_schedule
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  put:
+    tags:
+    - Flows
+    summary: PUT /api/flows/{flow_id}/schedule
+    operationId: put_api_flows_flow_id_schedule
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_put_api_flows_flow_id_schedule
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_put_api_flows_flow_id_schedule
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__flows__flow_id__validate:
+  parameters:
+  - name: flow_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  post:
+    tags:
+    - Flows
+    summary: POST /api/flows/{flow_id}/validate
+    operationId: post_api_flows_flow_id_validate
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_flows_flow_id_validate
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_flows_flow_id_validate
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError

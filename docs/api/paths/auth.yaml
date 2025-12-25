@@ -1,0 +1,93 @@
+p__api__auth__login:
+  post:
+    tags:
+    - Auth
+    summary: POST /api/auth/login
+    operationId: post_api_auth_login
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_auth_login
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_auth_login
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__auth__logout:
+  post:
+    tags:
+    - Auth
+    summary: POST /api/auth/logout
+    operationId: post_api_auth_logout
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_auth_logout
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_auth_logout
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__auth__refresh:
+  post:
+    tags:
+    - Auth
+    summary: POST /api/auth/refresh
+    operationId: post_api_auth_refresh
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_auth_refresh
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_auth_refresh
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError

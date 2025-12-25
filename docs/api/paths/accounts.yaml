@@ -1,0 +1,681 @@
+p__api__me:
+  get:
+    tags:
+    - Accounts
+    summary: GET /api/me
+    operationId: get_api_me
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_me
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__tenants:
+  get:
+    tags:
+    - Accounts
+    summary: GET /api/tenants
+    operationId: get_api_tenants
+    parameters:
+    - $ref: ../components/parameters.yaml#/Page
+    - $ref: ../components/parameters.yaml#/PageSize
+    - $ref: ../components/parameters.yaml#/Keyword
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_tenants
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__tenants__switch:
+  post:
+    tags:
+    - Accounts
+    summary: POST /api/tenants/switch
+    operationId: post_api_tenants_switch
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_tenants_switch
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_tenants_switch
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__tenants__tenant_id__roles:
+  parameters:
+  - name: tenant_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  get:
+    tags:
+    - Accounts
+    summary: GET /api/tenants/{tenant_id}/roles
+    operationId: get_api_tenants_tenant_id_roles
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_tenants_tenant_id_roles
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  post:
+    tags:
+    - Accounts
+    summary: POST /api/tenants/{tenant_id}/roles
+    operationId: post_api_tenants_tenant_id_roles
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_tenants_tenant_id_roles
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_tenants_tenant_id_roles
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__tenants__tenant_id__roles__role_id:
+  parameters:
+  - name: tenant_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: role_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  delete:
+    tags:
+    - Accounts
+    summary: DELETE /api/tenants/{tenant_id}/roles/{role_id}
+    operationId: delete_api_tenants_tenant_id_roles_role_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_delete_api_tenants_tenant_id_roles_role_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  patch:
+    tags:
+    - Accounts
+    summary: PATCH /api/tenants/{tenant_id}/roles/{role_id}
+    operationId: patch_api_tenants_tenant_id_roles_role_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_patch_api_tenants_tenant_id_roles_role_id
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_patch_api_tenants_tenant_id_roles_role_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__tenants__tenant_id__roles__role_id__resource_permissions:
+  parameters:
+  - name: tenant_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: role_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  get:
+    tags:
+    - Accounts
+    summary: GET /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions
+    operationId: get_api_tenants_tenant_id_roles_role_id_resource_permissions
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_tenants_tenant_id_roles_role_id_resource_permissions
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  put:
+    tags:
+    - Accounts
+    summary: PUT /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions
+    operationId: put_api_tenants_tenant_id_roles_role_id_resource_permissions
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_put_api_tenants_tenant_id_roles_role_id_resource_permissions
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_put_api_tenants_tenant_id_roles_role_id_resource_permissions
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__tenants__tenant_id__tables__table_id__column_permissions:
+  parameters:
+  - name: tenant_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: table_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  get:
+    tags:
+    - Accounts
+    summary: GET /api/tenants/{tenant_id}/tables/{table_id}/column-permissions
+    operationId: get_api_tenants_tenant_id_tables_table_id_column_permissions
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_tenants_tenant_id_tables_table_id_column_permissions
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  put:
+    tags:
+    - Accounts
+    summary: PUT /api/tenants/{tenant_id}/tables/{table_id}/column-permissions
+    operationId: put_api_tenants_tenant_id_tables_table_id_column_permissions
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_put_api_tenants_tenant_id_tables_table_id_column_permissions
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_put_api_tenants_tenant_id_tables_table_id_column_permissions
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__tenants__tenant_id__tables__table_id__row_permissions:
+  parameters:
+  - name: tenant_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: table_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  get:
+    tags:
+    - Accounts
+    summary: GET /api/tenants/{tenant_id}/tables/{table_id}/row-permissions
+    operationId: get_api_tenants_tenant_id_tables_table_id_row_permissions
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_tenants_tenant_id_tables_table_id_row_permissions
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  post:
+    tags:
+    - Accounts
+    summary: POST /api/tenants/{tenant_id}/tables/{table_id}/row-permissions
+    operationId: post_api_tenants_tenant_id_tables_table_id_row_permissions
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_tenants_tenant_id_tables_table_id_row_permissions
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_tenants_tenant_id_tables_table_id_row_permissions
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__tenants__tenant_id__tables__table_id__row_permissions__row_perm_id:
+  parameters:
+  - name: tenant_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: table_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: row_perm_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  delete:
+    tags:
+    - Accounts
+    summary: DELETE /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}
+    operationId: delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  patch:
+    tags:
+    - Accounts
+    summary: PATCH /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}
+    operationId: patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__tenants__tenant_id__users__tenant_user_id__owner:
+  parameters:
+  - name: tenant_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: tenant_user_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  delete:
+    tags:
+    - Accounts
+    summary: DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/owner
+    operationId: delete_api_tenants_tenant_id_users_tenant_user_id_owner
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_delete_api_tenants_tenant_id_users_tenant_user_id_owner
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  post:
+    tags:
+    - Accounts
+    summary: POST /api/tenants/{tenant_id}/users/{tenant_user_id}/owner
+    operationId: post_api_tenants_tenant_id_users_tenant_user_id_owner
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_tenants_tenant_id_users_tenant_user_id_owner
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_tenants_tenant_id_users_tenant_user_id_owner
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__tenants__tenant_id__users__tenant_user_id__roles:
+  parameters:
+  - name: tenant_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: tenant_user_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  post:
+    tags:
+    - Accounts
+    summary: POST /api/tenants/{tenant_id}/users/{tenant_user_id}/roles
+    operationId: post_api_tenants_tenant_id_users_tenant_user_id_roles
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_tenants_tenant_id_users_tenant_user_id_roles
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_tenants_tenant_id_users_tenant_user_id_roles
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__tenants__tenant_id__users__tenant_user_id__roles__role_id:
+  parameters:
+  - name: tenant_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: tenant_user_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: role_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  delete:
+    tags:
+    - Accounts
+    summary: DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/roles/{role_id}
+    operationId: delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
