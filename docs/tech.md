@@ -1,5 +1,14 @@
 # 1 文档基本信息
 
+
+## 0.3 文档一致性与生成链路（冻结规则）
+
+为保证“先定义接口契约 → 再实现 → 再自动校验”可稳定执行，V1.0 起冻结如下链路与规则：
+
+- **PRD 是业务语义的最高准则**：任何业务规则/边界条件/权限含义必须以 PRD 为准。
+- **技术文档（本文件）是接口契约的工程化准则**：当 PRD 描述不足以支撑接口契约（OpenAPI）时，应先补齐本文件（字段、约束、错误码、幂等/并发语义等），并同步回写 PRD。
+- **OpenAPI（YAML/JSON）是可执行的契约产物**：由本文件导出生成，用于 Mock/联调/SDK 生成与 CI 契约校验；不得绕开本文件直接“口头改接口”。
+
 ## 1.1 文档目的
 
 本文档用于定义《多租户配置化数据建模与报表平台》在 V1.0 的需求边界、核心概念、关键行为约束与跨团队统一口径，作为产品/研发/测试/运维的共同基线。
@@ -249,6 +258,21 @@ APP -> NTF : create notification (when needed)
 ### 3.3.1 响应结构（成功/失败统一壳）
 
 所有 API 统一返回结构（字段语义固定）：`success`、`code`、`message`、`data`、`trace_id`。
+
+### 3.3.1.1 URL 与 Path 参数命名规范（冻结规则）
+
+为避免文档与实现反复变更，V1 起**冻结**如下规则（后续版本不得随意更改）：
+
+- **Path 参数一律使用业务语义名**：`{<resource>_id}`（snake_case），禁止使用通用 `id`。
+  - 示例：`/api/flows/{flow_id}`、`/api/dashboards/{dashboard_id}`、`/admin/api/tenants/{tenant_id}`。
+- 当一个 URL 中存在多个 ID 时，分别使用各自语义名：
+  - 示例：`/api/modeling/tables/{table_id}/fields/{field_id}`、`/api/modeling/tables/{table_id}/records/{record_id}`。
+- 资源树（ResourceTree）统一以 `node` 抽象，文件夹/表/仪表盘等均为 node 的不同 `node_type`：
+  - 示例：`/api/resource-trees/{scope}/nodes/{node_id}`。
+- `scope` 这类枚举型路径参数保持语义名（如 `{scope}`），并在接口文档中提供可选值枚举。
+
+说明：
+- 语义化参数名可以显著降低歧义、提升文档可读性，并便于 OpenAPI/SDK 生成时在方法签名中保持清晰一致。
 
 ### 3.3.2 错误码命名规则
 
@@ -624,31 +648,31 @@ API -> Client : {tenant_id, redirect_url}
 
 8. `POST /admin/api/users`（创建 GlobalUser：含初始密码策略）
 
-9. `PATCH /admin/api/users/{id}`（编辑 GlobalUser：显示名/邮箱/is_platform_admin/status）
+9. `PATCH /admin/api/users/{user_id}`（编辑 GlobalUser：显示名/邮箱/is_platform_admin/status）
 
-10. `POST /admin/api/users/{id}/enable`（启用）
+10. `POST /admin/api/users/{user_id}/enable`（启用）
 
-11. `POST /admin/api/users/{id}/disable`（禁用）
+11. `POST /admin/api/users/{user_id}/disable`（禁用）
 
-12. `POST /admin/api/users/{id}/reset_password`（可选：重置密码）
+12. `POST /admin/api/users/{user_id}/reset_password`（可选：重置密码）
 
 13. `GET /admin/api/tenants`（Tenant 列表：搜索/筛选）
 
 14. `POST /admin/api/tenants`（创建 Tenant：code/name/plan/status）
 
-15. `PATCH /admin/api/tenants/{id}`（编辑 Tenant：**name/plan/status**；code 不可改）
+15. `PATCH /admin/api/tenants/{tenant_id}`（编辑 Tenant：**name/plan/status**；code 不可改）
 
-16. `POST /admin/api/tenants/{id}/enable`（启用）
+16. `POST /admin/api/tenants/{tenant_id}/enable`（启用）
 
-17. `POST /admin/api/tenants/{id}/suspend`（停用）
+17. `POST /admin/api/tenants/{tenant_id}/suspend`（停用）
 
-18. `GET /admin/api/tenants/{tenantId}/users`（租户成员列表）
+18. `GET /admin/api/tenants/{tenant_id}/users`（租户成员列表）
 
-19. `POST /admin/api/tenants/{tenantId}/users`（添加成员：从 GlobalUser 搜索添加，可批量，可设 Owner，可选初始角色）
+19. `POST /admin/api/tenants/{tenant_id}/users`（添加成员：从 GlobalUser 搜索添加，可批量，可设 Owner，可选初始角色）
 
-20. `PATCH /admin/api/tenants/{tenantId}/users/{tenantUserId}`（修改成员：状态/Owner/角色）
+20. `PATCH /admin/api/tenants/{tenant_id}/users/{tenant_user_id}`（修改成员：状态/Owner/角色）
 
-21. `DELETE /admin/api/tenants/{tenantId}/users/{tenantUserId}`（移除成员：删除 TenantUser）
+21. `DELETE /admin/api/tenants/{tenant_id}/users/{tenant_user_id}`（移除成员：删除 TenantUser）
 
 ---
 
@@ -939,13 +963,13 @@ AdminTenantService.create(payload):
 
 ---
 
-### 4.8.3 `PATCH /admin/api/tenants/{id}`（编辑租户：必须支持改名称）
+### 4.8.3 `PATCH /admin/api/tenants/{tenant_id}`（编辑租户：必须支持改名称）
 
 > 编辑 Tenant：`code` 不可修改；可修改 `name/plan/status`。
 
 **请求 Path**
 
-- `id`: tenant id
+- `tenant_id`: tenant id
 
 **请求 Body**
 
@@ -995,7 +1019,7 @@ AdminTenantService.update(tenant_id, patch):
 
 ---
 
-### 4.8.4 `POST /admin/api/tenants/{tenantId}/users`（添加成员，支持批量）
+### 4.8.4 `POST /admin/api/tenants/{tenant_id}/users`（添加成员，支持批量）
 
 > 添加成员：从 GlobalUser 搜索添加，可批量；可选设 Owner；可选初始角色；平台后台不提供注册新用户流程。
 
@@ -2418,10 +2442,10 @@ C -> User : {rows, total, visible_fields}
 ### 7.6.5 表数据接口
 
 - `POST /api/modeling/tables/{table_id}/data/query`
-- `GET  /api/modeling/tables/{table_id}/records/{id}`
+- `GET  /api/modeling/tables/{table_id}/records/{record_id}`
 - `POST /api/modeling/tables/{table_id}/records`
-- `PATCH /api/modeling/tables/{table_id}/records/{id}`
-- `DELETE /api/modeling/tables/{table_id}/records/{id}`
+- `PATCH /api/modeling/tables/{table_id}/records/{record_id}`
+- `DELETE /api/modeling/tables/{table_id}/records/{record_id}`
 - `POST /api/modeling/tables/{table_id}/records/batch-delete`（可选）
 
 ---
@@ -2961,7 +2985,7 @@ order_by[i]：
 
 ---
 
-### 7.8.13 GET /api/modeling/tables/{table_id}/records/{id}
+### 7.8.13 GET /api/modeling/tables/{table_id}/records/{record_id}
 
 **用途：**读取单条记录（用于编辑页回显）。
 
@@ -3006,7 +3030,7 @@ order_by[i]：
 
 ---
 
-### 7.8.15 PATCH /api/modeling/tables/{table_id}/records/{id}
+### 7.8.15 PATCH /api/modeling/tables/{table_id}/records/{record_id}
 
 **用途：**编辑记录。
 
@@ -3021,7 +3045,7 @@ order_by[i]：
 
 ---
 
-### 7.8.16 DELETE /api/modeling/tables/{table_id}/records/{id}
+### 7.8.16 DELETE /api/modeling/tables/{table_id}/records/{record_id}
 
 **用途：**删除记录。
 
@@ -4148,12 +4172,10 @@ metrics_expr 示例：
 
 #### A. 资源树（scope=FLOW，复用资源树服务）
 
-- GET `/api/resource-trees/FLOW/children?parent_id={node_id|null}`
-- POST `/api/resource-trees/FLOW/folders`（创建 Folder）
-- PATCH `/api/resource-trees/FLOW/nodes/{node_id}`（重命名/移动/排序）
-- POST `/api/resource-trees/FLOW/move`（移动；支持单节点或批量）
-- POST `/api/resource-trees/FLOW/reorder`（同级排序调整）
-- DELETE `/api/resource-trees/FLOW/nodes/{node_id}`（删除 Folder/Flow 节点）
+- GET /api/resource-tree?scope=FLOW
+- POST /api/resource-tree/folders（创建 Folder）
+- PATCH /api/resource-tree/nodes/{node_id}（重命名/移动）
+- DELETE /api/resource-tree/nodes/{node_id}（删除 Folder/Flow 节点）
 
 #### B. Flow 定义
 
@@ -5628,7 +5650,7 @@ Body（至少包含一个字段）：
 #### 9.5.3.8（不提供）服务端 render 接口
 
 - PRD 的打开/渲染流程为“前端并发拉取 dashboard_items + charts + chart preview”，因此 V1 **不对外提供** `POST /api/dashboards/{dashboard_id}/render`。
-- 若后续需要做服务端聚合优化，该接口可作为**内部/实验接口**实现（建议通过 Feature Flag 开关，例如 `DASHBOARD_RENDER_SERVER`），但不得作为对外稳定契约；返回字段可随版本调整，外部调用方不得依赖。
+- 若后续需要做服务端聚合优化，可作为内部接口实现，但不得作为对外稳定 API（避免与前端渲染职责冲突）。
 
 
 ### 9.5.4 表结构
@@ -5769,7 +5791,7 @@ participant "Worker" as WK
 database "MetaDB" as MDB
 database "DW" as DW
 
-User -> API: POST /api/datasets/{id}/refresh
+User -> API: POST /api/datasets/{dataset_id}/refresh
 API -> MDB: load dataset + owner
 API -> MDB: create refresh_run(status=RUNNING)
 API -> MDB: update dataset(status=REFRESHING)
