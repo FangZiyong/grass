@@ -1,0 +1,507 @@
+p__api__audit-logs:
+  get:
+    tags:
+    - Misc
+    summary: 审计日志列表查询（只读）。
+    operationId: get_api_audit_logs
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: start_time
+      in: query
+      required: true
+      schema:
+        type: string
+        description: 开始时间（ISO8601 或 yyyy-MM-dd HH:mm:ss）
+      description: 开始时间（ISO8601 或 yyyy-MM-dd HH:mm:ss）
+    - name: end_time
+      in: query
+      required: true
+      schema:
+        type: string
+        description: 结束时间
+      description: 结束时间
+    - name: module
+      in: query
+      required: false
+      schema:
+        type: string
+        description: AuditModule
+      description: AuditModule
+    - name: action
+      in: query
+      required: false
+      schema:
+        type: string
+        description: ActionType
+      description: ActionType
+    - name: target_type
+      in: query
+      required: false
+      schema:
+        type: string
+        description: TargetType
+      description: TargetType
+    - name: target_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+        description: 对象 ID
+      description: 对象 ID
+    - name: actor_tenant_user_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+        description: 操作人
+      description: 操作人
+    - name: result
+      in: query
+      required: false
+      schema:
+        type: string
+        description: SUCCESS/FAILED
+      description: SUCCESS/FAILED
+    - name: keyword
+      in: query
+      required: false
+      schema:
+        type: string
+        description: 搜索 summary/target_code（≤100）
+      description: 搜索 summary/target_code（≤100）
+    - name: request_id
+      in: query
+      required: false
+      schema:
+        type: string
+        description: 精确匹配（≤64）
+      description: 精确匹配（≤64）
+    - name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: 默认 1
+      description: 默认 1
+    - name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: 默认 20，最大 200
+      description: 默认 20，最大 200
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_audit_logs
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__api__charts:
+  get:
+    tags:
+    - Misc
+    summary: GET /api/charts
+    operationId: get_api_charts
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/PageParam
+    - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
+    - $ref: ../openapi.yaml#/components/parameters/SortByParam
+    - $ref: ../openapi.yaml#/components/parameters/SortOrderParam
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_charts
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+  post:
+    tags:
+    - Misc
+    summary: POST /api/charts
+    operationId: post_api_charts
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_charts
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_post_api_charts
+p__api__dashboards:
+  get:
+    tags:
+    - Misc
+    summary: GET /api/dashboards
+    operationId: get_api_dashboards
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: folder_node_id
+      in: query
+      required: false
+      schema:
+        type: string
+        description: scope=DASHBOARD
+    - name: include_descendants
+      in: query
+      required: false
+      schema:
+        type: boolean
+        description: '-'
+    - name: keyword
+      in: query
+      required: false
+      schema:
+        type: string
+        description: '-'
+    - name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: '-'
+    - name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: 最大 200
+    - $ref: ../openapi.yaml#/components/parameters/PageParam
+    - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
+    - $ref: ../openapi.yaml#/components/parameters/SortByParam
+    - $ref: ../openapi.yaml#/components/parameters/SortOrderParam
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_dashboards
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+  post:
+    tags:
+    - Misc
+    summary: POST /api/dashboards
+    operationId: post_api_dashboards
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_dashboards
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Req_post_api_dashboards'
+p__api__datasets:
+  get:
+    tags:
+    - Misc
+    summary: GET /api/datasets
+    operationId: get_api_datasets
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: folder_node_id
+      in: query
+      required: false
+      schema:
+        type: string
+        description: 资源树目录节点 id（scope=DATASET）
+    - name: include_descendants
+      in: query
+      required: false
+      schema:
+        type: boolean
+        description: 是否包含后代节点
+    - name: keyword
+      in: query
+      required: false
+      schema:
+        type: string
+        description: 关键字（name）
+    - name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: '-'
+    - name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: 最大 200
+    - $ref: ../openapi.yaml#/components/parameters/PageParam
+    - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
+    - $ref: ../openapi.yaml#/components/parameters/SortByParam
+    - $ref: ../openapi.yaml#/components/parameters/SortOrderParam
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_datasets
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+  post:
+    tags:
+    - Misc
+    summary: POST /api/datasets
+    operationId: post_api_datasets
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_datasets
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_post_api_datasets
+p__api__flows:
+  get:
+    tags:
+    - Misc
+    summary: Flow 列表区域加载（支持目录、搜索、排序、分页）。
+    operationId: get_api_flows
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: folder_node_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+        description: 资源树 folder 节点（scope=FLOW）
+      description: 资源树 folder 节点（scope=FLOW）
+    - name: include_descendants
+      in: query
+      required: false
+      schema:
+        type: boolean
+        description: 'true'
+      description: 'true'
+    - name: keyword
+      in: query
+      required: false
+      schema:
+        type: string
+        description: 名称/编码模糊搜索
+      description: 名称/编码模糊搜索
+    - name: owner_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+        description: 负责人过滤
+      description: 负责人过滤
+    - name: enabled
+      in: query
+      required: false
+      schema:
+        type: boolean
+        description: 是否启用过滤
+      description: 是否启用过滤
+    - name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        description: created_at/updated_graph_at
+      description: created_at/updated_graph_at
+    - name: order
+      in: query
+      required: false
+      schema:
+        type: string
+        description: ASC/DESC
+      description: ASC/DESC
+    - name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: 默认 1
+      description: 默认 1
+    - name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: 默认 20，最大 200
+      description: 默认 20，最大 200
+    - $ref: ../openapi.yaml#/components/parameters/PageParam
+    - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
+    - $ref: ../openapi.yaml#/components/parameters/SortByParam
+    - $ref: ../openapi.yaml#/components/parameters/SortOrderParam
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_flows
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+  post:
+    tags:
+    - Misc
+    summary: 新建 Flow（生成 flow 记录 + 资源树节点）。
+    operationId: post_api_flows
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_flows
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_post_api_flows

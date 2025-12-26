@@ -1,34 +1,34 @@
 p__api__exports__export_job_id:
-  parameters:
-  - name: export_job_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   get:
     tags:
     - Exports
     summary: GET /api/exports/{export_job_id}
     operationId: get_api_exports_export_job_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: export_job_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_exports_export_job_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_exports_export_job_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError

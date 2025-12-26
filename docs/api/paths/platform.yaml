@@ -1,0 +1,153 @@
+p__api__platform__audit-logs:
+  get:
+    tags:
+    - Platform
+    summary: 跨租户审计列表查询。
+    operationId: get_api_platform_audit_logs
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+        description: 指定租户（为空表示全量）
+      description: 指定租户（为空表示全量）
+    - name: start_time
+      in: query
+      required: true
+      schema:
+        type: string
+        description: 开始时间
+      description: 开始时间
+    - name: end_time
+      in: query
+      required: true
+      schema:
+        type: string
+        description: 结束时间
+      description: 结束时间
+    - name: module
+      in: query
+      required: false
+      schema:
+        type: string
+        description: AuditModule
+      description: AuditModule
+    - name: action
+      in: query
+      required: false
+      schema:
+        type: string
+        description: ActionType
+      description: ActionType
+    - name: target_type
+      in: query
+      required: false
+      schema:
+        type: string
+        description: TargetType
+      description: TargetType
+    - name: target_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+        description: 对象 ID
+      description: 对象 ID
+    - name: actor_global_user_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+        description: 操作人（平台全局）
+      description: 操作人（平台全局）
+    - name: result
+      in: query
+      required: false
+      schema:
+        type: string
+        description: SUCCESS/FAILED
+      description: SUCCESS/FAILED
+    - name: keyword
+      in: query
+      required: false
+      schema:
+        type: string
+        description: ≤100
+      description: ≤100
+    - name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: 默认 1
+      description: 默认 1
+    - name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: 默认 20，最大 200
+      description: 默认 20，最大 200
+    - $ref: ../openapi.yaml#/components/parameters/PageParam
+    - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
+    - $ref: ../openapi.yaml#/components/parameters/SortByParam
+    - $ref: ../openapi.yaml#/components/parameters/SortOrderParam
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_platform_audit_logs
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__api__platform__audit-logs__audit_id:
+  get:
+    tags:
+    - Platform
+    summary: 跨租户审计详情。
+    operationId: get_api_platform_audit_logs_audit_id
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: audit_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_platform_audit_logs_audit_id
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError

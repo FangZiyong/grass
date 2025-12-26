@@ -2,98 +2,101 @@ p__api__query__export__csv:
   post:
     tags:
     - Query
-    summary: POST /api/query/export/csv
+    summary: 导出 CSV
     operationId: post_api_query_export_csv
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_query_export_csv
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_query_export_csv
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_query_export_csv
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Req_post_api_query_export_csv'
 p__api__query__run:
   post:
     tags:
     - Query
-    summary: POST /api/query/run
+    summary: 执行查询
     operationId: post_api_query_run
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_query_run
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_query_run
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_query_run
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Req_post_api_query_run'
 p__api__query__validate:
   post:
     tags:
     - Query
-    summary: POST /api/query/validate
+    summary: 校验并预编译
     operationId: post_api_query_validate
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_query_validate
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_query_validate
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_query_validate
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Req_post_api_query_validate'

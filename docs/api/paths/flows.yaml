@@ -1,456 +1,544 @@
-p__api__flows:
+p__api__flow-node-runs__node_run_id:
   get:
     tags:
     - Flows
-    summary: GET /api/flows
-    operationId: get_api_flows
+    summary: 节点运行详情（含 extra_info 中 SQL 片段、join 条件、聚合规则等）。
+    operationId: get_api_flow_node_runs_node_run_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    - $ref: ../components/parameters.yaml#/Page
-    - $ref: ../components/parameters.yaml#/PageSize
-    - $ref: ../components/parameters.yaml#/Keyword
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_flows
-      '400':
-        $ref: ../components/responses.yaml#/BadRequest
-      '401':
-        $ref: ../components/responses.yaml#/Unauthorized
-      '403':
-        $ref: ../components/responses.yaml#/Forbidden
-      '404':
-        $ref: ../components/responses.yaml#/NotFound
-      '409':
-        $ref: ../components/responses.yaml#/Conflict
-      '500':
-        $ref: ../components/responses.yaml#/InternalError
-  post:
-    tags:
-    - Flows
-    summary: POST /api/flows
-    operationId: post_api_flows
-    parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: node_run_id
+      in: path
       required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_flows
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_flows
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_flow_node_runs_node_run_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
-p__api__flows__tree:
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__api__flow-runs__run_id:
   get:
     tags:
     - Flows
-    summary: GET /api/flows/tree
-    operationId: get_api_flows_tree
+    summary: FlowRun 详情（基本信息 + DAG 着色数据）。
+    operationId: get_api_flow_runs_run_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    - $ref: ../components/parameters.yaml#/Page
-    - $ref: ../components/parameters.yaml#/PageSize
-    - $ref: ../components/parameters.yaml#/Keyword
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: run_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_flows_tree
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_flow_runs_run_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__api__flow-runs__run_id__logs:
+  get:
+    tags:
+    - Flows
+    summary: 查看该次运行日志（含校验失败、执行阶段、调度跳过原因等）。
+    operationId: get_api_flow_runs_run_id_logs
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: run_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_flow_runs_run_id_logs
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__api__flow-runs__run_id__node-runs:
+  get:
+    tags:
+    - Flows
+    summary: 节点运行列表（或用于前端构建节点详情面板）。
+    operationId: get_api_flow_runs_run_id_node_runs
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: run_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_flow_runs_run_id_node_runs
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
 p__api__flows__flow_id:
-  parameters:
-  - name: flow_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   delete:
     tags:
     - Flows
-    summary: DELETE /api/flows/{flow_id}
+    summary: 删除 Flow（删除定义与节点连线；保留 FlowRun/NodeRun 记录，不做物理删除）。
     operationId: delete_api_flows_flow_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: flow_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_delete_api_flows_flow_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_flows_flow_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
   get:
     tags:
     - Flows
-    summary: GET /api/flows/{flow_id}
+    summary: Flow 详情页基础信息加载。
     operationId: get_api_flows_flow_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: flow_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_flows_flow_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_flows_flow_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
   patch:
     tags:
     - Flows
-    summary: PATCH /api/flows/{flow_id}
+    summary: 编辑 Flow 基本信息（名称、描述、负责人、enabled）。
     operationId: patch_api_flows_flow_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: flow_id
+      in: path
       required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_patch_api_flows_flow_id
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_patch_api_flows_flow_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_flows_flow_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_patch_api_flows_flow_id
 p__api__flows__flow_id__graph:
-  parameters:
-  - name: flow_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   get:
     tags:
     - Flows
-    summary: GET /api/flows/{flow_id}/graph
+    summary: 加载 DAG 画布数据（nodes + edges + position + config）。
     operationId: get_api_flows_flow_id_graph
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: flow_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_flows_flow_id_graph
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_flows_flow_id_graph
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
   put:
     tags:
     - Flows
-    summary: PUT /api/flows/{flow_id}/graph
+    summary: 保存 DAG（替换当前节点/连线配置；本版本不保留多历史版本）。
     operationId: put_api_flows_flow_id_graph
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: flow_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_put_api_flows_flow_id_graph
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: ../components/schemas.yaml#/Req_put_api_flows_flow_id_graph
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../components/schemas.yaml#/Envelope_put_api_flows_flow_id_graph
-      '400':
-        $ref: ../components/responses.yaml#/BadRequest
-      '401':
-        $ref: ../components/responses.yaml#/Unauthorized
-      '403':
-        $ref: ../components/responses.yaml#/Forbidden
-      '404':
-        $ref: ../components/responses.yaml#/NotFound
-      '409':
-        $ref: ../components/responses.yaml#/Conflict
-      '500':
-        $ref: ../components/responses.yaml#/InternalError
+            $ref: ../openapi.yaml#/components/schemas/Req_put_api_flows_flow_id_graph
 p__api__flows__flow_id__logs:
-  parameters:
-  - name: flow_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   get:
     tags:
     - Flows
-    summary: GET /api/flows/{flow_id}/logs
+    summary: 查询 Flow 维度的运行日志（可按 run_id 过滤）。
     operationId: get_api_flows_flow_id_logs
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: flow_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: run_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+        description: 可选：指定 FlowRun
+    - name: since_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+    - name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 500
+        description: 1–2000
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_flows_flow_id_logs
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_flows_flow_id_logs
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
 p__api__flows__flow_id__runs:
-  parameters:
-  - name: flow_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   get:
     tags:
     - Flows
-    summary: GET /api/flows/{flow_id}/runs
+    summary: 运行记录列表。
     operationId: get_api_flows_flow_id_runs
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: flow_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_flows_flow_id_runs
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_flows_flow_id_runs
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
   post:
     tags:
     - Flows
-    summary: POST /api/flows/{flow_id}/runs
+    summary: 手动触发一次运行。
     operationId: post_api_flows_flow_id_runs
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: flow_id
+      in: path
       required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_flows_flow_id_runs
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_flows_flow_id_runs
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_flows_flow_id_runs
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
 p__api__flows__flow_id__schedule:
-  parameters:
-  - name: flow_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   get:
     tags:
     - Flows
-    summary: GET /api/flows/{flow_id}/schedule
+    summary: 读取调度配置。
     operationId: get_api_flows_flow_id_schedule
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: flow_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_flows_flow_id_schedule
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_flows_flow_id_schedule
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
   put:
     tags:
     - Flows
-    summary: PUT /api/flows/{flow_id}/schedule
+    summary: 更新调度配置（是否启用、cron、时区）。
     operationId: put_api_flows_flow_id_schedule
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: flow_id
+      in: path
       required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_put_api_flows_flow_id_schedule
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_put_api_flows_flow_id_schedule
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_put_api_flows_flow_id_schedule
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_put_api_flows_flow_id_schedule
 p__api__flows__flow_id__validate:
-  parameters:
-  - name: flow_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   post:
     tags:
     - Flows
-    summary: POST /api/flows/{flow_id}/validate
+    summary: 仅做校验，不落库（用于画布保存前的“预校验”按钮）。
     operationId: post_api_flows_flow_id_validate
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: flow_id
+      in: path
       required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_flows_flow_id_validate
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_flows_flow_id_validate
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_flows_flow_id_validate
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError

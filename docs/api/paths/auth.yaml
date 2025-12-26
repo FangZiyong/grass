@@ -4,90 +4,86 @@ p__api__auth__login:
     - Auth
     summary: POST /api/auth/login
     operationId: post_api_auth_login
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_auth_login
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_auth_login
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_auth_login
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_post_api_auth_login
+    security: []
 p__api__auth__logout:
   post:
     tags:
     - Auth
-    summary: POST /api/auth/logout
+    summary: 退出登录：清除刷新令牌 Cookie，并使当前会话失效。
     operationId: post_api_auth_logout
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_auth_logout
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_auth_logout
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_auth_logout
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
 p__api__auth__refresh:
   post:
     tags:
     - Auth
-    summary: POST /api/auth/refresh
+    summary: 使用 refresh_token（httpOnly Cookie）换取新的 access_token。
     operationId: post_api_auth_refresh
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_auth_refresh
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_auth_refresh
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_auth_refresh
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    security: []

@@ -1,141 +1,50 @@
-p__api__resource-trees__scope__children:
+p__admin__api__users:
   get:
     tags:
-    - ResourceTrees
-    summary: 查询子节点
-    operationId: get_api_resource_trees_scope_children
+    - AdminUsers
+    summary: GlobalUser 列表
+    operationId: get_admin_api_users
     parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: scope
-      in: path
-      required: true
+    - name: q
+      in: query
+      required: false
       schema:
-        $ref: '#/components/schemas/ResourceScope'
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_resource_trees_scope_children
-      '400':
-        $ref: ../openapi.yaml#/components/responses/BadRequest
-      '401':
-        $ref: ../openapi.yaml#/components/responses/Unauthorized
-      '403':
-        $ref: ../openapi.yaml#/components/responses/Forbidden
-      '404':
-        $ref: ../openapi.yaml#/components/responses/NotFound
-      '409':
-        $ref: ../openapi.yaml#/components/responses/Conflict
-      '500':
-        $ref: ../openapi.yaml#/components/responses/InternalError
-p__api__resource-trees__scope__folders:
-  post:
-    tags:
-    - ResourceTrees
-    summary: 创建文件夹
-    operationId: post_api_resource_trees_scope_folders
-    parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
-    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: scope
-      in: path
-      required: true
+        type: string
+        description: 按 login_name/display_name/email 模糊查询; 约束：≤128
+    - name: status
+      in: query
+      required: false
       schema:
-        $ref: '#/components/schemas/ResourceScope'
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_resource_trees_scope_folders
-      '400':
-        $ref: ../openapi.yaml#/components/responses/BadRequest
-      '401':
-        $ref: ../openapi.yaml#/components/responses/Unauthorized
-      '403':
-        $ref: ../openapi.yaml#/components/responses/Forbidden
-      '404':
-        $ref: ../openapi.yaml#/components/responses/NotFound
-      '409':
-        $ref: ../openapi.yaml#/components/responses/Conflict
-      '500':
-        $ref: ../openapi.yaml#/components/responses/InternalError
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ResourceTreeCreateFolderRequest'
-p__api__resource-trees__scope__move:
-  post:
-    tags:
-    - ResourceTrees
-    summary: 移动节点
-    operationId: post_api_resource_trees_scope_move
-    parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
-    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: scope
-      in: path
-      required: true
+        type: string
+        description: 状态筛选; 约束：ACTIVE/DISABLED
+    - name: is_platform_admin
+      in: query
+      required: false
       schema:
-        $ref: '#/components/schemas/ResourceScope'
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_resource_trees_scope_move
-      '400':
-        $ref: ../openapi.yaml#/components/responses/BadRequest
-      '401':
-        $ref: ../openapi.yaml#/components/responses/Unauthorized
-      '403':
-        $ref: ../openapi.yaml#/components/responses/Forbidden
-      '404':
-        $ref: ../openapi.yaml#/components/responses/NotFound
-      '409':
-        $ref: ../openapi.yaml#/components/responses/Conflict
-      '500':
-        $ref: ../openapi.yaml#/components/responses/InternalError
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ResourceTreeMoveRequest'
-p__api__resource-trees__scope__nodes__node_id:
-  delete:
-    tags:
-    - ResourceTrees
-    summary: 删除节点
-    operationId: delete_api_resource_trees_scope_nodes_node_id
-    parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
-    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: scope
-      in: path
-      required: true
-      schema:
-        $ref: '#/components/schemas/ResourceScope'
-    - name: node_id
-      in: path
-      required: true
+        type: boolean
+        description: 管理员筛选; 约束：true/false
+    - name: page
+      in: query
+      required: false
       schema:
         type: integer
-        format: int64
+        format: int32
+        description: 分页; 约束：≥1
+    - name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: 分页; 约束：1–200
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_resource_trees_scope_nodes_node_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_admin_api_users
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -148,20 +57,47 @@ p__api__resource-trees__scope__nodes__node_id:
         $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
         $ref: ../openapi.yaml#/components/responses/InternalError
+  post:
+    tags:
+    - AdminUsers
+    summary: 创建平台用户（GlobalUser）。
+    operationId: post_admin_api_users
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_admin_api_users
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_post_admin_api_users
+p__admin__api__users__user_id:
   patch:
     tags:
-    - ResourceTrees
-    summary: 重命名节点
-    operationId: patch_api_resource_trees_scope_nodes_node_id
+    - AdminUsers
+    summary: 编辑平台用户信息（不含密码）。
+    operationId: patch_admin_api_users_user_id
     parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: scope
-      in: path
-      required: true
-      schema:
-        $ref: '#/components/schemas/ResourceScope'
-    - name: node_id
+    - name: user_id
       in: path
       required: true
       schema:
@@ -173,7 +109,7 @@ p__api__resource-trees__scope__nodes__node_id:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_resource_trees_scope_nodes_node_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_admin_api_users_user_id
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -187,32 +123,32 @@ p__api__resource-trees__scope__nodes__node_id:
       '500':
         $ref: ../openapi.yaml#/components/responses/InternalError
     requestBody:
-      required: false
+      required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ResourceTreeRenameRequest'
-p__api__resource-trees__scope__reorder:
+            $ref: ../openapi.yaml#/components/schemas/Req_patch_admin_api_users_user_id
+p__admin__api__users__user_id__disable:
   post:
     tags:
-    - ResourceTrees
-    summary: 同级排序
-    operationId: post_api_resource_trees_scope_reorder
+    - AdminUsers
+    summary: 禁用平台用户。
+    operationId: post_admin_api_users_user_id_disable
     parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: scope
+    - name: user_id
       in: path
       required: true
       schema:
-        $ref: '#/components/schemas/ResourceScope'
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_resource_trees_scope_reorder
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_admin_api_users_user_id_disable
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -225,9 +161,69 @@ p__api__resource-trees__scope__reorder:
         $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
         $ref: ../openapi.yaml#/components/responses/InternalError
-    requestBody:
+p__admin__api__users__user_id__enable:
+  post:
+    tags:
+    - AdminUsers
+    summary: 启用平台用户。
+    operationId: post_admin_api_users_user_id_enable
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: user_id
+      in: path
       required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ResourceTreeReorderRequest'
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_admin_api_users_user_id_enable
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__admin__api__users__user_id__reset_password:
+  post:
+    tags:
+    - AdminUsers
+    summary: 重置平台用户密码（生成一次性临时密码）。
+    operationId: post_admin_api_users_user_id_reset_password
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: user_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_admin_api_users_user_id_reset_password
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError

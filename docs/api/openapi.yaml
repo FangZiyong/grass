@@ -1,79 +1,116 @@
 openapi: 3.1.0
 info:
-  title: Platform API (Contract-First Skeleton)
+  title: Multi-tenant Data Platform API
   version: 1.0.0
-  description: Generated skeleton from tech.md. Fill schemas under components/schemas.yaml
-    and refine parameters/responses.
+  description: '基于最终版 PRD 与技术设计（tech.md）生成的接口契约（OpenAPI 3.1）。
+
+
+    ---
+
+
+    ## Contract-grade 约束（冻结）
+
+
+    - 统一响应壳：`{code,message,data,request_id}`，成功 `code=OK`。
+
+    - List 分页：`page`（从 1 开始）+ `page_size`（默认 20，<=200），返回 `data={items,page,page_size,total}`。
+
+    - 写接口语义：`POST` 创建；`PUT` 全量覆盖（尽量幂等）；`PATCH` 局部更新；`DELETE` 遵循删除策略。
+
+    - 错误码：优先使用通用错误码（UNAUTHENTICATED / PERMISSION_DENIED / NOT_FOUND / BAD_REQUEST / CONFLICT 等），允许模块化错误码。
+
+    '
 servers:
-- url: /
-security:
-- bearerAuth: []
+- url: https://api.example.com
+  description: 示例环境（请按部署实际替换）
 tags:
 - name: Accounts
+  description: Accounts 相关接口。
 - name: Auth
+  description: Auth 相关接口。
 - name: AdminUsers
+  description: AdminUsers 相关接口。
 - name: AdminTenants
+  description: AdminTenants 相关接口。
 - name: ResourceTrees
+  description: ResourceTrees 相关接口。
 - name: IAM
+  description: IAM 相关接口。
 - name: Modeling
+  description: Modeling 相关接口。
 - name: Datasets
+  description: Datasets 相关接口。
 - name: Query
+  description: Query 相关接口。
 - name: Flows
-- name: Execution
-- name: Reports
-- name: AuditLogs
-- name: Notifications
-- name: Assist
+  description: Flows 相关接口。
 - name: Exports
+  description: Exports 相关接口。
+- name: Reports
+  description: Reports 相关接口。
+- name: AuditLogs
+  description: AuditLogs 相关接口。
+- name: Assist
+  description: Assist 相关接口。
+- name: Platform
+  description: Platform 相关接口。
+- name: Misc
+  description: Misc 相关接口。
+security:
+- bearerAuth: []
 paths:
   /admin/api/tenants:
-    $ref: ./paths/admin.tenants.yaml#/p__admin__api__tenants
-  /admin/api/tenants/{id}:
-    $ref: ./paths/admin.tenants.yaml#/p__admin__api__tenants__id
-  /admin/api/tenants/{id}/enable:
-    $ref: ./paths/admin.tenants.yaml#/p__admin__api__tenants__id__enable
-  /admin/api/tenants/{id}/suspend:
-    $ref: ./paths/admin.tenants.yaml#/p__admin__api__tenants__id__suspend
-  /admin/api/tenants/{tenantId}/users:
-    $ref: ./paths/admin.tenants.yaml#/p__admin__api__tenants__tenantId__users
-  /admin/api/tenants/{tenantId}/users/{tenantUserId}:
-    $ref: ./paths/admin.tenants.yaml#/p__admin__api__tenants__tenantId__users__tenantUserId
+    $ref: ./paths/admin_tenants.yaml#/p__admin__api__tenants
+  /admin/api/tenants/{tenant_id}:
+    $ref: ./paths/admin_tenants.yaml#/p__admin__api__tenants__tenant_id
+  /admin/api/tenants/{tenant_id}/enable:
+    $ref: ./paths/admin_tenants.yaml#/p__admin__api__tenants__tenant_id__enable
+  /admin/api/tenants/{tenant_id}/suspend:
+    $ref: ./paths/admin_tenants.yaml#/p__admin__api__tenants__tenant_id__suspend
+  /admin/api/tenants/{tenant_id}/users:
+    $ref: ./paths/admin_tenants.yaml#/p__admin__api__tenants__tenant_id__users
+  /admin/api/tenants/{tenant_id}/users/{tenant_user_id}:
+    $ref: ./paths/admin_tenants.yaml#/p__admin__api__tenants__tenant_id__users__tenant_user_id
   /admin/api/users:
-    $ref: ./paths/admin.users.yaml#/p__admin__api__users
-  /admin/api/users/{id}:
-    $ref: ./paths/admin.users.yaml#/p__admin__api__users__id
-  /admin/api/users/{id}/disable:
-    $ref: ./paths/admin.users.yaml#/p__admin__api__users__id__disable
-  /admin/api/users/{id}/enable:
-    $ref: ./paths/admin.users.yaml#/p__admin__api__users__id__enable
-  /admin/api/users/{id}/reset_password:
-    $ref: ./paths/admin.users.yaml#/p__admin__api__users__id__reset_password
+    $ref: ./paths/admin_users.yaml#/p__admin__api__users
+  /admin/api/users/{user_id}:
+    $ref: ./paths/admin_users.yaml#/p__admin__api__users__user_id
+  /admin/api/users/{user_id}/disable:
+    $ref: ./paths/admin_users.yaml#/p__admin__api__users__user_id__disable
+  /admin/api/users/{user_id}/enable:
+    $ref: ./paths/admin_users.yaml#/p__admin__api__users__user_id__enable
+  /admin/api/users/{user_id}/reset_password:
+    $ref: ./paths/admin_users.yaml#/p__admin__api__users__user_id__reset_password
   /api/assist/code-suggest:
-    $ref: ./paths/assist.yaml#/p__api__assist__code_suggest
+    $ref: ./paths/assist.yaml#/p__api__assist__code-suggest
   /api/audit-logs:
-    $ref: ./paths/audit_logs.yaml#/p__api__audit_logs
+    $ref: ./paths/misc.yaml#/p__api__audit-logs
+  /api/charts:
+    $ref: ./paths/misc.yaml#/p__api__charts
+  /api/dashboards:
+    $ref: ./paths/misc.yaml#/p__api__dashboards
+  /api/datasets:
+    $ref: ./paths/misc.yaml#/p__api__datasets
+  /api/flows:
+    $ref: ./paths/misc.yaml#/p__api__flows
   /api/audit-logs/meta/actions:
-    $ref: ./paths/audit_logs.yaml#/p__api__audit_logs__meta__actions
+    $ref: ./paths/audit_logs.yaml#/p__api__audit-logs__meta__actions
   /api/audit-logs/meta/target-types:
-    $ref: ./paths/audit_logs.yaml#/p__api__audit_logs__meta__target_types
+    $ref: ./paths/audit_logs.yaml#/p__api__audit-logs__meta__target-types
   /api/audit-logs/{audit_id}:
-    $ref: ./paths/audit_logs.yaml#/p__api__audit_logs__audit_id
+    $ref: ./paths/audit_logs.yaml#/p__api__audit-logs__audit_id
   /api/auth/login:
     $ref: ./paths/auth.yaml#/p__api__auth__login
   /api/auth/logout:
     $ref: ./paths/auth.yaml#/p__api__auth__logout
   /api/auth/refresh:
     $ref: ./paths/auth.yaml#/p__api__auth__refresh
-  /api/charts:
-    $ref: ./paths/reports.yaml#/p__api__charts
   /api/charts/preview:
     $ref: ./paths/reports.yaml#/p__api__charts__preview
   /api/charts/{chart_id}:
     $ref: ./paths/reports.yaml#/p__api__charts__chart_id
   /api/charts/{chart_id}/exports:
     $ref: ./paths/reports.yaml#/p__api__charts__chart_id__exports
-  /api/dashboards:
-    $ref: ./paths/reports.yaml#/p__api__dashboards
   /api/dashboards/{dashboard_id}:
     $ref: ./paths/reports.yaml#/p__api__dashboards__dashboard_id
   /api/dashboards/{dashboard_id}/items:
@@ -82,10 +119,6 @@ paths:
     $ref: ./paths/reports.yaml#/p__api__dashboards__dashboard_id__items__dashboard_item_id
   /api/dashboards/{dashboard_id}/layout:
     $ref: ./paths/reports.yaml#/p__api__dashboards__dashboard_id__layout
-  /api/dashboards/{dashboard_id}/render:
-    $ref: ./paths/reports.yaml#/p__api__dashboards__dashboard_id__render
-  /api/datasets:
-    $ref: ./paths/datasets.yaml#/p__api__datasets
   /api/datasets/{dataset_id}:
     $ref: ./paths/datasets.yaml#/p__api__datasets__dataset_id
   /api/datasets/{dataset_id}/enable:
@@ -95,23 +128,17 @@ paths:
   /api/datasets/{dataset_id}/refresh:
     $ref: ./paths/datasets.yaml#/p__api__datasets__dataset_id__refresh
   /api/datasets/{dataset_id}/refresh-runs:
-    $ref: ./paths/datasets.yaml#/p__api__datasets__dataset_id__refresh_runs
-  /api/datasets/{id}/refresh:
-    $ref: ./paths/datasets.yaml#/p__api__datasets__id__refresh
+    $ref: ./paths/datasets.yaml#/p__api__datasets__dataset_id__refresh-runs
   /api/exports/{export_job_id}:
     $ref: ./paths/exports.yaml#/p__api__exports__export_job_id
   /api/flow-node-runs/{node_run_id}:
-    $ref: ./paths/execution.yaml#/p__api__flow_node_runs__node_run_id
+    $ref: ./paths/flows.yaml#/p__api__flow-node-runs__node_run_id
   /api/flow-runs/{run_id}:
-    $ref: ./paths/execution.yaml#/p__api__flow_runs__run_id
+    $ref: ./paths/flows.yaml#/p__api__flow-runs__run_id
   /api/flow-runs/{run_id}/logs:
-    $ref: ./paths/execution.yaml#/p__api__flow_runs__run_id__logs
+    $ref: ./paths/flows.yaml#/p__api__flow-runs__run_id__logs
   /api/flow-runs/{run_id}/node-runs:
-    $ref: ./paths/execution.yaml#/p__api__flow_runs__run_id__node_runs
-  /api/flows:
-    $ref: ./paths/flows.yaml#/p__api__flows
-  /api/flows/tree:
-    $ref: ./paths/flows.yaml#/p__api__flows__tree
+    $ref: ./paths/flows.yaml#/p__api__flow-runs__run_id__node-runs
   /api/flows/{flow_id}:
     $ref: ./paths/flows.yaml#/p__api__flows__flow_id
   /api/flows/{flow_id}/graph:
@@ -126,10 +153,14 @@ paths:
     $ref: ./paths/flows.yaml#/p__api__flows__flow_id__validate
   /api/me:
     $ref: ./paths/accounts.yaml#/p__api__me
+  /api/tenants:
+    $ref: ./paths/accounts.yaml#/p__api__tenants
+  /api/tenants/switch:
+    $ref: ./paths/accounts.yaml#/p__api__tenants__switch
   /api/modeling/tables:
     $ref: ./paths/modeling.yaml#/p__api__modeling__tables
   /api/modeling/tables/{ref_table_id}/reference-candidates:
-    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__ref_table_id__reference_candidates
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__ref_table_id__reference-candidates
   /api/modeling/tables/{table_id}:
     $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id
   /api/modeling/tables/{table_id}/data/query:
@@ -143,78 +174,3507 @@ paths:
   /api/modeling/tables/{table_id}/records:
     $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id__records
   /api/modeling/tables/{table_id}/records/batch-delete:
-    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id__records__batch_delete
-  /api/modeling/tables/{table_id}/records/{id}:
-    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id__records__id
-  /api/notifications:
-    $ref: ./paths/notifications.yaml#/p__api__notifications
-  /api/notifications/mark-read:
-    $ref: ./paths/notifications.yaml#/p__api__notifications__mark_read
-  /api/notifications/unread-count:
-    $ref: ./paths/notifications.yaml#/p__api__notifications__unread_count
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id__records__batch-delete
+  /api/modeling/tables/{table_id}/records/{record_id}:
+    $ref: ./paths/modeling.yaml#/p__api__modeling__tables__table_id__records__record_id
   /api/permissions/grants:
     $ref: ./paths/iam.yaml#/p__api__permissions__grants
   /api/permissions/grants/{grant_id}:
     $ref: ./paths/iam.yaml#/p__api__permissions__grants__grant_id
   /api/permissions/resources/{resource_node_id}:
     $ref: ./paths/iam.yaml#/p__api__permissions__resources__resource_node_id
+  /api/tenants/{tenant_id}/roles:
+    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__roles
+  /api/tenants/{tenant_id}/roles/{role_id}:
+    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__roles__role_id
+  /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions:
+    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__roles__role_id__resource-permissions
+  /api/tenants/{tenant_id}/tables/{table_id}/column-permissions:
+    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__tables__table_id__column-permissions
+  /api/tenants/{tenant_id}/tables/{table_id}/row-permissions:
+    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__tables__table_id__row-permissions
+  /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}:
+    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__tables__table_id__row-permissions__row_perm_id
+  /api/tenants/{tenant_id}/users/{tenant_user_id}/owner:
+    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__users__tenant_user_id__owner
+  /api/tenants/{tenant_id}/users/{tenant_user_id}/roles:
+    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__users__tenant_user_id__roles
+  /api/tenants/{tenant_id}/users/{tenant_user_id}/roles/{role_id}:
+    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__users__tenant_user_id__roles__role_id
   /api/platform/audit-logs:
-    $ref: ./paths/iam.yaml#/p__api__platform__audit_logs
+    $ref: ./paths/platform.yaml#/p__api__platform__audit-logs
   /api/platform/audit-logs/{audit_id}:
-    $ref: ./paths/iam.yaml#/p__api__platform__audit_logs__audit_id
+    $ref: ./paths/platform.yaml#/p__api__platform__audit-logs__audit_id
   /api/query/export/csv:
     $ref: ./paths/query.yaml#/p__api__query__export__csv
   /api/query/run:
     $ref: ./paths/query.yaml#/p__api__query__run
   /api/query/validate:
     $ref: ./paths/query.yaml#/p__api__query__validate
-  /api/resource-trees/TABLE/children:
-    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__TABLE__children
-  /api/resource-trees/TABLE/folders:
-    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__TABLE__folders
-  /api/resource-trees/TABLE/move:
-    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__TABLE__move
-  /api/resource-trees/TABLE/nodes/{node_id}:
-    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__TABLE__nodes__node_id
   /api/resource-trees/{scope}/children:
-    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__scope__children
+    $ref: ./paths/resource_trees.yaml#/p__api__resource-trees__scope__children
   /api/resource-trees/{scope}/folders:
-    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__scope__folders
+    $ref: ./paths/resource_trees.yaml#/p__api__resource-trees__scope__folders
   /api/resource-trees/{scope}/move:
-    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__scope__move
+    $ref: ./paths/resource_trees.yaml#/p__api__resource-trees__scope__move
   /api/resource-trees/{scope}/nodes/{node_id}:
-    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__scope__nodes__node_id
+    $ref: ./paths/resource_trees.yaml#/p__api__resource-trees__scope__nodes__node_id
   /api/resource-trees/{scope}/reorder:
-    $ref: ./paths/resource_trees.yaml#/p__api__resource_trees__scope__reorder
-  /api/tenants:
-    $ref: ./paths/accounts.yaml#/p__api__tenants
-  /api/tenants/switch:
-    $ref: ./paths/accounts.yaml#/p__api__tenants__switch
-  /api/tenants/{tenant_id}/roles:
-    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__roles
-  /api/tenants/{tenant_id}/roles/{role_id}:
-    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__roles__role_id
-  /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions:
-    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__roles__role_id__resource_permissions
-  /api/tenants/{tenant_id}/tables/{table_id}/column-permissions:
-    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__tables__table_id__column_permissions
-  /api/tenants/{tenant_id}/tables/{table_id}/row-permissions:
-    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__tables__table_id__row_permissions
-  /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}:
-    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__tables__table_id__row_permissions__row_perm_id
-  /api/tenants/{tenant_id}/users/{tenant_user_id}/owner:
-    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__users__tenant_user_id__owner
-  /api/tenants/{tenant_id}/users/{tenant_user_id}/roles:
-    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__users__tenant_user_id__roles
-  /api/tenants/{tenant_id}/users/{tenant_user_id}/roles/{role_id}:
-    $ref: ./paths/accounts.yaml#/p__api__tenants__tenant_id__users__tenant_user_id__roles__role_id
+    $ref: ./paths/resource_trees.yaml#/p__api__resource-trees__scope__reorder
 components:
   securitySchemes:
     bearerAuth:
-      $ref: ./components/security.yaml#/bearerAuth
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: '在 `Authorization: Bearer <token>` 中传递访问令牌。'
   schemas:
-    $ref: ./components/schemas.yaml
+    ApiEnvelope:
+      type: object
+      properties:
+        code:
+          oneOf:
+          - type: string
+            enum:
+            - OK
+            - UNAUTHENTICATED
+            - PERMISSION_DENIED
+            - NOT_FOUND
+            - BAD_REQUEST
+            - CONFLICT
+            - PRECONDITION_FAILED
+            - RATE_LIMITED
+            - INTERNAL_ERROR
+          - type: string
+            pattern: ^[A-Z][A-Z0-9_]*$
+            description: 模块化错误码（模块前缀+语义），如 TENANT_NOT_FOUND
+          description: 业务码（字符串）。成功固定为 `OK`；失败为通用错误码或模块化错误码。
+        message:
+          type: string
+          description: 提示信息；成功可为 `OK` 或空字符串；失败必须可读。
+        data:
+          nullable: true
+          description: 成功时为业务数据；失败时通常为 null；如需结构化错误详情可返回对象。
+        request_id:
+          type: string
+          description: 链路追踪请求 ID；若客户端传入 Header `X-Request-Id`，服务端回显。
+      required:
+      - code
+      - message
+      - data
+      - request_id
+      additionalProperties: false
+      example:
+        code: OK
+        message: OK
+        data:
+          example: true
+        request_id: req_01HRQ0Z9W3W0Y4K7...
+    ApiErrorData:
+      type: object
+      properties:
+        error_code:
+          type: string
+          description: 错误码（建议与顶层 code 一致）
+          pattern: ^[A-Z][A-Z0-9_]*$
+        details:
+          type: object
+          additionalProperties: true
+      required:
+      - error_code
+      additionalProperties: false
+      example:
+        error_code: BAD_REQUEST
+        details:
+          field: page_size
+          reason: must be <= 200
+    ErrorEnvelope:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/ApiErrorData'
+            description: 失败时通常为 null；如需结构化错误详情可返回 ApiErrorData。
+      example:
+        code: PERMISSION_DENIED
+        message: You do not have permission to perform this action.
+        data: null
+        request_id: req_01HRQ0Z9W3W0Y4K7...
+    RespData_get_admin_api_tenants:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantSummary'
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      additionalProperties: false
+    RespEnvelope_get_admin_api_tenants:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_admin_api_tenants'
+    Req_post_admin_api_tenants:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 租户编码; 枚举/约束：全局唯一；1–64
+        name:
+          type: string
+          description: 租户名称; 枚举/约束：1–128
+        plan:
+          type: string
+          description: 套餐; 枚举/约束：BASIC/PRO/ENTERPRISE
+        status:
+          type: string
+          description: 默认 ACTIVE; 枚举/约束：ACTIVE/SUSPENDED
+        initial_owner_user_ids:
+          type: array
+          items:
+            type: number
+          description: 用于满足“每租户至少一个 Owner”的约束; 枚举/约束：至少 1 个
+      additionalProperties: false
+      required:
+      - code
+      - name
+      - plan
+      - initial_owner_user_ids
+    RespData_post_admin_api_tenants:
+      type: object
+      properties:
+        tenant_id:
+          type: number
+          description: 新租户 ID
+      additionalProperties: false
+    RespEnvelope_post_admin_api_tenants:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_admin_api_tenants'
+    Req_patch_admin_api_tenants_tenant_id:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 租户名称（**补齐必做**）; 枚举/约束：1–128
+        plan:
+          type: string
+          description: 套餐; 枚举/约束：BASIC/PRO/ENTERPRISE
+        status:
+          type: string
+          description: 状态; 枚举/约束：ACTIVE/SUSPENDED
+      additionalProperties: false
+    RespData_patch_admin_api_tenants_tenant_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_patch_admin_api_tenants_tenant_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_admin_api_tenants_tenant_id'
+    RespData_post_admin_api_tenants_tenant_id_enable:
+      type: object
+      properties:
+        tenant_id:
+          type: integer
+          format: int64
+        status:
+          type: string
+      required:
+      - tenant_id
+      - status
+      additionalProperties: false
+    RespEnvelope_post_admin_api_tenants_tenant_id_enable:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_admin_api_tenants_tenant_id_enable'
+    RespData_post_admin_api_tenants_tenant_id_suspend:
+      type: object
+      properties:
+        tenant_id:
+          type: integer
+          format: int64
+        status:
+          type: string
+      required:
+      - tenant_id
+      - status
+      additionalProperties: false
+    RespEnvelope_post_admin_api_tenants_tenant_id_suspend:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_admin_api_tenants_tenant_id_suspend'
+    RespData_get_admin_api_tenants_tenant_id_users:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantUserSummary'
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      additionalProperties: false
+    RespEnvelope_get_admin_api_tenants_tenant_id_users:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_admin_api_tenants_tenant_id_users'
+    Req_post_admin_api_tenants_tenant_id_users:
+      type: object
+      properties:
+        user_ids:
+          type: array
+          items:
+            type: number
+          description: GlobalUser.id 列表; 约束：1–200
+        set_owner:
+          type: boolean
+          description: 是否将新增成员设为 Owner; 约束：—
+        initial_role_ids:
+          type: array
+          items:
+            type: number
+          description: 初始角色（角色表详见权限体系章）; 约束：—
+      additionalProperties: false
+      required:
+      - user_ids
+    RespData_post_admin_api_tenants_tenant_id_users:
+      type: object
+      properties:
+        created:
+          type: integer
+          format: int32
+          description: 创建数量
+        skipped:
+          type: integer
+          format: int32
+          description: 已存在跳过数量
+        items:
+          type: array
+          items: {}
+          description: 创建结果明细（含 tenant_user_id）
+      additionalProperties: false
+    RespEnvelope_post_admin_api_tenants_tenant_id_users:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_admin_api_tenants_tenant_id_users'
+    RespData_delete_admin_api_tenants_tenant_id_users_tenant_user_id:
+      type: object
+      properties: {}
+      additionalProperties: false
+    RespEnvelope_delete_admin_api_tenants_tenant_id_users_tenant_user_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_admin_api_tenants_tenant_id_users_tenant_user_id'
+    Req_patch_admin_api_tenants_tenant_id_users_tenant_user_id:
+      type: object
+      properties:
+        role_id:
+          type: integer
+          format: int64
+        status:
+          type: string
+          description: ACTIVE/DISABLED
+      additionalProperties: false
+    RespData_patch_admin_api_tenants_tenant_id_users_tenant_user_id:
+      type: object
+      properties:
+        tenant_user_id:
+          type: integer
+          format: int64
+      required:
+      - tenant_user_id
+      additionalProperties: false
+    RespEnvelope_patch_admin_api_tenants_tenant_id_users_tenant_user_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_admin_api_tenants_tenant_id_users_tenant_user_id'
+    RespData_get_admin_api_users:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {}
+          description: 用户列表
+        page:
+          type: integer
+          format: int32
+          description: 当前页（从 1 开始）
+        page_size:
+          type: integer
+          format: int32
+          description: 分页大小
+        total:
+          type: integer
+          format: int32
+          description: 总数
+      additionalProperties: false
+    RespEnvelope_get_admin_api_users:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_admin_api_users'
+    Req_post_admin_api_users:
+      type: object
+      properties:
+        login_name:
+          type: string
+          description: 登录名（唯一）
+        display_name:
+          type: string
+          description: 展示名
+        email:
+          type: string
+          description: 邮箱
+        password:
+          type: string
+          description: 可选：指定初始密码；若不传由系统生成
+        is_platform_admin:
+          type: boolean
+          description: 是否平台管理员（可配置是否允许 UI 修改）
+        status:
+          type: string
+          description: ACTIVE/DISABLED，默认 ACTIVE
+      required:
+      - login_name
+      - display_name
+      - email
+      additionalProperties: false
+    RespData_post_admin_api_users:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          format: int64
+      required:
+      - user_id
+      additionalProperties: false
+    RespEnvelope_post_admin_api_users:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_admin_api_users'
+    Req_patch_admin_api_users_user_id:
+      type: object
+      properties:
+        display_name:
+          type: string
+        email:
+          type: string
+        is_platform_admin:
+          type: boolean
+        status:
+          type: string
+          description: ACTIVE/DISABLED
+      additionalProperties: false
+    RespData_patch_admin_api_users_user_id:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          format: int64
+      required:
+      - user_id
+      additionalProperties: false
+    RespEnvelope_patch_admin_api_users_user_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_admin_api_users_user_id'
+    RespData_post_admin_api_users_user_id_disable:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          format: int64
+        status:
+          type: string
+      required:
+      - user_id
+      - status
+      additionalProperties: false
+    RespEnvelope_post_admin_api_users_user_id_disable:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_admin_api_users_user_id_disable'
+    RespData_post_admin_api_users_user_id_enable:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          format: int64
+        status:
+          type: string
+      required:
+      - user_id
+      - status
+      additionalProperties: false
+    RespEnvelope_post_admin_api_users_user_id_enable:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_admin_api_users_user_id_enable'
+    RespData_post_admin_api_users_user_id_reset_password:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          format: int64
+        temp_password:
+          type: string
+          description: 仅本次返回可见
+      required:
+      - user_id
+      - temp_password
+      additionalProperties: false
+    RespEnvelope_post_admin_api_users_user_id_reset_password:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_admin_api_users_user_id_reset_password'
+    RespData_post_api_assist_code_suggest:
+      type: object
+      properties:
+        text:
+          type: string
+          description: 建议结果
+        score:
+          type: number
+          description: 置信分（0~1，可选）
+        explanation:
+          type: string
+          description: 简要解释（可选）
+      additionalProperties: false
+    RespEnvelope_post_api_assist_code_suggest:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_assist_code_suggest'
+    Req_get_api_audit_logs:
+      type: object
+      properties:
+        start_time:
+          type: string
+          description: 开始时间（ISO8601 或 yyyy-MM-dd HH:mm:ss）
+        end_time:
+          type: string
+          description: 结束时间
+        module:
+          type: string
+          description: AuditModule
+        action:
+          type: string
+          description: ActionType
+        target_type:
+          type: string
+          description: TargetType
+        target_id:
+          type: integer
+          format: int64
+          description: 对象 ID
+        actor_tenant_user_id:
+          type: integer
+          format: int64
+          description: 操作人
+        result:
+          type: string
+          description: SUCCESS/FAILED
+        keyword:
+          type: string
+          description: 搜索 summary/target_code（≤100）
+        request_id:
+          type: string
+          description: 精确匹配（≤64）
+        page:
+          type: integer
+          format: int32
+          description: 默认 1
+        page_size:
+          type: integer
+          format: int32
+          description: 默认 20，最大 200
+      additionalProperties: false
+      required:
+      - start_time
+      - end_time
+    RespData_get_api_audit_logs:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogItem'
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      additionalProperties: false
+    RespEnvelope_get_api_audit_logs:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_audit_logs'
+    RespData_get_api_audit_logs_meta_actions:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_audit_logs_meta_actions:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_audit_logs_meta_actions'
+    RespData_get_api_audit_logs_meta_target_types:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_audit_logs_meta_target_types:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_audit_logs_meta_target_types'
+    RespData_get_api_audit_logs_audit_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_audit_logs_audit_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_audit_logs_audit_id'
+    Req_post_api_auth_login:
+      type: object
+      properties:
+        login_name:
+          type: string
+          description: 登录名; 约束：1–64
+        password:
+          type: string
+          description: 明文密码（仅 HTTPS 传输）; 约束：8–128
+      additionalProperties: false
+      required:
+      - login_name
+      - password
+    RespData_post_api_auth_login:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT
+        expires_in:
+          type: integer
+          format: int32
+          description: 秒
+        user:
+          type: object
+          additionalProperties: true
+          description: '`{id, login_name, display_name, email, is_platform_admin}`'
+      additionalProperties: false
+    RespEnvelope_post_api_auth_login:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_auth_login'
+    RespData_post_api_auth_logout:
+      type: object
+      properties: {}
+      additionalProperties: false
+    RespEnvelope_post_api_auth_logout:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_auth_logout'
+    RespData_post_api_auth_refresh:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT
+        expires_in:
+          type: integer
+          format: int32
+          description: 秒
+        user:
+          type: object
+          additionalProperties: true
+          description: '`{id, login_name, display_name, email, is_platform_admin}`'
+      additionalProperties: false
+    RespEnvelope_post_api_auth_refresh:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_auth_refresh'
+    RespData_get_api_charts:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChartSummary'
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      additionalProperties: false
+    RespEnvelope_get_api_charts:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_charts'
+    Req_post_api_charts:
+      type: object
+      properties:
+        name:
+          type: string
+        dataset_id:
+          type: string
+        query_config_json:
+          type: object
+          additionalProperties: true
+        viz_config_json:
+          type: object
+          additionalProperties: true
+      additionalProperties: false
+      required:
+      - name
+      - dataset_id
+      - query_config_json
+      - viz_config_json
+    RespData_post_api_charts:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_charts:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_charts'
+    Req_post_api_charts_preview:
+      type: object
+      properties:
+        dataset_id:
+          type: string
+          description: Dataset
+        query_config_json:
+          type: object
+          additionalProperties: true
+          description: QueryConfig
+        viz_config_json:
+          type: object
+          additionalProperties: true
+          description: 可选（table 预览可不传）
+        runtime_filter_json:
+          type: object
+          additionalProperties: true
+          description: 仅本次
+        limit:
+          type: integer
+          format: int32
+          description: '-'
+      additionalProperties: false
+      required:
+      - dataset_id
+      - query_config_json
+    RespData_post_api_charts_preview:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_charts_preview:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_charts_preview'
+    RespData_delete_api_charts_chart_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_delete_api_charts_chart_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_api_charts_chart_id'
+    RespData_get_api_charts_chart_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_charts_chart_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_charts_chart_id'
+    RespData_patch_api_charts_chart_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_patch_api_charts_chart_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_api_charts_chart_id'
+    Req_post_api_charts_chart_id_exports:
+      type: object
+      properties:
+        export_type:
+          type: string
+          description: '-'
+        format:
+          type: string
+          description: '-'
+      additionalProperties: false
+      required:
+      - export_type
+      - format
+    RespData_post_api_charts_chart_id_exports:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_charts_chart_id_exports:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_charts_chart_id_exports'
+    RespData_get_api_dashboards:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardSummary'
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      additionalProperties: false
+    RespEnvelope_get_api_dashboards:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_dashboards'
+    RespData_post_api_dashboards:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_dashboards:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_dashboards'
+    RespData_get_api_dashboards_dashboard_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_dashboards_dashboard_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_dashboards_dashboard_id'
+    RespData_patch_api_dashboards_dashboard_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_patch_api_dashboards_dashboard_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_api_dashboards_dashboard_id'
+    Req_post_api_dashboards_dashboard_id_items:
+      type: object
+      properties:
+        chart_id:
+          type: string
+          description: 目标图表
+        title_override:
+          type: string
+          description: 局部标题覆盖
+        note:
+          type: string
+          description: 局部备注
+      additionalProperties: false
+      required:
+      - chart_id
+    RespData_post_api_dashboards_dashboard_id_items:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_dashboards_dashboard_id_items:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_dashboards_dashboard_id_items'
+    RespData_delete_api_dashboards_dashboard_id_items_dashboard_item_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_delete_api_dashboards_dashboard_id_items_dashboard_item_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_api_dashboards_dashboard_id_items_dashboard_item_id'
+    Req_patch_api_dashboards_dashboard_id_items_dashboard_item_id:
+      type: object
+      properties:
+        title_override:
+          type: string
+        note:
+          type: string
+      additionalProperties: false
+    RespData_patch_api_dashboards_dashboard_id_items_dashboard_item_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_patch_api_dashboards_dashboard_id_items_dashboard_item_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_api_dashboards_dashboard_id_items_dashboard_item_id'
+    RespData_put_api_dashboards_dashboard_id_layout:
+      type: object
+      additionalProperties: true
+    RespEnvelope_put_api_dashboards_dashboard_id_layout:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_put_api_dashboards_dashboard_id_layout'
+    RespData_get_api_datasets:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DatasetSummary'
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      additionalProperties: false
+    RespEnvelope_get_api_datasets:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_datasets'
+    Req_post_api_datasets:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 名称
+        folder_node_id:
+          type: string
+          description: scope=DATASET 的目录节点
+        base_table_id:
+          type: string
+          description: 基础表
+        owner_user_id:
+          type: string
+          description: owner
+      additionalProperties: false
+      required:
+      - name
+      - folder_node_id
+      - base_table_id
+      - owner_user_id
+    RespData_post_api_datasets:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_datasets:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_datasets'
+    RespData_get_api_datasets_dataset_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_datasets_dataset_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_datasets_dataset_id'
+    RespData_patch_api_datasets_dataset_id:
+      type: object
+      properties:
+        name:
+          type: string
+          description: '-'
+        base_filter_json:
+          type: object
+          additionalProperties: true
+          description: 过滤 DSL
+        owner_user_id:
+          type: string
+          description: 变更 owner
+        refresh_mode:
+          type: string
+          description: '-'
+        cron_expr:
+          type: string
+          description: cron
+        cron_enabled:
+          type: boolean
+          description: 启停
+      additionalProperties: false
+    RespEnvelope_patch_api_datasets_dataset_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_api_datasets_dataset_id'
+    RespData_post_api_datasets_dataset_id_enable:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_datasets_dataset_id_enable:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_datasets_dataset_id_enable'
+    Req_post_api_datasets_dataset_id_preview:
+      type: object
+      properties:
+        runtime_filter_json:
+          type: object
+          additionalProperties: true
+          description: 运行时过滤
+        limit:
+          type: integer
+          format: int32
+          description: 默认 200，最大 200
+      additionalProperties: false
+    RespData_post_api_datasets_dataset_id_preview:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_datasets_dataset_id_preview:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_datasets_dataset_id_preview'
+    RespData_post_api_datasets_dataset_id_refresh:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_datasets_dataset_id_refresh:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_datasets_dataset_id_refresh'
+    RespData_get_api_datasets_dataset_id_refresh_runs:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_datasets_dataset_id_refresh_runs:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_datasets_dataset_id_refresh_runs'
+    RespData_get_api_exports_export_job_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_exports_export_job_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_exports_export_job_id'
+    RespData_get_api_flow_node_runs_node_run_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_flow_node_runs_node_run_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_flow_node_runs_node_run_id'
+    RespData_get_api_flow_runs_run_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_flow_runs_run_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_flow_runs_run_id'
+    RespData_get_api_flow_runs_run_id_logs:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_flow_runs_run_id_logs:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_flow_runs_run_id_logs'
+    RespData_get_api_flow_runs_run_id_node_runs:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_flow_runs_run_id_node_runs:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_flow_runs_run_id_node_runs'
+    Req_get_api_flows:
+      type: object
+      properties:
+        folder_node_id:
+          type: integer
+          format: int64
+          description: 资源树 folder 节点（scope=FLOW）
+        include_descendants:
+          type: boolean
+          description: 'true'
+        keyword:
+          type: string
+          description: 名称/编码模糊搜索
+        owner_id:
+          type: integer
+          format: int64
+          description: 负责人过滤
+        enabled:
+          type: boolean
+          description: 是否启用过滤
+        sort:
+          type: string
+          description: created_at/updated_graph_at
+        order:
+          type: string
+          description: ASC/DESC
+        page:
+          type: integer
+          format: int32
+          description: 默认 1
+        page_size:
+          type: integer
+          format: int32
+          description: 默认 20，最大 200
+      additionalProperties: false
+    RespData_get_api_flows:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlowSummary'
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      additionalProperties: false
+    RespEnvelope_get_api_flows:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_flows'
+    Req_post_api_flows:
+      type: object
+      properties:
+        folder_node_id:
+          type: integer
+          format: int64
+          description: 资源树 folder 节点（scope=FLOW）
+        code:
+          type: string
+          description: 1–64；租户内唯一；仅允许字母数字下划线/短横线
+        display_name:
+          type: string
+          description: 1–50
+        description:
+          type: string
+          description: ≤500
+        owner_id:
+          type: integer
+          format: int64
+          description: 负责人（TenantUser.id）
+        enabled:
+          type: boolean
+          description: 默认 true
+      additionalProperties: false
+      required:
+      - folder_node_id
+      - code
+      - display_name
+      - owner_id
+    RespData_post_api_flows:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_flows:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_flows'
+    RespData_delete_api_flows_flow_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_delete_api_flows_flow_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_api_flows_flow_id'
+    RespData_get_api_flows_flow_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_flows_flow_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_flows_flow_id'
+    Req_patch_api_flows_flow_id:
+      type: object
+      properties:
+        display_name:
+          type: string
+          description: 1–50
+        description:
+          type: string
+          description: ≤500
+        owner_id:
+          type: integer
+          format: int64
+          description: 负责人
+        enabled:
+          type: boolean
+          description: 是否启用
+      additionalProperties: false
+    RespData_patch_api_flows_flow_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_patch_api_flows_flow_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_api_flows_flow_id'
+    RespData_get_api_flows_flow_id_graph:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_flows_flow_id_graph:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_flows_flow_id_graph'
+    Req_put_api_flows_flow_id_graph:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items: {}
+          description: 节点数组（见 8.3.2）
+        edges:
+          type: array
+          items: {}
+          description: 连线数组（见 8.3.3）
+      additionalProperties: false
+      required:
+      - nodes
+      - edges
+    RespData_put_api_flows_flow_id_graph:
+      type: object
+      additionalProperties: true
+    RespEnvelope_put_api_flows_flow_id_graph:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_put_api_flows_flow_id_graph'
+    RespData_get_api_flows_flow_id_logs:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                format: int64
+              level:
+                type: string
+              event_type:
+                type: string
+              message:
+                type: string
+              extra:
+                type: object
+                additionalProperties: true
+              created_at:
+                type: string
+                format: date-time
+            required:
+            - id
+            - level
+            - event_type
+            - message
+            - created_at
+            additionalProperties: false
+      required:
+      - items
+      additionalProperties: false
+    RespEnvelope_get_api_flows_flow_id_logs:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_flows_flow_id_logs'
+    RespData_get_api_flows_flow_id_runs:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_flows_flow_id_runs:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_flows_flow_id_runs'
+    RespData_post_api_flows_flow_id_runs:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_flows_flow_id_runs:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_flows_flow_id_runs'
+    RespData_get_api_flows_flow_id_schedule:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_flows_flow_id_schedule:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_flows_flow_id_schedule'
+    Req_put_api_flows_flow_id_schedule:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: 是否启用调度
+        schedule_cron:
+          type: string
+          description: 5 段 CRON；为空则不调度
+        schedule_timezone:
+          type: string
+          description: IANA TZ
+      additionalProperties: false
+      required:
+      - enabled
+      - schedule_timezone
+    RespData_put_api_flows_flow_id_schedule:
+      type: object
+      additionalProperties: true
+    RespEnvelope_put_api_flows_flow_id_schedule:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_put_api_flows_flow_id_schedule'
+    RespData_post_api_flows_flow_id_validate:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_flows_flow_id_validate:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_flows_flow_id_validate'
+    Req_get_api_me:
+      type: object
+      additionalProperties: false
+    RespData_get_api_me:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/MeUserDTO'
+        tenants:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantSummaryDTO'
+      required:
+      - user
+      - tenants
+      additionalProperties: false
+    RespEnvelope_get_api_me:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_me'
+    RespData_get_api_modeling_tables:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {}
+          description: 表列表
+        page:
+          type: integer
+          format: int32
+          description: 当前页（从 1 开始）
+        page_size:
+          type: integer
+          format: int32
+          description: 分页大小
+        total:
+          type: integer
+          format: int32
+          description: 总数
+      additionalProperties: false
+    RespEnvelope_get_api_modeling_tables:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_modeling_tables'
+    Req_post_api_modeling_tables:
+      type: object
+      properties:
+        display_name:
+          type: string
+          description: 表名; 枚举/约束：1–50
+        table_type:
+          type: string
+          description: 表类型; 枚举/约束：TableType
+        description:
+          type: string
+          description: 描述; 枚举/约束：0–200
+        parent_folder_node_id:
+          type: integer
+          format: int64
+          description: 所属目录; 枚举/约束：scope=TABLE Folder
+        fields:
+          type: array
+          items: {}
+          description: 可选：建表同时创建字段
+      additionalProperties: false
+      required:
+      - display_name
+      - table_type
+    RespData_post_api_modeling_tables:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: table_id
+        resource_node_id:
+          type: integer
+          format: int64
+          description: node_id
+        display_name:
+          type: string
+          description: 表名
+        code:
+          type: string
+          description: 表编码
+        db_schema:
+          type: string
+          description: 物理库
+        db_table:
+          type: string
+          description: 物理表
+        status:
+          type: string
+          description: ACTIVE/PENDING_CREATE_FAILED
+        fields:
+          type: array
+          items: {}
+          description: 字段列表（含系统字段）
+      additionalProperties: false
+    RespEnvelope_post_api_modeling_tables:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_modeling_tables'
+    RespData_get_api_modeling_tables_ref_table_id_reference_candidates:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {}
+          description: 候选列表
+      additionalProperties: false
+    RespEnvelope_get_api_modeling_tables_ref_table_id_reference_candidates:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_modeling_tables_ref_table_id_reference_candidates'
+    RespData_delete_api_modeling_tables_table_id:
+      type: object
+      properties:
+        dependency:
+          type: object
+          additionalProperties: true
+          description: 依赖统计
+      additionalProperties: false
+    RespEnvelope_delete_api_modeling_tables_table_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_api_modeling_tables_table_id'
+    RespData_get_api_modeling_tables_table_id:
+      type: object
+      properties:
+        table:
+          type: object
+          additionalProperties: true
+          description: 表基本信息
+        fields:
+          type: array
+          items: {}
+          description: 字段列表（按 sort_order）
+      additionalProperties: false
+    RespEnvelope_get_api_modeling_tables_table_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_modeling_tables_table_id'
+    Req_patch_api_modeling_tables_table_id:
+      type: object
+      properties:
+        display_name:
+          type: string
+          description: 表名; 约束：1–50
+        table_type:
+          type: string
+          description: 类型; 约束：TableType
+        description:
+          type: string
+          description: 描述; 约束：0–200
+        target_folder_node_id:
+          type: integer
+          format: int64
+          description: 目标目录; 约束：scope=TABLE Folder
+        expected_updated_at:
+          type: string
+          description: 并发控制：必须携带加载时的 updated_at
+      additionalProperties: false
+      required:
+      - expected_updated_at
+    RespData_patch_api_modeling_tables_table_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_patch_api_modeling_tables_table_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_api_modeling_tables_table_id'
+    Req_post_api_modeling_tables_table_id_data_query:
+      type: object
+      properties:
+        filter_dsl:
+          type: object
+          additionalProperties: true
+          description: 业务筛选; 约束：FilterDSL
+        order_by:
+          type: array
+          items: {}
+          description: 排序
+        page:
+          type: integer
+          format: int32
+          description: 页码; 约束：>=1
+        page_size:
+          type: integer
+          format: int32
+          description: 页大小; 约束：1–200
+      additionalProperties: false
+    RespData_post_api_modeling_tables_table_id_data_query:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {}
+          description: 记录列表（每项为“字段 code -> 值”的对象；值类型由字段类型决定）
+        page:
+          type: integer
+          format: int32
+          description: 当前页（从 1 开始）
+        page_size:
+          type: integer
+          format: int32
+          description: 分页大小
+        total:
+          type: integer
+          format: int32
+          description: 总数（若实现成本高，允许临时返回 -1，但需在实现中标注 TODO 并在后续版本补齐）
+        visible_fields:
+          type: array
+          items: {}
+          description: 可见字段元信息（按列权限裁剪后）
+      additionalProperties: false
+    RespEnvelope_post_api_modeling_tables_table_id_data_query:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_modeling_tables_table_id_data_query'
+    RespData_get_api_modeling_tables_table_id_fields:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {}
+          description: 字段列表
+      additionalProperties: false
+    RespEnvelope_get_api_modeling_tables_table_id_fields:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_modeling_tables_table_id_fields'
+    RespData_post_api_modeling_tables_table_id_fields:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_modeling_tables_table_id_fields:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_modeling_tables_table_id_fields'
+    Req_post_api_modeling_tables_table_id_fields_reorder:
+      type: object
+      properties:
+        ordered_field_ids:
+          type: string
+          description: 目标顺序（必须覆盖所有可排序字段）
+      additionalProperties: false
+      required:
+      - ordered_field_ids
+    RespData_post_api_modeling_tables_table_id_fields_reorder:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_modeling_tables_table_id_fields_reorder:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_modeling_tables_table_id_fields_reorder'
+    RespData_delete_api_modeling_tables_table_id_fields_field_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_delete_api_modeling_tables_table_id_fields_field_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_api_modeling_tables_table_id_fields_field_id'
+    Req_patch_api_modeling_tables_table_id_fields_field_id:
+      type: object
+      properties:
+        display_name:
+          type: string
+          description: 展示名; 约束：1–50
+        description:
+          type: string
+          description: 描述; 约束：0–200
+        is_required:
+          type: boolean
+          description: 必填
+        default_value_json:
+          type: object
+          additionalProperties: true
+          description: 默认值; 约束：非 REFERENCE
+        expected_updated_at:
+          type: string
+          description: 并发控制（字段级）
+      additionalProperties: false
+      required:
+      - expected_updated_at
+    RespData_patch_api_modeling_tables_table_id_fields_field_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_patch_api_modeling_tables_table_id_fields_field_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_api_modeling_tables_table_id_fields_field_id'
+    Req_post_api_modeling_tables_table_id_records:
+      type: object
+      properties:
+        values:
+          type: object
+          additionalProperties: true
+          description: key=field_code，value=字段值
+      additionalProperties: false
+      required:
+      - values
+    RespData_post_api_modeling_tables_table_id_records:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_modeling_tables_table_id_records:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_modeling_tables_table_id_records'
+    Req_post_api_modeling_tables_table_id_records_batch_delete:
+      type: object
+      properties:
+        ids:
+          type: string
+          description: 记录 id 列表（上限 500）
+      additionalProperties: false
+      required:
+      - ids
+    RespData_post_api_modeling_tables_table_id_records_batch_delete:
+      type: object
+      additionalProperties: true
+    RespEnvelope_post_api_modeling_tables_table_id_records_batch_delete:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_modeling_tables_table_id_records_batch_delete'
+    RespData_delete_api_modeling_tables_table_id_records_record_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_delete_api_modeling_tables_table_id_records_record_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_api_modeling_tables_table_id_records_record_id'
+    RespData_get_api_modeling_tables_table_id_records_record_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_modeling_tables_table_id_records_record_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_modeling_tables_table_id_records_record_id'
+    Req_patch_api_modeling_tables_table_id_records_record_id:
+      type: object
+      properties:
+        values:
+          type: object
+          additionalProperties: true
+          description: 需要更新的字段集合
+        expected_updated_at:
+          type: string
+          description: 可选：乐观锁（若物理表支持）
+      additionalProperties: false
+      required:
+      - values
+    RespData_patch_api_modeling_tables_table_id_records_record_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_patch_api_modeling_tables_table_id_records_record_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_api_modeling_tables_table_id_records_record_id'
+    RespData_post_api_permissions_grants:
+      type: object
+      properties:
+        grant_id:
+          type: integer
+          format: int64
+      required:
+      - grant_id
+      additionalProperties: false
+    RespEnvelope_post_api_permissions_grants:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_permissions_grants'
+    RespData_delete_api_permissions_grants_grant_id:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+      additionalProperties: false
+    RespEnvelope_delete_api_permissions_grants_grant_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_api_permissions_grants_grant_id'
+    RespData_get_api_permissions_resources_resource_node_id:
+      type: object
+      properties:
+        resource_node_id:
+          type: integer
+          format: int64
+        role_grants:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleGrantItem'
+        my_effective_permission:
+          $ref: '#/components/schemas/PermissionLevel'
+        can_manage:
+          type: boolean
+      required:
+      - resource_node_id
+      - role_grants
+      - my_effective_permission
+      - can_manage
+      additionalProperties: false
+    RespEnvelope_get_api_permissions_resources_resource_node_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_permissions_resources_resource_node_id'
+    Req_get_api_platform_audit_logs:
+      type: object
+      properties:
+        tenant_id:
+          type: integer
+          format: int64
+          description: 指定租户（为空表示全量）
+        start_time:
+          type: string
+          description: 开始时间
+        end_time:
+          type: string
+          description: 结束时间
+        module:
+          type: string
+          description: AuditModule
+        action:
+          type: string
+          description: ActionType
+        target_type:
+          type: string
+          description: TargetType
+        target_id:
+          type: integer
+          format: int64
+          description: 对象 ID
+        actor_global_user_id:
+          type: integer
+          format: int64
+          description: 操作人（平台全局）
+        result:
+          type: string
+          description: SUCCESS/FAILED
+        keyword:
+          type: string
+          description: ≤100
+        page:
+          type: integer
+          format: int32
+          description: 默认 1
+        page_size:
+          type: integer
+          format: int32
+          description: 默认 20，最大 200
+      additionalProperties: false
+      required:
+      - start_time
+      - end_time
+    RespData_get_api_platform_audit_logs:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogItem'
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      additionalProperties: false
+    RespEnvelope_get_api_platform_audit_logs:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_platform_audit_logs'
+    RespData_get_api_platform_audit_logs_audit_id:
+      type: object
+      additionalProperties: true
+    RespEnvelope_get_api_platform_audit_logs_audit_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_platform_audit_logs_audit_id'
+    Req_post_api_query_export_csv:
+      $ref: '#/components/schemas/QueryExportCsvRequest'
+    RespData_post_api_query_export_csv:
+      $ref: '#/components/schemas/QueryExportCsvResponseData'
+    RespEnvelope_post_api_query_export_csv:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_query_export_csv'
+    RespData_post_api_query_run:
+      $ref: '#/components/schemas/QueryRunResponseData'
+    RespEnvelope_post_api_query_run:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_query_run'
+    RespData_post_api_query_validate:
+      $ref: '#/components/schemas/QueryValidateResponseData'
+    RespEnvelope_post_api_query_validate:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_query_validate'
+    RespData_get_api_resource_trees_scope_children:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceTreeNodeDTO'
+      required:
+      - items
+      additionalProperties: false
+    RespEnvelope_get_api_resource_trees_scope_children:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_resource_trees_scope_children'
+    RespData_post_api_resource_trees_scope_folders:
+      type: object
+      properties:
+        node:
+          $ref: '#/components/schemas/ResourceTreeNodeDTO'
+      required:
+      - node
+      additionalProperties: false
+    RespEnvelope_post_api_resource_trees_scope_folders:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_resource_trees_scope_folders'
+    RespData_post_api_resource_trees_scope_move:
+      type: object
+      properties:
+        moved:
+          type: boolean
+      additionalProperties: false
+    RespEnvelope_post_api_resource_trees_scope_move:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_resource_trees_scope_move'
+    RespData_delete_api_resource_trees_scope_nodes_node_id:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+      additionalProperties: false
+    RespEnvelope_delete_api_resource_trees_scope_nodes_node_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_api_resource_trees_scope_nodes_node_id'
+    RespData_patch_api_resource_trees_scope_nodes_node_id:
+      type: object
+      properties:
+        node:
+          $ref: '#/components/schemas/ResourceTreeNodeDTO'
+      required:
+      - node
+      additionalProperties: false
+    RespEnvelope_patch_api_resource_trees_scope_nodes_node_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_api_resource_trees_scope_nodes_node_id'
+    RespData_post_api_resource_trees_scope_reorder:
+      type: object
+      properties:
+        updated:
+          type: integer
+          format: int32
+      additionalProperties: false
+    RespEnvelope_post_api_resource_trees_scope_reorder:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_resource_trees_scope_reorder'
+    RespData_get_api_tenants:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              tenant_id:
+                type: integer
+                format: int64
+              code:
+                type: string
+              name:
+                type: string
+              status:
+                type: string
+                description: ACTIVE/SUSPENDED
+            required:
+            - tenant_id
+            - code
+            - name
+            - status
+            additionalProperties: false
+        page:
+          type: integer
+          format: int32
+        page_size:
+          type: integer
+          format: int32
+        total:
+          type: integer
+          format: int64
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      additionalProperties: false
+    RespEnvelope_get_api_tenants:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_tenants'
+    Req_post_api_tenants_switch:
+      type: object
+      properties:
+        tenant_id:
+          type: number
+          description: 目标租户; 约束：>0
+      additionalProperties: false
+      required:
+      - tenant_id
+    RespData_post_api_tenants_switch:
+      type: object
+      properties:
+        tenant_id:
+          type: number
+          description: 切换成功的租户
+        redirect_url:
+          type: string
+          description: 前端跳转地址（例如 `/t/{tenant_id}/modeling`）
+      additionalProperties: false
+    RespEnvelope_post_api_tenants_switch:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_tenants_switch'
+    RespData_get_api_tenants_tenant_id_roles:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleSummary'
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      additionalProperties: false
+    RespEnvelope_get_api_tenants_tenant_id_roles:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_tenants_tenant_id_roles'
+    RespData_post_api_tenants_tenant_id_roles:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/RoleDTO'
+      required:
+      - role
+      additionalProperties: false
+    RespEnvelope_post_api_tenants_tenant_id_roles:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_tenants_tenant_id_roles'
+    RespData_delete_api_tenants_tenant_id_roles_role_id:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+      additionalProperties: false
+    RespEnvelope_delete_api_tenants_tenant_id_roles_role_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_api_tenants_tenant_id_roles_role_id'
+    RespData_patch_api_tenants_tenant_id_roles_role_id:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/RoleDTO'
+      required:
+      - role
+      additionalProperties: false
+    RespEnvelope_patch_api_tenants_tenant_id_roles_role_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_api_tenants_tenant_id_roles_role_id'
+    RespData_get_api_tenants_tenant_id_roles_role_id_resource_permissions:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RolePermissionItem'
+      required:
+      - items
+      additionalProperties: false
+    RespEnvelope_get_api_tenants_tenant_id_roles_role_id_resource_permissions:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_tenants_tenant_id_roles_role_id_resource_permissions'
+    RespData_put_api_tenants_tenant_id_roles_role_id_resource_permissions:
+      type: object
+      properties:
+        updated:
+          type: integer
+          format: int32
+      required:
+      - updated
+      additionalProperties: false
+    RespEnvelope_put_api_tenants_tenant_id_roles_role_id_resource_permissions:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_put_api_tenants_tenant_id_roles_role_id_resource_permissions'
+    RespData_get_api_tenants_tenant_id_tables_table_id_column_permissions:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ColumnPermissionItem'
+      required:
+      - items
+      additionalProperties: false
+    RespEnvelope_get_api_tenants_tenant_id_tables_table_id_column_permissions:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_tenants_tenant_id_tables_table_id_column_permissions'
+    RespData_put_api_tenants_tenant_id_tables_table_id_column_permissions:
+      type: object
+      properties:
+        updated:
+          type: integer
+          format: int32
+      required:
+      - updated
+      additionalProperties: false
+    RespEnvelope_put_api_tenants_tenant_id_tables_table_id_column_permissions:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_put_api_tenants_tenant_id_tables_table_id_column_permissions'
+    RespData_get_api_tenants_tenant_id_tables_table_id_row_permissions:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RowPermissionDTO'
+      required:
+      - items
+      additionalProperties: false
+    RespEnvelope_get_api_tenants_tenant_id_tables_table_id_row_permissions:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_tenants_tenant_id_tables_table_id_row_permissions'
+    RespData_post_api_tenants_tenant_id_tables_table_id_row_permissions:
+      type: object
+      properties:
+        row_permission:
+          $ref: '#/components/schemas/RowPermissionDTO'
+      required:
+      - row_permission
+      additionalProperties: false
+    RespEnvelope_post_api_tenants_tenant_id_tables_table_id_row_permissions:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_tenants_tenant_id_tables_table_id_row_permissions'
+    RespData_delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+      additionalProperties: false
+    RespEnvelope_delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id'
+    RespData_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+      type: object
+      properties:
+        row_permission:
+          $ref: '#/components/schemas/RowPermissionDTO'
+      required:
+      - row_permission
+      additionalProperties: false
+    RespEnvelope_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id'
+    RespData_delete_api_tenants_tenant_id_users_tenant_user_id_owner:
+      type: object
+      properties:
+        is_owner:
+          type: boolean
+          description: 'false'
+      additionalProperties: false
+    RespEnvelope_delete_api_tenants_tenant_id_users_tenant_user_id_owner:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_api_tenants_tenant_id_users_tenant_user_id_owner'
+    RespData_post_api_tenants_tenant_id_users_tenant_user_id_owner:
+      type: object
+      properties:
+        is_owner:
+          type: boolean
+          description: 'true'
+      additionalProperties: false
+    RespEnvelope_post_api_tenants_tenant_id_users_tenant_user_id_owner:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_tenants_tenant_id_users_tenant_user_id_owner'
+    RespData_post_api_tenants_tenant_id_users_tenant_user_id_roles:
+      type: object
+      properties:
+        role_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+      required:
+      - role_ids
+      additionalProperties: false
+    RespEnvelope_post_api_tenants_tenant_id_users_tenant_user_id_roles:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_post_api_tenants_tenant_id_users_tenant_user_id_roles'
+    RespData_delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+      additionalProperties: false
+    RespEnvelope_delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id'
+    ResourceScope:
+      type: string
+      enum:
+      - TABLE
+      - FLOW
+      - DATASET
+      - DASHBOARD
+      description: 资源域（scope）
+    ResourceTreeNodeType:
+      type: string
+      enum:
+      - FOLDER
+      - RESOURCE
+      description: 资源树节点类型
+    PermissionLevel:
+      type: string
+      enum:
+      - NONE
+      - VIEW
+      - EDIT
+      - RUN
+      - MANAGE
+      description: 资源授权级别
+    RoleStatus:
+      type: string
+      enum:
+      - ACTIVE
+      - DISABLED
+      description: 状态
+    ColumnAccessLevel:
+      type: string
+      enum:
+      - HIDDEN
+      - READONLY
+      - WRITE
+      description: 列权限访问级别
+    TableResourceType:
+      type: string
+      enum:
+      - TABLE_SCHEMA
+      - TABLE_DATA
+      description: 当 scope=TABLE 时的资源类型
+    ResourceTreeNodeDTO:
+      type: object
+      properties:
+        node_id:
+          type: integer
+          format: int64
+        scope:
+          $ref: '#/components/schemas/ResourceScope'
+        node_type:
+          $ref: '#/components/schemas/ResourceTreeNodeType'
+        name:
+          type: string
+        parent_id:
+          type: integer
+          format: int64
+          nullable: true
+        ref_type:
+          $ref: '#/components/schemas/ResourceScope'
+          nullable: true
+          description: 仅当 node_type=RESOURCE 时存在
+        ref_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: 仅当 node_type=RESOURCE 时存在
+        sort_order:
+          type: integer
+          format: int32
+        path:
+          type: string
+        depth:
+          type: integer
+          format: int32
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - node_id
+      - scope
+      - node_type
+      - name
+      - sort_order
+      - path
+      - depth
+      - created_at
+      - updated_at
+      additionalProperties: false
+    RoleDTO:
+      type: object
+      properties:
+        role_id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/RoleStatus'
+        is_builtin:
+          type: boolean
+          description: 系统/内置角色
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - role_id
+      - tenant_id
+      - code
+      - name
+      - status
+      - is_builtin
+      - created_at
+      - updated_at
+      additionalProperties: false
+    RowPermissionDTO:
+      type: object
+      properties:
+        row_permission_id:
+          type: integer
+          format: int64
+        role_id:
+          type: integer
+          format: int64
+        table_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        filter_dsl:
+          type: object
+          description: FilterDSL（见 PRD/tech）
+        status:
+          $ref: '#/components/schemas/RoleStatus'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - row_permission_id
+      - role_id
+      - table_id
+      - name
+      - filter_dsl
+      - status
+      - created_at
+      - updated_at
+      additionalProperties: false
+    ColumnPermissionItem:
+      type: object
+      properties:
+        column_permission_id:
+          type: integer
+          format: int64
+        field_id:
+          type: integer
+          format: int64
+        access_level:
+          $ref: '#/components/schemas/ColumnAccessLevel'
+      required:
+      - column_permission_id
+      - field_id
+      - access_level
+      additionalProperties: false
+    RolePermissionItem:
+      type: object
+      properties:
+        grant_id:
+          type: integer
+          format: int64
+        resource_tree_node_id:
+          type: integer
+          format: int64
+        resource_type:
+          type: string
+          description: TABLE_SCHEMA/TABLE_DATA/FLOW/DATASET/DASHBOARD
+        permission_level:
+          $ref: '#/components/schemas/PermissionLevel'
+        is_inherited:
+          type: boolean
+      required:
+      - grant_id
+      - resource_tree_node_id
+      - resource_type
+      - permission_level
+      - is_inherited
+      additionalProperties: false
+    RoleGrantItem:
+      type: object
+      properties:
+        grant_id:
+          type: integer
+          format: int64
+        role_id:
+          type: integer
+          format: int64
+        role_name:
+          type: string
+        permission_level:
+          $ref: '#/components/schemas/PermissionLevel'
+      required:
+      - grant_id
+      - role_id
+      - role_name
+      - permission_level
+      additionalProperties: false
+    QuerySelectItem:
+      type: object
+      properties:
+        field_code:
+          type: string
+        alias:
+          type: string
+          nullable: true
+        agg:
+          type: string
+          enum:
+          - SUM
+          - COUNT
+          - AVG
+          - MIN
+          - MAX
+          nullable: true
+      required:
+      - field_code
+      additionalProperties: false
+    QueryOrderByItem:
+      type: object
+      properties:
+        field_code:
+          type: string
+        direction:
+          type: string
+          enum:
+          - ASC
+          - DESC
+      required:
+      - field_code
+      - direction
+      additionalProperties: false
+    QueryRequest:
+      type: object
+      properties:
+        source_type:
+          type: string
+          enum:
+          - DATASET
+          - TABLE
+        source_id:
+          type: integer
+          format: int64
+        select:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuerySelectItem'
+        filter_dsl:
+          type: object
+          nullable: true
+          description: FilterDSL
+        order_by:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryOrderByItem'
+          nullable: true
+        limit:
+          type: integer
+          format: int32
+          nullable: true
+          default: 1000
+          maximum: 10000
+        offset:
+          type: integer
+          format: int32
+          nullable: true
+          default: 0
+      required:
+      - source_type
+      - source_id
+      - select
+      additionalProperties: false
+    QueryColumn:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+      required:
+      - name
+      - type
+      additionalProperties: false
+    QueryPaging:
+      type: object
+      properties:
+        limit:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int32
+        total:
+          type: integer
+          format: int64
+          nullable: true
+      required:
+      - limit
+      - offset
+      additionalProperties: false
+    QueryRunResponseData:
+      type: object
+      properties:
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryColumn'
+        rows:
+          type: array
+          items:
+            type: object
+        paging:
+          $ref: '#/components/schemas/QueryPaging'
+      required:
+      - columns
+      - rows
+      - paging
+      additionalProperties: false
+    QueryValidateErrorItem:
+      type: object
+      properties:
+        path:
+          type: string
+        message:
+          type: string
+      required:
+      - path
+      - message
+      additionalProperties: false
+    QueryOutputField:
+      type: object
+      properties:
+        field_code:
+          type: string
+        field_name:
+          type: string
+        field_type:
+          type: string
+      required:
+      - field_code
+      - field_name
+      - field_type
+      additionalProperties: false
+    QueryValidateResponseData:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryValidateErrorItem'
+        sql_preview:
+          type: string
+          nullable: true
+        output_schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryOutputField'
+          nullable: true
+      required:
+      - ok
+      - errors
+      additionalProperties: false
+    QueryExportCsvRequest:
+      allOf:
+      - $ref: '#/components/schemas/QueryRequest'
+      - type: object
+        properties:
+          file_name:
+            type: string
+            nullable: true
+        additionalProperties: false
+    QueryExportCsvResponseData:
+      type: object
+      properties:
+        file_name:
+          type: string
+        file_url:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        row_count:
+          type: integer
+          format: int64
+      required:
+      - file_name
+      - file_url
+      - expires_at
+      - row_count
+      additionalProperties: false
+    Req_post_api_query_run:
+      $ref: '#/components/schemas/QueryRequest'
+    Req_post_api_query_validate:
+      $ref: '#/components/schemas/QueryRequest'
+    TenantSummaryDTO:
+      type: object
+      properties:
+        tenant_id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        name:
+          type: string
+        plan:
+          type: string
+          enum:
+          - BASIC
+          - PRO
+          - ENTERPRISE
+      required:
+      - tenant_id
+      - code
+      - name
+      - plan
+      additionalProperties: false
+    MeUserDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        login_name:
+          type: string
+        display_name:
+          type: string
+        email:
+          type: string
+        is_platform_admin:
+          type: boolean
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DISABLED
+        last_tenant_id:
+          type: integer
+          format: int64
+          nullable: true
+      required:
+      - id
+      - login_name
+      - display_name
+      - email
+      - is_platform_admin
+      - status
+      - last_tenant_id
+      additionalProperties: false
+    DashboardCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        folder_node_id:
+          type: integer
+          format: int64
+          nullable: true
+        layout:
+          type: object
+          nullable: true
+      required:
+      - name
+      additionalProperties: false
+    DashboardUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+      additionalProperties: false
+    DashboardLayoutUpdateRequest:
+      type: object
+      properties:
+        layout:
+          type: object
+      required:
+      - layout
+      additionalProperties: false
+    ChartUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        config:
+          type: object
+          nullable: true
+      additionalProperties: false
+    DatasetUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        query:
+          $ref: '#/components/schemas/QueryRequest'
+          nullable: true
+      additionalProperties: false
+    ResourceTreeCreateFolderRequest:
+      type: object
+      properties:
+        parent_id:
+          type: integer
+          format: int64
+          nullable: true
+        name:
+          type: string
+      required:
+      - name
+      additionalProperties: false
+    ResourceTreeRenameRequest:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+      - name
+      additionalProperties: false
+    ResourceTreeMoveRequest:
+      type: object
+      properties:
+        node_id:
+          type: integer
+          format: int64
+        new_parent_id:
+          type: integer
+          format: int64
+          nullable: true
+        new_sort_order:
+          type: integer
+          format: int32
+          nullable: true
+      required:
+      - node_id
+      - new_parent_id
+      additionalProperties: false
+    ResourceTreeReorderRequest:
+      type: object
+      properties:
+        parent_id:
+          type: integer
+          format: int64
+          nullable: true
+        ordered_node_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+      required:
+      - ordered_node_ids
+      additionalProperties: false
+    ModelingFieldCreateRequest:
+      type: object
+      properties:
+        field_code:
+          type: string
+        display_name:
+          type: string
+        data_type:
+          type: string
+        description:
+          type: string
+          nullable: true
+        is_nullable:
+          type: boolean
+          default: true
+        is_primary_key:
+          type: boolean
+          default: false
+      required:
+      - field_code
+      - display_name
+      - data_type
+      additionalProperties: false
+    PermissionGrantCreateRequest:
+      type: object
+      properties:
+        resource_node_id:
+          type: integer
+          format: int64
+        role_id:
+          type: integer
+          format: int64
+        permission_level:
+          $ref: '#/components/schemas/PermissionLevel'
+      required:
+      - resource_node_id
+      - role_id
+      - permission_level
+      additionalProperties: false
+    CreateRoleRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+      required:
+      - code
+      - name
+      additionalProperties: false
+    UpdateRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/RoleStatus'
+          nullable: true
+      additionalProperties: false
+    SaveRoleResourcePermissionsRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              resource_tree_node_id:
+                type: integer
+                format: int64
+              resource_type:
+                type: string
+              permission_level:
+                $ref: '#/components/schemas/PermissionLevel'
+            required:
+            - resource_tree_node_id
+            - resource_type
+            - permission_level
+            additionalProperties: false
+      required:
+      - items
+      additionalProperties: false
+    SaveColumnPermissionsRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              field_id:
+                type: integer
+                format: int64
+              access_level:
+                $ref: '#/components/schemas/ColumnAccessLevel'
+            required:
+            - field_id
+            - access_level
+            additionalProperties: false
+      required:
+      - items
+      additionalProperties: false
+    CreateRowPermissionRequest:
+      type: object
+      properties:
+        role_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        filter_dsl:
+          type: object
+        status:
+          $ref: '#/components/schemas/RoleStatus'
+          nullable: true
+      required:
+      - role_id
+      - name
+      - filter_dsl
+      additionalProperties: false
+    UpdateRowPermissionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        filter_dsl:
+          type: object
+          nullable: true
+        status:
+          $ref: '#/components/schemas/RoleStatus'
+          nullable: true
+      additionalProperties: false
+    Req_post_api_dashboards:
+      $ref: '#/components/schemas/DashboardCreateRequest'
+    Req_patch_api_dashboards_dashboard_id:
+      $ref: '#/components/schemas/DashboardUpdateRequest'
+    Req_put_api_dashboards_dashboard_id_layout:
+      $ref: '#/components/schemas/DashboardLayoutUpdateRequest'
+    Req_patch_api_charts_chart_id:
+      $ref: '#/components/schemas/ChartUpdateRequest'
+    Req_patch_api_datasets_dataset_id:
+      $ref: '#/components/schemas/DatasetUpdateRequest'
+    Req_post_api_modeling_tables_table_id_fields:
+      $ref: '#/components/schemas/ModelingFieldCreateRequest'
+    Req_post_api_permissions_grants:
+      $ref: '#/components/schemas/PermissionGrantCreateRequest'
+    Req_post_api_tenants_tenant_id_roles:
+      $ref: '#/components/schemas/CreateRoleRequest'
+    Req_patch_api_tenants_tenant_id_roles_role_id:
+      $ref: '#/components/schemas/UpdateRoleRequest'
+    Req_put_api_tenants_tenant_id_roles_role_id_resource_permissions:
+      $ref: '#/components/schemas/SaveRoleResourcePermissionsRequest'
+    Req_put_api_tenants_tenant_id_tables_table_id_column_permissions:
+      $ref: '#/components/schemas/SaveColumnPermissionsRequest'
+    Req_post_api_tenants_tenant_id_tables_table_id_row_permissions:
+      $ref: '#/components/schemas/CreateRowPermissionRequest'
+    Req_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+      $ref: '#/components/schemas/UpdateRowPermissionRequest'
+    FlowSummary:
+      type: object
+      properties:
+        flow_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        updated_at: &id001
+          type: string
+          format: date-time
+          description: ISO 8601 时间戳
+      required:
+      - flow_id
+      - name
+      additionalProperties: false
+    DashboardSummary:
+      type: object
+      properties:
+        dashboard_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        updated_at: *id001
+      required:
+      - dashboard_id
+      - name
+      additionalProperties: false
+    ChartSummary:
+      type: object
+      properties:
+        chart_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          minLength: 1
+        dataset_id:
+          type: integer
+          format: int64
+          nullable: true
+        updated_at: *id001
+      required:
+      - chart_id
+      - name
+      additionalProperties: false
+    DatasetSummary:
+      type: object
+      properties:
+        dataset_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          minLength: 1
+        source_table_id:
+          type: integer
+          format: int64
+          nullable: true
+        updated_at: *id001
+      required:
+      - dataset_id
+      - name
+      additionalProperties: false
+    AuditLogItem:
+      type: object
+      properties:
+        log_id:
+          type: integer
+          format: int64
+        action:
+          type: string
+          minLength: 1
+        actor_user_id:
+          type: integer
+          format: int64
+          nullable: true
+        resource_type:
+          type: string
+          nullable: true
+        resource_id:
+          type: integer
+          format: int64
+          nullable: true
+        created_at: *id001
+        detail:
+          type: object
+          additionalProperties: true
+          nullable: true
+      required:
+      - log_id
+      - action
+      - created_at
+      additionalProperties: false
+    TenantSummary:
+      type: object
+      properties:
+        tenant_id:
+          type: integer
+          format: int64
+        code:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum:
+          - ENABLED
+          - SUSPENDED
+        created_at: *id001
+      required:
+      - tenant_id
+      - code
+      - name
+      - status
+      additionalProperties: false
+    TenantUserSummary:
+      type: object
+      properties:
+        tenant_user_id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DISABLED
+        created_at: *id001
+      required:
+      - tenant_user_id
+      - user_id
+      - email
+      - status
+      additionalProperties: false
+    RoleSummary:
+      type: object
+      properties:
+        role_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        created_at: *id001
+      required:
+      - role_id
+      - name
+      additionalProperties: false
   parameters:
-    $ref: ./components/parameters.yaml
+    TenantIdHeader:
+      name: X-Tenant-Id
+      in: header
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: 租户上下文（当前激活租户）。除少数全局接口外，所有 `/api/*` 请求均需携带。
+    RequestIdHeader:
+      name: X-Request-Id
+      in: header
+      required: false
+      schema:
+        type: string
+      description: 可选：调用方自定义请求 ID，用于端到端追踪。
+    PageParam:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+        description: 分页页码（从 1 开始）
+      description: 分页页码（从 1 开始）
+    PageSizeParam:
+      name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+        description: 分页大小（<=200）
+      description: 分页大小（<=200）
+    SortByParam:
+      name: sort_by
+      in: query
+      required: false
+      schema:
+        type: string
+        description: 排序字段（各列表接口支持字段见接口说明）
+      description: 排序字段（各列表接口支持字段见接口说明）
+    SortOrderParam:
+      name: sort_order
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+        - asc
+        - desc
+        default: desc
+      description: 排序方向
   responses:
-    $ref: ./components/responses.yaml
+    BadRequest:
+      description: 请求参数/业务校验失败。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthorized:
+      description: 未登录或 token 失效。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: 无权限。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: 资源不存在。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Conflict:
+      description: 资源冲突（如重复创建/并发修改）。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InternalError:
+      description: 服务端异常。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'

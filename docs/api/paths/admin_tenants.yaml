@@ -1,165 +1,80 @@
-p__api__charts__preview:
-  post:
-    tags:
-    - Reports
-    summary: POST /api/charts/preview
-    operationId: post_api_charts_preview
-    parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
-    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_charts_preview
-      '400':
-        $ref: ../openapi.yaml#/components/responses/BadRequest
-      '401':
-        $ref: ../openapi.yaml#/components/responses/Unauthorized
-      '403':
-        $ref: ../openapi.yaml#/components/responses/Forbidden
-      '404':
-        $ref: ../openapi.yaml#/components/responses/NotFound
-      '409':
-        $ref: ../openapi.yaml#/components/responses/Conflict
-      '500':
-        $ref: ../openapi.yaml#/components/responses/InternalError
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../openapi.yaml#/components/schemas/Req_post_api_charts_preview
-p__api__charts__chart_id:
-  delete:
-    tags:
-    - Reports
-    summary: DELETE /api/charts/{chart_id}
-    operationId: delete_api_charts_chart_id
-    parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
-    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: chart_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_charts_chart_id
-      '400':
-        $ref: ../openapi.yaml#/components/responses/BadRequest
-      '401':
-        $ref: ../openapi.yaml#/components/responses/Unauthorized
-      '403':
-        $ref: ../openapi.yaml#/components/responses/Forbidden
-      '404':
-        $ref: ../openapi.yaml#/components/responses/NotFound
-      '409':
-        $ref: ../openapi.yaml#/components/responses/Conflict
-      '500':
-        $ref: ../openapi.yaml#/components/responses/InternalError
+p__admin__api__tenants:
   get:
     tags:
-    - Reports
-    summary: GET /api/charts/{chart_id}
-    operationId: get_api_charts_chart_id
+    - AdminTenants
+    summary: 平台侧：租户列表（Tenant）。
+    operationId: get_admin_api_tenants
     parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: chart_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_charts_chart_id
-      '400':
-        $ref: ../openapi.yaml#/components/responses/BadRequest
-      '401':
-        $ref: ../openapi.yaml#/components/responses/Unauthorized
-      '403':
-        $ref: ../openapi.yaml#/components/responses/Forbidden
-      '404':
-        $ref: ../openapi.yaml#/components/responses/NotFound
-      '409':
-        $ref: ../openapi.yaml#/components/responses/Conflict
-      '500':
-        $ref: ../openapi.yaml#/components/responses/InternalError
-  patch:
-    tags:
-    - Reports
-    summary: PATCH /api/charts/{chart_id}
-    operationId: patch_api_charts_chart_id
-    parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
-    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: chart_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_charts_chart_id
-      '400':
-        $ref: ../openapi.yaml#/components/responses/BadRequest
-      '401':
-        $ref: ../openapi.yaml#/components/responses/Unauthorized
-      '403':
-        $ref: ../openapi.yaml#/components/responses/Forbidden
-      '404':
-        $ref: ../openapi.yaml#/components/responses/NotFound
-      '409':
-        $ref: ../openapi.yaml#/components/responses/Conflict
-      '500':
-        $ref: ../openapi.yaml#/components/responses/InternalError
-    requestBody:
+    - name: q
+      in: query
       required: false
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Req_patch_api_charts_chart_id'
-p__api__charts__chart_id__exports:
+      schema:
+        type: string
+        description: 模糊匹配 code/name
+    - name: status
+      in: query
+      required: false
+      schema:
+        type: string
+        description: ACTIVE/SUSPENDED
+    - name: package
+      in: query
+      required: false
+      schema:
+        type: string
+        description: BASIC/PRO/ENTERPRISE
+    - name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 1
+    - name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 50
+    - $ref: ../openapi.yaml#/components/parameters/PageParam
+    - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
+    - $ref: ../openapi.yaml#/components/parameters/SortByParam
+    - $ref: ../openapi.yaml#/components/parameters/SortOrderParam
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_admin_api_tenants
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
   post:
     tags:
-    - Reports
-    summary: POST /api/charts/{chart_id}/exports
-    operationId: post_api_charts_chart_id_exports
+    - AdminTenants
+    summary: 创建租户
+    operationId: post_admin_api_tenants
     parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: chart_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_charts_chart_id_exports
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_admin_api_tenants
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -177,90 +92,183 @@ p__api__charts__chart_id__exports:
       content:
         application/json:
           schema:
-            $ref: ../openapi.yaml#/components/schemas/Req_post_api_charts_chart_id_exports
-p__api__dashboards__dashboard_id:
+            $ref: ../openapi.yaml#/components/schemas/Req_post_admin_api_tenants
+p__admin__api__tenants__tenant_id:
+  patch:
+    tags:
+    - AdminTenants
+    summary: 编辑租户：必须支持改名称
+    operationId: patch_admin_api_tenants_tenant_id
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_admin_api_tenants_tenant_id
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_patch_admin_api_tenants_tenant_id
+p__admin__api__tenants__tenant_id__enable:
+  post:
+    tags:
+    - AdminTenants
+    summary: 启用租户。
+    operationId: post_admin_api_tenants_tenant_id_enable
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_admin_api_tenants_tenant_id_enable
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__admin__api__tenants__tenant_id__suspend:
+  post:
+    tags:
+    - AdminTenants
+    summary: 停用租户。
+    operationId: post_admin_api_tenants_tenant_id_suspend
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_admin_api_tenants_tenant_id_suspend
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__admin__api__tenants__tenant_id__users:
   get:
     tags:
-    - Reports
-    summary: GET /api/dashboards/{dashboard_id}
-    operationId: get_api_dashboards_dashboard_id
+    - AdminTenants
+    summary: 平台侧：租户成员列表（TenantUser）。
+    operationId: get_admin_api_tenants_tenant_id_users
     parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: dashboard_id
+    - name: tenant_id
       in: path
       required: true
       schema:
         type: integer
         format: int64
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_dashboards_dashboard_id
-      '400':
-        $ref: ../openapi.yaml#/components/responses/BadRequest
-      '401':
-        $ref: ../openapi.yaml#/components/responses/Unauthorized
-      '403':
-        $ref: ../openapi.yaml#/components/responses/Forbidden
-      '404':
-        $ref: ../openapi.yaml#/components/responses/NotFound
-      '409':
-        $ref: ../openapi.yaml#/components/responses/Conflict
-      '500':
-        $ref: ../openapi.yaml#/components/responses/InternalError
-  patch:
-    tags:
-    - Reports
-    summary: PATCH /api/dashboards/{dashboard_id}
-    operationId: patch_api_dashboards_dashboard_id
-    parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
-    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: dashboard_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_dashboards_dashboard_id
-      '400':
-        $ref: ../openapi.yaml#/components/responses/BadRequest
-      '401':
-        $ref: ../openapi.yaml#/components/responses/Unauthorized
-      '403':
-        $ref: ../openapi.yaml#/components/responses/Forbidden
-      '404':
-        $ref: ../openapi.yaml#/components/responses/NotFound
-      '409':
-        $ref: ../openapi.yaml#/components/responses/Conflict
-      '500':
-        $ref: ../openapi.yaml#/components/responses/InternalError
-    requestBody:
+    - name: q
+      in: query
       required: false
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Req_patch_api_dashboards_dashboard_id'
-p__api__dashboards__dashboard_id__items:
+      schema:
+        type: string
+        description: 模糊匹配 display_name/email/login_name
+    - name: status
+      in: query
+      required: false
+      schema:
+        type: string
+        description: ACTIVE/DISABLED
+    - name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 1
+    - name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 50
+    - $ref: ../openapi.yaml#/components/parameters/PageParam
+    - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
+    - $ref: ../openapi.yaml#/components/parameters/SortByParam
+    - $ref: ../openapi.yaml#/components/parameters/SortOrderParam
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_admin_api_tenants_tenant_id_users
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
   post:
     tags:
-    - Reports
-    summary: POST /api/dashboards/{dashboard_id}/items
-    operationId: post_api_dashboards_dashboard_id_items
+    - AdminTenants
+    summary: 添加成员，支持批量
+    operationId: post_admin_api_tenants_tenant_id_users
     parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: dashboard_id
+    - name: tenant_id
       in: path
       required: true
       schema:
@@ -272,7 +280,7 @@ p__api__dashboards__dashboard_id__items:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_dashboards_dashboard_id_items
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_admin_api_tenants_tenant_id_users
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -290,23 +298,22 @@ p__api__dashboards__dashboard_id__items:
       content:
         application/json:
           schema:
-            $ref: ../openapi.yaml#/components/schemas/Req_post_api_dashboards_dashboard_id_items
-p__api__dashboards__dashboard_id__items__dashboard_item_id:
+            $ref: ../openapi.yaml#/components/schemas/Req_post_admin_api_tenants_tenant_id_users
+p__admin__api__tenants__tenant_id__users__tenant_user_id:
   delete:
     tags:
-    - Reports
-    summary: DELETE /api/dashboards/{dashboard_id}/items/{dashboard_item_id}
-    operationId: delete_api_dashboards_dashboard_id_items_dashboard_item_id
+    - AdminTenants
+    summary: 平台侧：移除租户成员。
+    operationId: delete_admin_api_tenants_tenant_id_users_tenant_user_id
     parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: dashboard_id
+    - name: tenant_id
       in: path
       required: true
       schema:
         type: integer
         format: int64
-    - name: dashboard_item_id
+    - name: tenant_user_id
       in: path
       required: true
       schema:
@@ -318,7 +325,7 @@ p__api__dashboards__dashboard_id__items__dashboard_item_id:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_dashboards_dashboard_id_items_dashboard_item_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_admin_api_tenants_tenant_id_users_tenant_user_id
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -333,19 +340,18 @@ p__api__dashboards__dashboard_id__items__dashboard_item_id:
         $ref: ../openapi.yaml#/components/responses/InternalError
   patch:
     tags:
-    - Reports
-    summary: PATCH /api/dashboards/{dashboard_id}/items/{dashboard_item_id}
-    operationId: patch_api_dashboards_dashboard_id_items_dashboard_item_id
+    - AdminTenants
+    summary: 平台侧：编辑租户成员（主要是角色/状态）。
+    operationId: patch_admin_api_tenants_tenant_id_users_tenant_user_id
     parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: dashboard_id
+    - name: tenant_id
       in: path
       required: true
       schema:
         type: integer
         format: int64
-    - name: dashboard_item_id
+    - name: tenant_user_id
       in: path
       required: true
       schema:
@@ -357,7 +363,7 @@ p__api__dashboards__dashboard_id__items__dashboard_item_id:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_dashboards_dashboard_id_items_dashboard_item_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_admin_api_tenants_tenant_id_users_tenant_user_id
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -375,44 +381,4 @@ p__api__dashboards__dashboard_id__items__dashboard_item_id:
       content:
         application/json:
           schema:
-            $ref: ../openapi.yaml#/components/schemas/Req_patch_api_dashboards_dashboard_id_items_dashboard_item_id
-p__api__dashboards__dashboard_id__layout:
-  put:
-    tags:
-    - Reports
-    summary: PUT /api/dashboards/{dashboard_id}/layout
-    operationId: put_api_dashboards_dashboard_id_layout
-    parameters:
-    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
-    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: dashboard_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_put_api_dashboards_dashboard_id_layout
-      '400':
-        $ref: ../openapi.yaml#/components/responses/BadRequest
-      '401':
-        $ref: ../openapi.yaml#/components/responses/Unauthorized
-      '403':
-        $ref: ../openapi.yaml#/components/responses/Forbidden
-      '404':
-        $ref: ../openapi.yaml#/components/responses/NotFound
-      '409':
-        $ref: ../openapi.yaml#/components/responses/Conflict
-      '500':
-        $ref: ../openapi.yaml#/components/responses/InternalError
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Req_put_api_dashboards_dashboard_id_layout'
+            $ref: ../openapi.yaml#/components/schemas/Req_patch_admin_api_tenants_tenant_id_users_tenant_user_id

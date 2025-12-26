@@ -1,33 +1,28 @@
-p__api__assist__code_suggest:
+p__api__assist__code-suggest:
   post:
     tags:
     - Assist
-    summary: POST /api/assist/code-suggest
+    summary: 编码/命名建议
     operationId: post_api_assist_code_suggest
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_assist_code_suggest
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_assist_code_suggest
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_assist_code_suggest
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError

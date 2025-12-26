@@ -87,11 +87,9 @@
 
 > 实际项目中建议维护为可更新表格，这里给出 V1.0 初始版本示例。
 
-| 版本号 | 日期       | 作者   | 变更内容                                  | 评审人              | 备注               |
-| ------ | ---------- | ------ | ----------------------------------------- | ------------------- | ------------------ |
-| 0.1    | 2025-12-10 | PM XXX | 初版：整理文档结构 & 产品概述、角色与概念 | Tech Lead / FE / BE | 仅覆盖章节 0–3     |
-| 0.9    | TBD        | PM XXX | 补充 DSL、权限模型、各模块详细交互        | 同上                | 用于开发前最终评审 |
-| 1.0    | TBD        | PM XXX | 根据评审意见修订后冻结，作为 V1.0 基线    | 全体干系人          | 对应上线版本       |
+| 版本号 | 日期       | 作者               | 变更内容                                                                 | 评审人                  | 备注                       |
+| ------ | ---------- | ------------------ | ------------------------------------------------------------------------ | ----------------------- | -------------------------- |
+| 1.0    | 2025-12-26 | 产品负责人/技术负责人 | V1.0 基线：补齐接口契约所需信息；与技术文档对齐；冻结 URL Path 参数命名规范 | 产品/技术/前端/后端/测试 | 作为 OpenAPI 生成的唯一基线 |
 
 评审方式建议：
 
@@ -788,7 +786,7 @@
 - 含义：租户内部的业务数据表，用于存放订单、用户、投放记录等业务实体。
 - 核心元信息字段（逻辑层）：
 
-  - `id`：表主键（内部使用，类型可为 int/UUID）。
+  - `id`：表主键（内部使用，统一为 BIGINT；自增/雪花等价实现；详见 3.2.1）。
   - `tenant_id`：所属租户。
   - `code`：表编码（英文小写蛇形，LLM 辅助生成，租户内唯一）。
   - `display_name`：业务可读表名（如“订单表”、“广告计划表”）。
@@ -1052,95 +1050,146 @@
 
 ---
 
-### 3.4 软删除、状态字段统一约定
+### 3.4 删除、软删除与状态字段（冻结规则）
 
-#### 3.4.1 状态字段（status）的通用规则
+本平台需要同时满足「业务可见删除」与「审计可追溯/依赖可校验」两类诉求，因此 V1.0 冻结如下统一规则（用于支撑 OpenAPI 契约与实现一致）：
 
-1. **适用实体**
+#### 3.4.1 status 字段（生命周期）
 
-- GlobalUser：`status = ACTIVE / DISABLED`；
-- Tenant：`status = ACTIVE / SUSPENDED`；
-- TenantUser：`status = ACTIVE / DISABLED`；
-- Flow：可选 `status = ACTIVE / INACTIVE`（用于控制是否允许调度/运行）；
-- 其他需要生命周期管理的实体，可根据需要增加 `status`。
+1) **账号/租户类实体**
 
-2. **状态含义**
+- GlobalUser：`status = ACTIVE / DISABLED`
+- Tenant：`status = ACTIVE / SUSPENDED`
+- TenantUser：`status = ACTIVE / DISABLED`
 
-- ACTIVE：正常可用；
-- DISABLED：账号/关系存在，但禁止登录或使用；
-- SUSPENDED（租户）：租户暂时停用，不允许任何租户用户访问，也不触发调度。
+2) **资源类实体（可在工作区被管理/被删除）**
 
-3. **使用原则**
+以下实体统一使用 `status = ACTIVE / DELETED`（或等价枚举），用于表达“已删除但保留元数据”的生命周期：
 
-- 在能通过 `status` 表示“可用/不可用”的场景，优先使用 `status` 而非 `is_deleted`；
-- 对用户、租户、成员关系等实体，不做物理删除，以便保留审计轨迹。
+- ResourceTreeNode（目录/节点）
+- Table / Field
+- Flow
+- Dataset / Chart / Dashboard / DashboardItem
+- Role（角色）及其授权配置（RolePermission）
 
-#### 3.4.2 软删除（is_deleted）策略
+> 说明：`DELETED` 代表在产品上不可见且不可再被引用/编辑；实现上需保证列表与详情默认过滤掉 `DELETED`。
 
-V1.0 中为简化实现：
+#### 3.4.2 is_deleted 字段（软删除）
 
-- **绝大部分业务实体（如 Table、Field、Flow、Dataset、Dashboard）采用“物理删除 + 依赖检查”的方式**：
+V1.0 对上述**资源类元数据**统一启用 `is_deleted`（0/1）软删除，删除接口语义如下：
 
-  - 删除前进行依赖检查（是否被 Flow/Dataset/Dashboard/Relation/权限引用）；
-  - 若存在依赖则禁止删除并给出清晰提示；
-  - 若无依赖则执行物理删除；
+- 对资源类元数据的 `DELETE` 请求：
+  1) 先做依赖检查（被引用则返回 409/412 等错误码，错误码在对应模块章节定义）；
+  2) 通过后将目标记录置为 `is_deleted=1`，并将 `status` 置为 `DELETED`（如存在该字段）；
+  3) 资源树节点同步置为 `DELETED`（避免 UI 展示与引用）。
 
-- 对于审计类记录（如操作日志、运行记录等），不使用软删除，而是按时间归档/清理。
+- 对“表数据记录（records）”的删除：
+  - V1.0 默认采用**物理删除**（硬删除），除非后续某张业务表明确引入业务级的 `is_deleted` 字段实现业务软删（本期不强制）。
 
-后续如有需要：
+- 对于审计类记录（如操作日志、运行记录等）：
+  - 不使用软删除，而是按保留期进行归档/清理（由运维策略决定）。
 
-- 可以在特定实体上引入 `is_deleted` 字段，实现“逻辑删除”，同时不在前端展示被软删除的记录；
-- 一旦某实体启用 `is_deleted`，文档需要在对应章节明确说明删除行为是“软删除”，以防歧义。
+#### 3.4.3 特殊说明：删除 Table 的双层语义
+
+删除 Table 属于“元数据删除 + 物理表处理”的组合动作：
+
+1) 依赖检查：若被 Dataset/Flow/Sink 等引用，禁止删除；
+2) 物理表处理：依赖解除后，删除（DROP）底层物理表或按实现策略回收；
+3) 元数据软删除：将 Table 与其 Field 元数据置为 `DELETED`（保留用于审计追溯）。
 
 ---
 
 ### 3.5 错误码 & 错误提示统一规范
 
-#### 3.5.1 API 响应结构约定
+#### 3.5.1 API 响应结构约定（统一壳）
 
-所有 API（包括前台/后台）统一采用如下响应结构：
+为保证前端统一处理、便于日志追踪与 OpenAPI 生成，本平台所有 API（包括 `/admin/api/*` 与 `/api/*`）统一采用如下响应结构（字段语义固定）：
 
 ```json
 {
-  "success": false,
-  "code": "ERR_PERMISSION_DENIED",
-  "message": "您没有权限执行此操作",
-  "data": null,
-  "trace_id": "optional-debug-id"
+  "code": "OK",
+  "message": "OK",
+  "data": {},
+  "request_id": "req_01JHXXXXXXXXXXXXXX"
 }
 ```
 
 字段说明：
 
-- `success`：布尔值，表示本次请求是否成功；
-- `code`：错误码字符串，便于前后端 & 运维定位问题；
-- `message`：面向用户的简要错误提示（可展示在 UI 中）；
-- `data`：成功时返回数据，失败时通常为 null 或附带少量上下文信息；
-- `trace_id`：可选，用于日志追踪。
+- `code`：业务码（字符串）。
+  - 成功固定为 `"OK"`；
+  - 失败为具体错误码（如 `PERMISSION_DENIED`、`MODEL__FIELD_REFERENCED`）。
+- `message`：面向人类的提示信息；失败必须可读、可直接展示给用户（或在 UI 上二次包装）。
+- `data`：
+  - 成功时为业务对象；
+  - 失败时默认为 `null`；如该错误需要返回结构化详情，允许 `data` 为对象（例如：校验错误的字段级详情）。
+- `request_id`：一次请求的链路标识（字符串）。
+  - 服务端生成并返回；
+  - 如客户端在 Header 中传入 `X-Request-Id`，服务端应回显同值，便于端到端排障。
+
+成功示例：
+
+```json
+{
+  "code": "OK",
+  "message": "OK",
+  "data": {
+    "id": 123,
+    "display_name": "订单表"
+  },
+  "request_id": "req_01JHXXXXXXXXXXXXXX"
+}
+```
+
+失败示例（权限不足）：
+
+```json
+{
+  "code": "PERMISSION_DENIED",
+  "message": "权限不足",
+  "data": null,
+  "request_id": "req_01JHXXXXXXXXXXXXXX"
+}
+```
 
 #### 3.5.2 错误码命名规范
 
-- 格式：`ERR_` + 模块 + 简要说明，例如：
+为保证跨模块一致性、便于在 OpenAPI 中枚举与在前端做分支处理，错误码采用 **大写 + 下划线**，并遵循以下规则：
 
-  - `ERR_PERMISSION_DENIED`：无权限；
-  - `ERR_TENANT_SUSPENDED`：租户已停用；
-  - `ERR_TABLE_IN_USE`：表被其他资源引用，无法删除；
-  - `ERR_INVALID_DSL`：DSL 不合法；
-  - `ERR_FLOW_RUNNING_ALREADY`：Flow 正在运行，禁止再次触发。
+1) **通用错误码（跨模块复用）**
 
-- 模块前缀（建议）：
+- `PERMISSION_DENIED`：权限不足（HTTP 403）
+- `UNAUTHENTICATED`：未登录/鉴权失败（HTTP 401）
+- `NOT_FOUND`：资源不存在（HTTP 404）
+- `BAD_REQUEST`：参数不合法（HTTP 400）
+- `CONFLICT`：资源冲突/唯一键冲突/状态冲突（HTTP 409）
+- `PRECONDITION_FAILED`：前置条件不满足（HTTP 412）
+- `RATE_LIMITED`：触发限流（HTTP 429）
+- `INTERNAL_ERROR`：未捕获异常（HTTP 500）
 
-  - `USER_`：账号/用户相关；
-  - `TENANT_`：租户相关；
-  - `MODEL_`：建模相关（表/字段/关系）；
-  - `FLOW_`：任务流相关；
-  - `REPORT_`：报表相关（数据集/图表/仪表盘）；
-  - `PERM_`：权限相关；
-  - `LLM_`：LLM 辅助相关。
+2) **模块错误码（带模块前缀）**
+
+采用 `MODULE__REASON` 形式（双下划线分隔），示例：
+
+- `MODEL__FIELD_REFERENCED`：字段被引用，禁止删除
+- `FLOW__NODE_CONFIG_INVALID`：节点配置不合法
+- `REPORT__DATASET_REFRESH_RUNNING`：数据集刷新中，禁止重复触发
+
+模块前缀建议集合：
+
+- `USER`：账号/用户相关
+- `TENANT`：租户相关
+- `MODEL`：建模相关（表/字段/关系）
+- `FLOW`：任务流相关
+- `REPORT`：报表相关（Dataset/Chart/Dashboard）
+- `PERM`：权限相关（资源/行/列权限）
+- `LLM`：LLM 辅助相关
+
+> 说明：响应中的 `code` 字段**直接使用上述错误码**；不再额外增加 `ERR_` 前缀，以避免重复与歧义。
 
 #### 3.5.3 前端错误展示要求
 
-- 对于**权限相关错误**（如 403 / `ERR_PERMISSION_DENIED`）：
+- 对于**权限相关错误**（如 403 / `PERMISSION_DENIED`）：
 
   - UI 提示：
 
@@ -1148,7 +1197,7 @@ V1.0 中为简化实现：
 
   - 可选提供“查看权限说明”链接。
 
-- 对于**输入校验错误**（如 `ERR_INVALID_DSL`, `ERR_INVALID_FIELD_TYPE`）：
+- 对于**输入校验错误**（如 `BAD_REQUEST`, `BAD_REQUEST`）：
 
   - 尽可能标明具体字段与错误原因：
 
@@ -1167,6 +1216,31 @@ V1.0 中为简化实现：
   - 提示内容需包含关键依赖信息：
 
     - “该表被以下资源引用，无法删除：任务流『每日订单同步』、仪表盘『收入仪表盘』中的 Chart『订单趋势图』”。
+
+### 3.6 HTTP API 请求约定（TenantContext / 分页 / 幂等）
+
+#### 3.6.1 TenantContext 传递与校验
+
+- **租户侧接口（`/api/*`）**：请求必须携带 Header `X-Tenant-Id`（int64）。
+  - 若该接口路径中也包含 `{tenant_id}`（如 Settings 管理类接口），则服务端必须校验 **Header 与 Path 的 tenant_id 一致**；不一致返回 `BAD_REQUEST`。
+- **平台后台接口（`/admin/api/*`）**：不依赖 `X-Tenant-Id`；如需定位租户，使用路径参数 `{tenant_id}`。
+
+#### 3.6.2 分页规范（冻结规则）
+
+为保证跨模块一致性与 OpenAPI/SDK 生成的可读性，分页规则冻结如下：
+
+- **资源列表类接口（List）**：统一使用 `page`（从 1 开始）与 `page_size`。
+  - 默认：`page=1`、`page_size=20`；
+  - 上限：`page_size<=200`（超过返回 `BAD_REQUEST`）；
+  - 返回结构统一为：`{ items: [...], page, page_size, total }`（置于统一壳的 `data` 内）。
+- **查询结果类接口（Query / Preview / Explore）**：允许使用 `limit` / `offset`（便于与 SQL 语义对齐），并在响应中提供 `total`（可选：在代价高时允许不返回 total，但需在技术文档明确）。
+
+#### 3.6.3 幂等与写接口语义（冻结规则）
+
+- `POST`（创建）：返回创建后的资源对象（至少包含 `id` 与关键字段）。
+- `PUT`（全量保存/覆盖）：语义为“全量覆盖”，未提供的字段视为使用默认值或清空（以技术文档为准）；应尽量保证幂等。
+- `PATCH`（局部更新）：语义为“仅更新提供的字段”。
+- `DELETE`：遵循「3.4 删除、软删除与状态字段（冻结规则）」；删除失败需返回明确的业务错误码（例如 `CONFLICT` 或模块化错误码），避免仅返回 500。
 
 ## 4. 统一查询 DSL & 权限模型（横切关注）
 
@@ -2865,7 +2939,7 @@ Folder 节点支持“默认 Dashboard 权限”。
 
 创建物理表时，系统自动添加以下系统字段（具体类型由技术方案落实）：
 
-- `id`：主键（int/bigint 自增或 UUID）；
+- `id`：主键（统一为 BIGINT；自增/雪花等价实现；详见 3.2.1）；
 - `created_at`：创建时间（datetime）；
 - `updated_at`：最后更新时间（datetime）；
 - `created_by`：创建人 TenantUser id；
@@ -3691,7 +3765,7 @@ Folder 节点支持“默认 Dashboard 权限”。
 
 - 新增时：
 
-  - `id`：由数据库生成（自增或 UUID）；
+  - `id`：由数据库生成（自增/雪花等价实现）；
   - `created_at` / `updated_at`：使用服务器当前时间；
   - `created_by` / `updated_by`：当前 TenantUser.id。
 
@@ -3767,14 +3841,11 @@ Folder 节点支持“默认 Dashboard 权限”。
 
   - 提示“删除后不可恢复”；
 
-- 后端删除逻辑：
+- 后端删除逻辑（records 删除）：
 
-  - V1 可以采用物理删除；
-  - 如采用软删除：
-
-    - 需在表结构中加入 `is_deleted` 等字段；
-    - 并确保所有查询自动附加 `is_deleted = false` 条件；
-    - 软删除方案由架构层统一定义，本 PRD 不强制要求。
+  - V1 默认采用**物理删除（硬删除）**；
+  - 如某业务表需要业务级软删除，应由该表在字段中显式引入 `is_deleted`（或等价字段），并由查询层在所有查询/DSL 解释中统一追加过滤条件。
+  - 该“业务级软删”属于后续扩展，不影响元数据层的软删除冻结规则（见 3.4）。
 
 ---
 
@@ -6305,3 +6376,18 @@ Schema：
 2. **建模失败尝试可追溯**：尝试删除被数据集引用的字段 → 操作失败 → 审计日志记录 result=FAILED 且 error_message 合理可读。
 3. **仪表盘资产审计**：创建仪表盘 → 添加图表 → 调整布局并保存 → 审计日志至少产生 `CREATE_DASHBOARD`、`ADD_CHART_TO_DASHBOARD`、`UPDATE_DASHBOARD_LAYOUT`。
 4. **权限不可越权**：Analyst/Viewer 默认在 Settings 中看不到“审计日志”入口；Owner 可见且可正常访问。
+
+## 附录A：API URL 与 Path 参数命名规范（冻结规则）
+
+为确保 PRD、技术文档、OpenAPI 契约与实现长期一致，V1.0 起冻结如下规则（后续版本不得随意更改）：
+
+- **Path 参数一律使用业务语义名**：`{<resource>_id}`（snake_case），禁止使用通用 `id`。
+  - 示例：`/api/flows/{flow_id}`、`/api/dashboards/{dashboard_id}`、`/admin/api/tenants/{tenant_id}`。
+- **多 ID 场景需显式区分**：当一个 URL 中存在多个 ID 时，分别使用各自语义名。
+  - 示例：`/api/modeling/tables/{table_id}/fields/{field_id}`、`/api/modeling/tables/{table_id}/records/{record_id}`。
+- **资源树统一以 node 抽象**：文件夹/表/数据集/仪表盘等均为 node 的不同 `node_type`，统一使用 `{node_id}`。
+  - 示例：`/api/resource-trees/{scope}/nodes/{node_id}`。
+- **枚举型路径参数保持语义名**：例如 `{scope}`，并在接口与前端枚举中给出可选值。
+  - 示例：`/api/resource-trees/{scope}/children`，其中 `scope ∈ {TABLE|FLOW|DATASET|DASHBOARD}`。
+
+说明：OpenAPI 约束要求 path 模板中的参数名与参数定义严格匹配，因此该规范也便于自动生成 SDK 与契约校验。

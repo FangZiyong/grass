@@ -2,583 +2,720 @@ p__api__modeling__tables:
   get:
     tags:
     - Modeling
-    summary: GET /api/modeling/tables
+    summary: 在选中 Folder（或根）时加载表列表，并支持搜索/筛选。
     operationId: get_api_modeling_tables
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    - $ref: ../components/parameters.yaml#/Page
-    - $ref: ../components/parameters.yaml#/PageSize
-    - $ref: ../components/parameters.yaml#/Keyword
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: folder_node_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+        description: 当前选中目录; 约束：必须是 scope=TABLE 的 Folder
+    - name: include_descendants
+      in: query
+      required: false
+      schema:
+        type: boolean
+        description: 是否递归包含子目录表
+        default: false
+    - name: keyword
+      in: query
+      required: false
+      schema:
+        type: string
+        description: 模糊搜索 display_name/code; 约束：长度 ≤50
+    - name: table_type
+      in: query
+      required: false
+      schema:
+        type: string
+        description: 类型筛选; 约束：TableType
+    - name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: 分页页码; 约束：>=1
+        default: 1
+    - name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: 分页大小; 约束：1–200
+        default: 20
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_modeling_tables
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_modeling_tables
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
   post:
     tags:
     - Modeling
-    summary: POST /api/modeling/tables
+    summary: 新建业务表（元数据 + 资源树节点 + 物理建表）。
     operationId: post_api_modeling_tables
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_modeling_tables
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_modeling_tables
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_modeling_tables
-      '400':
-        $ref: ../components/responses.yaml#/BadRequest
-      '401':
-        $ref: ../components/responses.yaml#/Unauthorized
-      '403':
-        $ref: ../components/responses.yaml#/Forbidden
-      '404':
-        $ref: ../components/responses.yaml#/NotFound
-      '409':
-        $ref: ../components/responses.yaml#/Conflict
-      '500':
-        $ref: ../components/responses.yaml#/InternalError
-p__api__modeling__tables__ref_table_id__reference_candidates:
-  parameters:
-  - name: ref_table_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
+            $ref: ../openapi.yaml#/components/schemas/Req_post_api_modeling_tables
+p__api__modeling__tables__ref_table_id__reference-candidates:
   get:
     tags:
     - Modeling
-    summary: GET /api/modeling/tables/{ref_table_id}/reference-candidates
+    summary: 为 REFERENCE 字段提供候选（SELECT/SEARCH）。
     operationId: get_api_modeling_tables_ref_table_id_reference_candidates
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: display_field_id
+      in: query
+      required: true
+      schema:
+        type: integer
+        format: int64
+        description: 用于展示的字段
+    - name: q
+      in: query
+      required: false
+      schema:
+        type: string
+        description: SEARCH 模式关键词
+    - name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: 1–50
+        default: 20
+    - name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        description: '>=0'
+        default: 0
+    - name: ref_table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_modeling_tables_ref_table_id_reference_candidates
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_modeling_tables_ref_table_id_reference_candidates
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
 p__api__modeling__tables__table_id:
-  parameters:
-  - name: table_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   delete:
     tags:
     - Modeling
-    summary: DELETE /api/modeling/tables/{table_id}
+    summary: 删除表（必须做依赖检查，删除资源树节点，执行物理删表）。
     operationId: delete_api_modeling_tables_table_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: expected_updated_at
+      in: query
+      required: true
+      schema:
+        type: string
+        description: 并发控制
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_delete_api_modeling_tables_table_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_modeling_tables_table_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
   get:
     tags:
     - Modeling
-    summary: GET /api/modeling/tables/{table_id}
+    summary: 表详情（基本信息 + 字段列表）。
     operationId: get_api_modeling_tables_table_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        description: 表 ID
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_modeling_tables_table_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_modeling_tables_table_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
   patch:
     tags:
     - Modeling
-    summary: PATCH /api/modeling/tables/{table_id}
+    summary: 编辑表信息（表名/类型/描述/所属目录）。
     operationId: patch_api_modeling_tables_table_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_modeling_tables_table_id
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: ../components/schemas.yaml#/Req_patch_api_modeling_tables_table_id
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../components/schemas.yaml#/Envelope_patch_api_modeling_tables_table_id
-      '400':
-        $ref: ../components/responses.yaml#/BadRequest
-      '401':
-        $ref: ../components/responses.yaml#/Unauthorized
-      '403':
-        $ref: ../components/responses.yaml#/Forbidden
-      '404':
-        $ref: ../components/responses.yaml#/NotFound
-      '409':
-        $ref: ../components/responses.yaml#/Conflict
-      '500':
-        $ref: ../components/responses.yaml#/InternalError
+            $ref: ../openapi.yaml#/components/schemas/Req_patch_api_modeling_tables_table_id
 p__api__modeling__tables__table_id__data__query:
-  parameters:
-  - name: table_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   post:
     tags:
     - Modeling
     summary: POST /api/modeling/tables/{table_id}/data/query
     operationId: post_api_modeling_tables_table_id_data_query
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
       required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_modeling_tables_table_id_data_query
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_modeling_tables_table_id_data_query
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_modeling_tables_table_id_data_query
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_post_api_modeling_tables_table_id_data_query
 p__api__modeling__tables__table_id__fields:
-  parameters:
-  - name: table_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   get:
     tags:
     - Modeling
-    summary: GET /api/modeling/tables/{table_id}/fields
+    summary: 字段列表（结构 Tab）。
     operationId: get_api_modeling_tables_table_id_fields
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_modeling_tables_table_id_fields
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_modeling_tables_table_id_fields
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
   post:
     tags:
     - Modeling
-    summary: POST /api/modeling/tables/{table_id}/fields
+    summary: 新增字段（见 7.5.2）。
     operationId: post_api_modeling_tables_table_id_fields
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
       required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_modeling_tables_table_id_fields
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_modeling_tables_table_id_fields
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_modeling_tables_table_id_fields
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Req_post_api_modeling_tables_table_id_fields'
 p__api__modeling__tables__table_id__fields__reorder:
-  parameters:
-  - name: table_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   post:
     tags:
     - Modeling
-    summary: POST /api/modeling/tables/{table_id}/fields/reorder
+    summary: 调整字段展示顺序（仅修改 `sort_order`，不改物理顺序）。
     operationId: post_api_modeling_tables_table_id_fields_reorder
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
       required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_modeling_tables_table_id_fields_reorder
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_modeling_tables_table_id_fields_reorder
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_modeling_tables_table_id_fields_reorder
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_post_api_modeling_tables_table_id_fields_reorder
 p__api__modeling__tables__table_id__fields__field_id:
-  parameters:
-  - name: table_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
-  - name: field_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   delete:
     tags:
     - Modeling
-    summary: DELETE /api/modeling/tables/{table_id}/fields/{field_id}
+    summary: 删除字段（ALTER TABLE DROP COLUMN）。
     operationId: delete_api_modeling_tables_table_id_fields_field_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: field_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_delete_api_modeling_tables_table_id_fields_field_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_modeling_tables_table_id_fields_field_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
   patch:
     tags:
     - Modeling
-    summary: PATCH /api/modeling/tables/{table_id}/fields/{field_id}
+    summary: 编辑字段（仅允许修改：display_name/description/is_required/default_value_json/sort_order）。
     operationId: patch_api_modeling_tables_table_id_fields_field_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
       required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_patch_api_modeling_tables_table_id_fields_field_id
+      schema:
+        type: integer
+        format: int64
+    - name: field_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_patch_api_modeling_tables_table_id_fields_field_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_modeling_tables_table_id_fields_field_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_patch_api_modeling_tables_table_id_fields_field_id
 p__api__modeling__tables__table_id__records:
-  parameters:
-  - name: table_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   post:
     tags:
     - Modeling
-    summary: POST /api/modeling/tables/{table_id}/records
+    summary: 新增记录。
     operationId: post_api_modeling_tables_table_id_records
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
       required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_modeling_tables_table_id_records
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_modeling_tables_table_id_records
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_modeling_tables_table_id_records
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
-p__api__modeling__tables__table_id__records__batch_delete:
-  parameters:
-  - name: table_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_post_api_modeling_tables_table_id_records
+p__api__modeling__tables__table_id__records__batch-delete:
   post:
     tags:
     - Modeling
-    summary: POST /api/modeling/tables/{table_id}/records/batch-delete
+    summary: 批量删除（前端可选启用）。
     operationId: post_api_modeling_tables_table_id_records_batch_delete
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    requestBody:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
       required: true
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_modeling_tables_table_id_records_batch_delete
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_modeling_tables_table_id_records_batch_delete
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_modeling_tables_table_id_records_batch_delete
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
-p__api__modeling__tables__table_id__records__id:
-  parameters:
-  - name: table_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
-  - name: id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../openapi.yaml#/components/schemas/Req_post_api_modeling_tables_table_id_records_batch_delete
+p__api__modeling__tables__table_id__records__record_id:
   delete:
     tags:
     - Modeling
-    summary: DELETE /api/modeling/tables/{table_id}/records/{id}
-    operationId: delete_api_modeling_tables_table_id_records_id
+    summary: 删除记录。
+    operationId: delete_api_modeling_tables_table_id_records_record_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: record_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_delete_api_modeling_tables_table_id_records_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_modeling_tables_table_id_records_record_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
   get:
     tags:
     - Modeling
-    summary: GET /api/modeling/tables/{table_id}/records/{id}
-    operationId: get_api_modeling_tables_table_id_records_id
+    summary: 读取单条记录（用于编辑页回显）。
+    operationId: get_api_modeling_tables_table_id_records_record_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: record_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_modeling_tables_table_id_records_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_modeling_tables_table_id_records_record_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
   patch:
     tags:
     - Modeling
-    summary: PATCH /api/modeling/tables/{table_id}/records/{id}
-    operationId: patch_api_modeling_tables_table_id_records_id
+    summary: 编辑记录。
+    operationId: patch_api_modeling_tables_table_id_records_record_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: record_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_modeling_tables_table_id_records_record_id
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: ../components/schemas.yaml#/Req_patch_api_modeling_tables_table_id_records_id
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../components/schemas.yaml#/Envelope_patch_api_modeling_tables_table_id_records_id
-      '400':
-        $ref: ../components/responses.yaml#/BadRequest
-      '401':
-        $ref: ../components/responses.yaml#/Unauthorized
-      '403':
-        $ref: ../components/responses.yaml#/Forbidden
-      '404':
-        $ref: ../components/responses.yaml#/NotFound
-      '409':
-        $ref: ../components/responses.yaml#/Conflict
-      '500':
-        $ref: ../components/responses.yaml#/InternalError
+            $ref: ../openapi.yaml#/components/schemas/Req_patch_api_modeling_tables_table_id_records_record_id

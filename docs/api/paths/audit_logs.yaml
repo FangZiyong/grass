@@ -1,124 +1,90 @@
-p__api__audit_logs:
+p__api__audit-logs__meta__actions:
   get:
     tags:
     - AuditLogs
-    summary: GET /api/audit-logs
-    operationId: get_api_audit_logs
-    parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    - $ref: ../components/parameters.yaml#/Page
-    - $ref: ../components/parameters.yaml#/PageSize
-    - $ref: ../components/parameters.yaml#/Keyword
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_audit_logs
-      '400':
-        $ref: ../components/responses.yaml#/BadRequest
-      '401':
-        $ref: ../components/responses.yaml#/Unauthorized
-      '403':
-        $ref: ../components/responses.yaml#/Forbidden
-      '404':
-        $ref: ../components/responses.yaml#/NotFound
-      '409':
-        $ref: ../components/responses.yaml#/Conflict
-      '500':
-        $ref: ../components/responses.yaml#/InternalError
-p__api__audit_logs__meta__actions:
-  get:
-    tags:
-    - AuditLogs
-    summary: GET /api/audit-logs/meta/actions
+    summary: 返回 action 枚举（按 module 分组），用于前端筛选器。
     operationId: get_api_audit_logs_meta_actions
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    - $ref: ../components/parameters.yaml#/Page
-    - $ref: ../components/parameters.yaml#/PageSize
-    - $ref: ../components/parameters.yaml#/Keyword
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_audit_logs_meta_actions
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_audit_logs_meta_actions
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
-p__api__audit_logs__meta__target_types:
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__api__audit-logs__meta__target-types:
   get:
     tags:
     - AuditLogs
-    summary: GET /api/audit-logs/meta/target-types
+    summary: 返回 target_type 枚举列表。
     operationId: get_api_audit_logs_meta_target_types
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    - $ref: ../components/parameters.yaml#/Page
-    - $ref: ../components/parameters.yaml#/PageSize
-    - $ref: ../components/parameters.yaml#/Keyword
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_audit_logs_meta_target_types
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_audit_logs_meta_target_types
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
-p__api__audit_logs__audit_id:
-  parameters:
-  - name: audit_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__api__audit-logs__audit_id:
   get:
     tags:
     - AuditLogs
-    summary: GET /api/audit-logs/{audit_id}
+    summary: 审计日志详情（含 diff/context）。
     operationId: get_api_audit_logs_audit_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: audit_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_audit_logs_audit_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_audit_logs_audit_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError

@@ -1,6 +1,5 @@
 # 1 文档基本信息
 
-
 ## 0.3 文档一致性与生成链路（冻结规则）
 
 为保证“先定义接口契约 → 再实现 → 再自动校验”可稳定执行，V1.0 起冻结如下链路与规则：
@@ -205,7 +204,6 @@ participant "Worker" as WK
 participant "External Source\n(MySQL/HTTP/File)" as EXT
 database "Business Data Store" as DATA
 participant "Audit Logger" as AUD
-participant "Notification" as NTF
 
 SCH -> APP : trigger flow run (cron/manual)
 APP -> AUD : record "RUN_START"
@@ -217,11 +215,10 @@ WK -> DATA : load (write to internal table)
 WK --> APP : run status (success/failed)
 
 APP -> AUD : record "RUN_END"
-APP -> NTF : create notification (when needed)
 @enduml
 ```
 
-通知范围在 V1.0 限定为“任务流运行结果提醒”：手动触发完成（成功/失败）与调度触发失败；成功的调度运行通常不通知。
+V1.0 不提供通知中心/消息中心（含 IM 推送）。运行结果请在 Flow Run 列表与运行详情中查看（成功/失败、耗时、错误信息等）。
 
 ## 2.7 全局能力的产品约束对架构的影响
 
@@ -255,9 +252,40 @@ APP -> NTF : create notification (when needed)
 
 ## 3.3 API 响应与错误码规范（统一）
 
-### 3.3.1 响应结构（成功/失败统一壳）
+### 3.3.1 响应结构（统一壳）
 
-所有 API 统一返回结构（字段语义固定）：`success`、`code`、`message`、`data`、`trace_id`。
+所有 API 统一返回结构（字段语义固定）：
+
+- `code`：业务码（字符串）。成功固定为 `"OK"`；失败为具体错误码（如 `PERMISSION_DENIED`）。
+- `message`：面向人类的提示信息；成功可为 `"OK"` 或空字符串；失败必须可读。
+- `data`：成功时为业务数据对象；失败时为 `null`（除非该错误需要返回结构化详情，此时允许 `data` 为对象）。
+- `request_id`：一次请求的链路标识（字符串）。服务端生成；若客户端传入 Header `X-Request-Id`，服务端应回显同值。
+
+成功示例：
+
+```json
+{
+  "code": "OK",
+  "message": "OK",
+  "data": {
+    "example": true
+  },
+  "request_id": "req_01HRQ0Z9W3W0Y4K7..."
+}
+```
+
+失败示例：
+
+```json
+{
+  "code": "PERMISSION_DENIED",
+  "message": "You do not have permission to perform this action.",
+  "data": null,
+  "request_id": "req_01HRQ0Z9W3W0Y4K7..."
+}
+```
+
+> 约束：不得引入与统一壳字段语义冲突的额外顶级字段；如需返回结构化错误详情，放入 `data` 内。
 
 ### 3.3.1.1 URL 与 Path 参数命名规范（冻结规则）
 
@@ -272,12 +300,43 @@ APP -> NTF : create notification (when needed)
 - `scope` 这类枚举型路径参数保持语义名（如 `{scope}`），并在接口文档中提供可选值枚举。
 
 说明：
+
 - 语义化参数名可以显著降低歧义、提升文档可读性，并便于 OpenAPI/SDK 生成时在方法签名中保持清晰一致。
 
 ### 3.3.2 错误码命名规则
 
-- 统一前缀：`ERR_` + 模块前缀 + 简要说明。
-- 模块前缀建议集合：USER*/TENANT*/MODEL*/FLOW*/REPORT*/PERM*/LLM\_。
+为保证跨模块一致性、便于在 OpenAPI 中枚举并在前端做稳定分支处理，错误码（`code`）采用 **大写 + 下划线（UPPER_SNAKE_CASE）**，并遵循以下规则：
+
+1. **成功固定**：`OK`
+
+2. **通用错误码（跨模块复用）**（建议优先使用）
+
+- `UNAUTHENTICATED`（401）：未登录 / 鉴权失败
+- `PERMISSION_DENIED`（403）：权限不足
+- `NOT_FOUND`（404）：资源不存在（或“不可见时按不存在处理”以防探测）
+- `BAD_REQUEST`（400）：参数不合法 / 语义校验失败
+- `CONFLICT`（409）：资源冲突 / 唯一键冲突 / 状态冲突
+- `PRECONDITION_FAILED`（412）：前置条件不满足
+- `RATE_LIMITED`（429）：触发限流
+- `INTERNAL_ERROR`（500）：未捕获异常
+
+3. **模块化错误码（推荐格式）**
+
+当需要更精确的可读性/可定位性时，可使用“模块前缀 + 语义”：
+
+- `TENANT_NOT_FOUND`、`USER_NOT_FOUND`
+- `MODEL_TABLE_NOT_FOUND`、`MODEL_FIELD_CODE_DUPLICATED`
+- `FLOW_RUN_ALREADY_RUNNING`、`FLOW_INVALID_DAG`
+- `REPORT_DASHBOARD_NOT_FOUND`
+- `PERM_ROLE_NOT_FOUND`
+- `AUDIT_INVALID_TIME_RANGE`
+- `STORAGE_UNAVAILABLE`
+
+约束：
+
+- **禁止**额外增加 `ERR_` 前缀（避免重复与歧义）
+- 模块前缀使用单个下划线分隔（例如 `FLOW_RUN_*`），**禁止**使用双下划线（`FLOW__*`）
+- 与 HTTP 状态码保持一致：例如 401 必须为 `UNAUTHENTICATED`，403 必须为 `PERMISSION_DENIED`
 
 ### 3.3.3 错误展示统一要求（面向用户）
 
@@ -346,8 +405,33 @@ RF --> FINAL
 ## 3.8 全局功能开关与统一格式
 
 - 全局搜索：V1 不做。
-- 通知：仅任务流运行结果相关。
+- 通知中心/消息中心：V1 不做（运行结果在 Flow Run 列表查看；不做 IM 推送）。
 - 国际化：V1 不提供语言切换；时间/日期格式可统一采用 `YYYY-MM-DD HH:mm:ss`。
+
+## 3.9 HTTP API 请求约定（TenantContext / 分页 / 幂等）（冻结规则）
+
+> 本节与 PRD「3.6 HTTP API 请求约定」保持一致，作为 **OpenAPI/YAML 契约**与实现的共同约束。
+
+### 3.9.1 TenantContext 传递与校验
+
+- **租户侧接口（`/api/*`）**：请求必须携带 Header `X-Tenant-Id`（int64）。
+  - 若该接口路径中也包含 `{tenant_id}`（如 Settings 管理类接口），服务端必须校验 **Header 与 Path 的 tenant_id 一致**；不一致返回 `BAD_REQUEST`。
+- **平台后台接口（`/admin/api/*`）**：不依赖 `X-Tenant-Id`；如需定位租户，使用路径参数 `{tenant_id}`。
+
+### 3.9.2 分页规范
+
+- **资源列表类接口（List）**：统一使用 `page`（从 1 开始）与 `page_size`。
+  - 默认：`page=1`、`page_size=20`
+  - 上限：`page_size<=200`（超过返回 `BAD_REQUEST`）
+  - 返回结构统一为：`{ items: [...], page, page_size, total }`（置于统一壳的 `data` 内）
+- **查询结果类接口（Query / Preview / Explore）**：允许使用 `limit` / `offset`（便于与 SQL 语义对齐），并在响应中提供 `total`（可选：在代价高时允许不返回 total，但需在对应接口明确）。
+
+### 3.9.3 幂等与写接口语义
+
+- `POST`（创建）：返回创建后的资源对象（至少包含 `id` 与关键字段）。
+- `PUT`（全量保存/覆盖）：语义为“全量覆盖”，未提供的字段视为使用默认值或清空（以接口说明为准）；应尽量保证幂等。
+- `PATCH`（局部更新）：语义为“仅更新提供的字段”。
+- `DELETE`：遵循「3.7 删除策略规范」；删除失败需返回明确的业务错误码（例如 `CONFLICT` / 模块化错误码），避免仅返回 500。
 
 # 第 4 章 多租户与认证体系
 
@@ -681,7 +765,8 @@ API -> Client : {tenant_id, redirect_url}
 > 统一响应封装（本章落地约定）：
 >
 > - 成功：`{ code: "OK", message: "OK", data: <object>, request_id: <string> }`
-> - 失败：`{ code: <string>, message: <string>, data: null, request_id: <string>, details?: <object> }`
+> - 失败：`{ code: <string>, message: <string>, data: null, request_id: <string> }`
+>   说明：错误的结构化信息如需返回，应放入 `data`（对象）；调试详情仅写入服务端日志，不在响应中返回。
 
 ---
 
@@ -773,7 +858,7 @@ AuthService.login(login_name, password, request_meta):
 
 **错误码**
 
-- `AUTH_UNAUTHORIZED`（401）
+- `UNAUTHENTICATED`（401）
 - `AUTH_TOKEN_EXPIRED`（401）
 - `AUTH_USER_DISABLED`（403）
 - `DATA_INTEGRITY_ERROR`（500）
@@ -823,7 +908,7 @@ UserService.me(user_id):
 
 **错误码**
 
-- `AUTH_UNAUTHORIZED`（401）
+- `UNAUTHENTICATED`（401）
 - `TENANT_NOT_FOUND`（404）
 - `TENANT_SUSPENDED`（403）
 - `TENANT_ACCESS_DENIED`（403）
@@ -877,17 +962,19 @@ TenantService.switch_tenant(user_id, tenant_id):
 
 **响应 data**
 
-| 字段  | 类型  | 必填 | 说明     |
-| ----- | ----- | :--: | -------- |
-| total | int   |  是  | 总数     |
-| items | array |  是  | 用户列表 |
+| 字段      | 类型  | 必填 | 说明                |
+| --------- | ----- | :--: | ------------------- |
+| items     | array |  是  | 用户列表            |
+| page      | int   |  是  | 当前页（从 1 开始） |
+| page_size | int   |  是  | 分页大小            |
+| total     | int   |  是  | 总数                |
 
 `items[]` 字段（与后台展示一致）
 
 **错误码**
 
-- `AUTH_UNAUTHORIZED`（401）
-- `ADMIN_FORBIDDEN`（403）
+- `UNAUTHENTICATED`（401）
+- `PERMISSION_DENIED`（403）
 - `VALIDATION_PAGINATION`（400）
 - `VALIDATION_FORMAT`（400）
 - `RATE_LIMITED`（429）
@@ -931,8 +1018,8 @@ AdminUserService.list(q, status, is_platform_admin, page, page_size):
 
 **错误码**
 
-- `AUTH_UNAUTHORIZED`（401）
-- `ADMIN_FORBIDDEN`（403）
+- `UNAUTHENTICATED`（401）
+- `PERMISSION_DENIED`（403）
 - `TENANT_CODE_DUPLICATE`（409）
 - `VALIDATION_REQUIRED`（400）
 - `VALIDATION_ENUM`（400）
@@ -986,8 +1073,8 @@ AdminTenantService.create(payload):
 
 **错误码**
 
-- `AUTH_UNAUTHORIZED`（401）
-- `ADMIN_FORBIDDEN`（403）
+- `UNAUTHENTICATED`（401）
+- `PERMISSION_DENIED`（403）
 - `TENANT_NOT_FOUND`（404）
 - `VALIDATION_ENUM`（400）
 - `VALIDATION_FORMAT`（400）
@@ -1049,8 +1136,8 @@ AdminTenantService.update(tenant_id, patch):
 
 **错误码**
 
-- `AUTH_UNAUTHORIZED`（401）
-- `ADMIN_FORBIDDEN`（403）
+- `UNAUTHENTICATED`（401）
+- `PERMISSION_DENIED`（403）
 - `TENANT_NOT_FOUND`（404）
 - `USER_NOT_FOUND`（400）
 - `CONFLICT_MEMBER_EXISTS`（409）
@@ -1614,46 +1701,258 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 
 ## 5.11 接口清单与实现细则（租户侧 Settings：角色/授权/行列权限）
 
-访问控制总则：本章所有“权限配置/成员角色调整”接口必须要求调用者具备 Settings 管理能力。  
-本期最小实现：仅 Owner 可写；Data Engineer 仅可读（按默认角色约束）。
+本章接口用于**配置租户内权限体系**，包括：角色管理、成员角色绑定、Owner 管理、资源授权（基于资源树节点）、列权限、行权限（FilterDSL）。
 
-### 5.11.1 通用错误码（本章复用）
+### 5.11.1 访问控制总则
 
-| code                   | HTTP | 场景                |
-| ---------------------- | ---: | ------------------- |
-| UNAUTHORIZED           |  401 | 未登录/Token 无效   |
-| TENANT_CONTEXT_INVALID |  401 | 缺少/非法租户上下文 |
-| TENANT_SUSPENDED       |  403 | 租户非 ACTIVE       |
-| PERMISSION_DENIED      |  403 | 权限不足            |
-| PARAM_INVALID          |  400 | 入参校验失败        |
-| RESOURCE_NOT_FOUND     |  404 | 资源不存在          |
-| CONFLICT               |  409 | 唯一冲突/状态冲突   |
-| PRECONDITION_FAILED    |  412 | 前置条件不满足      |
-| RATE_LIMITED           |  429 | 频控                |
-| INTERNAL_ERROR         |  500 | 未分类内部错误      |
+- 本章所有接口均要求：用户已登录 + 属于目标租户（通过 `X-Tenant-Id` 确定租户上下文）。
+- 允许访问与操作的最小条件（满足其一即可）：
+  1. 租户 Owner；或
+  2. 具备 `TENANT_SETTINGS:MANAGE`（或等价的“设置管理”权限点）的角色。
+- 所有写接口（POST/PUT/PATCH/DELETE）必须写入审计日志（见 6.6 审计模块），至少包含：actor、tenant_id、action、target、diff/summary。
 
-### 5.11.2 接口清单
+### 5.11.2 通用 DTO / 枚举
 
-- `GET /api/tenants/{tenant_id}/roles`
-- `POST /api/tenants/{tenant_id}/roles`
-- `PATCH /api/tenants/{tenant_id}/roles/{role_id}`
-- `DELETE /api/tenants/{tenant_id}/roles/{role_id}`
-- `POST /api/tenants/{tenant_id}/users/{tenant_user_id}/roles`
-- `DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/roles/{role_id}`
-- `POST /api/tenants/{tenant_id}/users/{tenant_user_id}/owner`
-- `DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/owner`
-- `GET /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions?scope=...`
-- `PUT /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions?scope=...`
-- `GET /api/tenants/{tenant_id}/tables/{table_id}/column-permissions?role_id=...`
-- `PUT /api/tenants/{tenant_id}/tables/{table_id}/column-permissions?role_id=...`
-- `GET /api/tenants/{tenant_id}/tables/{table_id}/row-permissions?role_id=...`
-- `POST /api/tenants/{tenant_id}/tables/{table_id}/row-permissions?role_id=...`
-- `PATCH /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}`
-- `DELETE /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}`
+#### 5.11.2.1 RoleDTO
 
-> 具体每个接口的“字段级入参/出参、校验规则、异常分支、错误码、伪代码”应逐一展开到可实现粒度（同本章前述示例格式）。本文件为更新版骨架，后续可继续扩写每个接口的完整细则。
+| 字段        | 类型     | 必填 | 说明                                             |
+| ----------- | -------- | ---: | ------------------------------------------------ |
+| role_id     | int64    |    Y | 角色 ID                                          |
+| tenant_id   | int64    |    Y | 所属租户                                         |
+| code        | string   |    Y | 角色编码（租户内唯一，建议 `^[A-Z0-9_]{2,32}$`） |
+| name        | string   |    Y | 角色名称（2~64）                                 |
+| description | string   |    N | 描述                                             |
+| is_builtin  | bool     |    Y | 是否内置角色                                     |
+| status      | string   |    Y | `ACTIVE` / `DISABLED`                            |
+| created_at  | datetime |    Y | 创建时间                                         |
+| updated_at  | datetime |    Y | 更新时间                                         |
 
----
+#### 5.11.2.2 PermissionLevel（资源授权）
+
+- `NONE`：无权限
+- `VIEW`：可查看
+- `EDIT`：可编辑
+- `RUN`：可运行（仅对 Flow 等执行型资源有意义）
+- `MANAGE`：可管理（含授权）
+
+#### 5.11.2.3 ColumnAccessLevel（列权限）
+
+- `HIDDEN`：不可见
+- `READONLY`：只读
+- `WRITE`：可写
+
+#### 5.11.2.4 ResourceScope / ResourceType
+
+- `scope`（资源域）：`TABLE` / `FLOW` / `DATASET` / `DASHBOARD`
+- `resource_type`
+  - 当 `scope=TABLE`：`TABLE_SCHEMA`（表结构）/ `TABLE_DATA`（表数据）
+  - 其他 scope：与 scope 等价（`FLOW`/`DATASET`/`DASHBOARD`）
+
+### 5.11.3 角色管理（Role）
+
+#### 5.11.3.1 GET /api/tenants/{tenant_id}/roles（角色列表）
+
+- Path
+  - tenant_id: int64（必填）
+- Query
+  - q: string（可选，按 code/name 模糊匹配）
+  - status: string（可选，`ACTIVE|DISABLED`）
+  - page: int（默认 1）
+  - page_size: int（默认 20，最大 200）
+- Response.data
+  - items: RoleDTO[]
+  - page: int
+  - page_size: int
+  - total: int64
+
+#### 5.11.3.2 POST /api/tenants/{tenant_id}/roles（创建角色）
+
+- Body（JSON）
+  - code: string（必填，租户内唯一）
+  - name: string（必填）
+  - description: string（可选）
+- Response.data
+  - role: RoleDTO
+- 错误码
+  - `ROLE_CODE_DUPLICATE`（409）
+  - `VALIDATION_ERROR`（400）
+  - `PERMISSION_DENIED`（403）
+
+#### 5.11.3.3 PATCH /api/tenants/{tenant_id}/roles/{role_id}（更新角色）
+
+- 约束：`is_builtin=true` 的角色禁止修改 `code`；可修改 `name/description/status`
+- Body（JSON，至少 1 个字段）
+  - name?: string
+  - description?: string
+  - status?: string（`ACTIVE|DISABLED`）
+- Response.data
+  - role: RoleDTO
+
+#### 5.11.3.4 DELETE /api/tenants/{tenant_id}/roles/{role_id}（删除角色）
+
+- 约束：
+  - `is_builtin=true`：`ROLE_BUILTIN_CANNOT_DELETE`
+  - 角色仍被成员绑定：`ROLE_IN_USE`
+- Response.data
+  - deleted: bool
+
+### 5.11.4 成员角色绑定（TenantUser ↔ Role）
+
+#### 5.11.4.1 POST /api/tenants/{tenant_id}/users/{tenant_user_id}/roles（绑定角色）
+
+- 语义：幂等追加（重复绑定不报错）
+- Body（JSON）
+  - role_ids: int64[]（必填，1~200）
+- Response.data
+  - role_ids: int64[]
+
+#### 5.11.4.2 DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/roles/{role_id}（解绑角色）
+
+- Response.data
+  - deleted: bool
+
+### 5.11.5 Owner 管理
+
+#### 5.11.5.1 POST /api/tenants/{tenant_id}/users/{tenant_user_id}/owner（设为 Owner）
+
+- Response.data
+  - is_owner: bool（true）
+
+#### 5.11.5.2 DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/owner（取消 Owner）
+
+- 约束：租户至少保留 1 名 Owner，否则返回 `OWNER_REQUIRED`
+- Response.data
+  - is_owner: bool（false）
+
+### 5.11.6 资源授权（基于资源树节点）
+
+> 授权对象是“资源树节点”（resource_tree_node_id），可对文件夹授权（继承）或对资源节点授权（仅该资源）。
+
+#### 5.11.6.1 GET /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions（查询角色资源授权）
+
+- Query
+  - scope: string（必填，`TABLE|FLOW|DATASET|DASHBOARD`）
+  - resource_type: string（当 scope=TABLE 必填：`TABLE_SCHEMA|TABLE_DATA`）
+- Response.data
+  - items: RolePermissionItem[]
+
+RolePermissionItem：
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| grant_id | int64 | Y | 授权记录 ID |
+| resource_tree_node_id | int64 | Y | 资源树节点 ID |
+| resource_type | string | Y | TABLE_SCHEMA/TABLE_DATA/FLOW/DATASET/DASHBOARD |
+| permission_level | string | Y | NONE/VIEW/EDIT/RUN/MANAGE |
+| is_inherited | bool | Y | 是否继承（true 表示来自祖先 folder 授权） |
+
+#### 5.11.6.2 PUT /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions（保存角色资源授权）
+
+- 语义：**全量覆盖**（同 scope+resource_type 的授权集整体替换）
+- Body（JSON）
+  - scope: string（必填）
+  - resource_type: string（当 scope=TABLE 必填）
+  - items: {resource_tree_node_id:int64, permission_level:string}[]
+- Response.data
+  - updated: int
+
+#### 5.11.6.3 GET /api/permissions/resources/{resource_node_id}（权限面板数据）
+
+- Query
+  - scope: string（必填）
+  - resource_type: string（当 scope=TABLE 必填）
+- Response.data
+  - resource_node_id: int64
+  - role_grants: {grant_id:int64, role_id:int64, role_name:string, permission_level:string}[]
+  - my_effective_permission: string
+  - can_manage: bool
+
+#### 5.11.6.4 POST /api/permissions/grants（创建/更新授权）
+
+- 语义：当 permission_level=NONE 视为删除
+- Body（JSON）
+  - scope: string（必填）
+  - resource_type: string（当 scope=TABLE 必填）
+  - resource_tree_node_id: int64（必填）
+  - role_id: int64（必填）
+  - permission_level: string（必填）
+- Response.data
+  - grant_id: int64
+
+#### 5.11.6.5 DELETE /api/permissions/grants/{grant_id}（撤销授权）
+
+- Response.data
+  - deleted: bool
+
+### 5.11.7 列权限（Column Permission）
+
+#### 5.11.7.1 GET /api/tenants/{tenant_id}/tables/{table_id}/column-permissions（字段权限查询）
+
+- Query
+  - role_id: int64（必填）
+- Response.data
+  - items: ColumnPermissionItem[]
+
+ColumnPermissionItem：
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| column_permission_id | int64 | Y | 记录 ID |
+| field_id | int64 | Y | 字段 ID |
+| access_level | string | Y | HIDDEN/READONLY/WRITE |
+
+#### 5.11.7.2 PUT /api/tenants/{tenant_id}/tables/{table_id}/column-permissions（字段权限保存）
+
+- 语义：全量覆盖（同 role_id 的 column permissions 整体替换）
+- Body（JSON）
+  - role_id: int64（必填）
+  - items: {field_id:int64, access_level:string}[]
+- Response.data
+  - updated: int
+
+### 5.11.8 行权限（Row Permission）
+
+#### 5.11.8.1 RowPermissionDTO
+
+| 字段              | 类型     | 必填 | 说明                           |
+| ----------------- | -------- | ---: | ------------------------------ |
+| row_permission_id | int64    |    Y | 记录 ID                        |
+| role_id           | int64    |    Y | 角色                           |
+| table_id          | int64    |    Y | 表                             |
+| name              | string   |    Y | 规则名称                       |
+| filter_dsl        | object   |    Y | 行过滤 DSL（见 3.4 FilterDSL） |
+| status            | string   |    Y | ACTIVE/DISABLED                |
+| created_at        | datetime |    Y | 创建时间                       |
+| updated_at        | datetime |    Y | 更新时间                       |
+
+#### 5.11.8.2 GET /api/tenants/{tenant_id}/tables/{table_id}/row-permissions（行权限查询）
+
+- Query
+  - role_id: int64（必填）
+- Response.data
+  - items: RowPermissionDTO[]
+
+#### 5.11.8.3 POST /api/tenants/{tenant_id}/tables/{table_id}/row-permissions（创建行权限）
+
+- Body（JSON）
+  - role_id: int64（必填）
+  - name: string（必填）
+  - filter_dsl: object（必填）
+  - status?: string（默认 ACTIVE）
+- Response.data
+  - row_permission: RowPermissionDTO
+
+#### 5.11.8.4 PATCH /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}（更新行权限）
+
+- Body（JSON）
+  - name?: string
+  - filter_dsl?: object
+  - status?: string
+- Response.data
+  - row_permission: RowPermissionDTO
+
+#### 5.11.8.5 DELETE /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}（删除行权限）
+
+- Response.data
+  - deleted: bool
 
 ## 5.12 关键流程（编号步骤 + 异常分支）
 
@@ -1684,7 +1983,7 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 
 - A1：租户不存在或不匹配 → TENANT_CONTEXT_INVALID
 - A2：租户 SUSPENDED → TENANT_SUSPENDED
-- A3：table_id 不存在 → RESOURCE_NOT_FOUND
+- A3：table_id 不存在 → NOT_FOUND
 - A4：权限不足 → PERMISSION_DENIED
 - A5：FilterDSL 校验失败 → PARAM_INVALID
 - A6：查询超时/数据库异常 → INTERNAL_ERROR（并记录错误原因摘要到审计）
@@ -1837,14 +2136,76 @@ API --> Client : ok
 
 ### 6.2.4 接口清单
 
-- `GET /api/resource-trees/{scope}/children?parent_id={node_id|null}`
+- `GET /api/resource-trees/{scope}/children`
 - `POST /api/resource-trees/{scope}/folders`
 - `PATCH /api/resource-trees/{scope}/nodes/{node_id}`
 - `POST /api/resource-trees/{scope}/move`
-- `DELETE /api/resource-trees/{scope}/nodes/{node_id}`
 - `POST /api/resource-trees/{scope}/reorder`
+- `DELETE /api/resource-trees/{scope}/nodes/{node_id}`
 
----
+### 6.2.5 接口规范（资源树）
+
+> `scope` 枚举：`TABLE|FLOW|DATASET|DASHBOARD`。
+
+#### 6.2.5.1 GET /api/resource-trees/{scope}/children（查询子节点）
+
+- Query
+  - parent_id: int64（可选；不传/为 null=根）
+  - include_resources: int（可选，0/1，默认 1；=0 仅返回 folder）
+- Response.data
+  - items: ResourceTreeNodeDTO[]
+
+ResourceTreeNodeDTO：
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| node_id | int64 | Y | 节点 ID |
+| scope | string | Y | TABLE/FLOW/DATASET/DASHBOARD |
+| node_type | string | Y | FOLDER/RESOURCE |
+| parent_id | int64\|null | Y | 父节点 |
+| name | string | Y | 展示名 |
+| order_index | int | Y | 排序 |
+| resource_type | string\|null | N | TABLE/FLOW/DATASET/DASHBOARD |
+| resource_id | int64\|null | N | 资源 ID（当 node_type=RESOURCE） |
+
+#### 6.2.5.2 POST /api/resource-trees/{scope}/folders（创建文件夹）
+
+- Body（JSON）
+  - parent_id?: int64（可选；不传/为 null=根）
+  - name: string（必填，1~64）
+- Response.data
+  - node: ResourceTreeNodeDTO
+
+#### 6.2.5.3 PATCH /api/resource-trees/{scope}/nodes/{node_id}（重命名节点）
+
+- Body（JSON）
+  - name: string（必填，1~64）
+- Response.data
+  - node: ResourceTreeNodeDTO
+
+#### 6.2.5.4 POST /api/resource-trees/{scope}/move（移动节点）
+
+- Body（JSON）
+  - node_id: int64（必填）
+  - target_parent_id: int64\|null（必填；允许移动到根）
+  - target_index?: int（可选；不传则追加到末尾）
+- Response.data
+  - moved: bool
+
+#### 6.2.5.5 POST /api/resource-trees/{scope}/reorder（同级排序）
+
+- Body（JSON）
+  - parent_id?: int64（可选；不传/为 null=根）
+  - ordered_node_ids: int64[]（必填；必须包含该 parent 下全部子节点）
+- Response.data
+  - updated: int
+
+#### 6.2.5.6 DELETE /api/resource-trees/{scope}/nodes/{node_id}（删除节点）
+
+- 语义：
+  - 删除 folder：必须为空，否则 `FOLDER_NOT_EMPTY`
+  - 删除 resource node：仅解除挂载（不删除资源对象本身）
+- Response.data
+  - deleted: bool
 
 ## 6.3 查询引擎（Query Engine：QueryBuilder/Runner）
 
@@ -1901,68 +2262,87 @@ API --> Client : columns+rows
 @enduml
 ```
 
-### 6.3.4 接口
+### 6.3.4 接口清单
 
-- `POST /api/query/run`
 - `POST /api/query/validate`
+- `POST /api/query/run`
 - `POST /api/query/export/csv`
 
-### 6.3.5 FilterDSL 编译器实现要点（安全边界）
+### 6.3.5 接口规范（查询引擎）
 
-必须满足：
+#### 6.3.5.1 QueryRequest（通用请求体）
 
-- 字段白名单：仅允许当前 datasource 的字段；
-- 操作符白名单：eq/ne/in/contains/gt/gte/lt/lte/is_null/not_null；
-- 值类型校验：in 必须 array；contains 必须 string；
-- 变量替换：允许 CURRENT_USER_ID 等变量；
-- 禁止注入：所有值必须参数化，禁止拼接原始字符串到 SQL。
+| 字段        | 类型     | 必填 | 说明                   |
+| ----------- | -------- | ---: | ---------------------- |
+| source_type | string   |    Y | `DATASET` / `TABLE`    |
+| source_id   | int64    |    Y | dataset_id 或 table_id |
+| select      | object[] |    Y | 选择字段（见下）       |
+| filter_dsl  | object   |    N | FilterDSL（见 3.4）    |
+| order_by    | object[] |    N | 排序规则               |
+| limit       | int      |    N | 默认 1000，最大 10000  |
+| offset      | int      |    N | 默认 0                 |
 
----
+select[i]：
 
-## 6.4 站内通知（In-App Notification）
+- field_code: string（必填）
+- alias?: string（可选）
+- agg?: string（可选，SUM/COUNT/AVG/MIN/MAX）
 
-### 6.4.1 数据表
+order_by[i]：
 
-#### 6.4.1.1 `notification`
+- field_code: string（必填）
+- direction: string（必填，ASC/DESC）
 
-| 字段名                   | 类型         | 是否可空 | 默认值            | 枚举/约束          | 说明             |
-| ------------------------ | ------------ | -------: | ----------------- | ------------------ | ---------------- |
-| id                       | bigint       |       否 | —                 | PK                 | 通知 ID          |
-| tenant_id                | bigint       |       否 | —                 | —                  | 租户             |
-| recipient_tenant_user_id | bigint       |       否 | —                 | FK(tenant_user.id) | 接收人           |
-| event_type               | varchar(64)  |       否 | —                 | 事件枚举           | 类型             |
-| title                    | varchar(128) |       否 | —                 | —                  | 标题             |
-| content                  | json         |       否 | —                 | JSON               | 内容（用于跳转） |
-| is_read                  | tinyint(1)   |       否 | 0                 | 0/1                | 是否已读         |
-| created_at               | datetime     |       否 | CURRENT_TIMESTAMP | —                  | 创建时间         |
+#### 6.3.5.2 POST /api/query/validate（校验并预编译）
 
-content JSON 结构（最小）：
+- Body：QueryRequest
+- Response.data
+  - ok: bool
+  - errors: {path:string, message:string}[]
+  - sql_preview?: string
+  - output_schema?: {field_code:string, field_name:string, field_type:string}[]
 
-| 字段        | 类型   | 必填 | 枚举/上限              | 说明         | 示例                |
-| ----------- | ------ | ---: | ---------------------- | ------------ | ------------------- |
-| url         | string |   否 | ≤512                   | 前端跳转 URL | "/flows/123/runs/9" |
-| entity_type | string |   否 | FLOW/DATASET/DASHBOARD | 关联实体     | "FLOW"              |
-| entity_id   | bigint |   否 | —                      | 关联 ID      | 123                 |
+#### 6.3.5.3 POST /api/query/run（执行查询）
 
-索引：
+- Body：QueryRequest
+- Response.data
+  - columns: {name:string, type:string}[]
+  - rows: object[]
+  - paging: {limit:int, offset:int, total?:int}
 
-- 普通索引：`idx_notif_user (tenant_id, recipient_tenant_user_id, is_read, created_at DESC)`
+#### 6.3.5.4 POST /api/query/export/csv（导出 CSV）
 
-### 6.4.2 接口
-
-- `GET /api/notifications?unread_only=0|1&limit=&offset=`
-- `GET /api/notifications/unread-count`
-- `POST /api/notifications/mark-read`
-
----
+- Body：QueryRequest + file_name?: string
+- Response.data
+  - file_name: string
+  - file_url: string
+  - expires_at: datetime
+  - row_count: int64
 
 ## 6.5 LLM 辅助（编码/命名建议）
 
-### 6.5.1 接口
+### 6.5.1 接口清单
 
 - `POST /api/assist/code-suggest`
 
-# 7 建模
+### 6.5.2 接口规范（LLM Assist）
+
+#### 6.5.2.1 POST /api/assist/code-suggest（编码/命名建议）
+
+- Body（JSON）
+  - scene: string（必填；例如 `SQL_FIELD_NAME` / `CHART_TITLE` / `DASHBOARD_SUMMARY`）
+  - prompt: string（必填；用户输入）
+  - context?: object（可选；携带 table/dataset/chart 等上下文）
+  - max_suggestions?: int（可选；默认 5，最大 10）
+- Response.data
+  - suggestions: SuggestionDTO[]
+
+SuggestionDTO：
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| text | string | Y | 建议结果 |
+| score | number | N | 置信分（0~1，可选） |
+| explanation | string | N | 简要解释（可选） |
 
 ## 7.0 章节定位与目标
 
@@ -2317,7 +2697,7 @@ C -> User : response
 
 **步骤（含异常分支）：**
 
-1. 校验表存在且 `status=ACTIVE`；否则 `RESOURCE_NOT_FOUND` 或 `PRECONDITION_FAILED`。
+1. 校验表存在且 `status=ACTIVE`；否则 `NOT_FOUND` 或 `PRECONDITION_FAILED`。
 2. 权限校验：表节点上 `TABLE_SCHEMA >= EDIT`。
 3. 校验字段入参：
    - `display_name` 1–50；
@@ -2373,13 +2753,13 @@ QB -> QR : execute(sql, params)
 QR -> ADP : query
 ADP -> QR : rows
 QR -> C : result rows + paging
-C -> User : {rows, total, visible_fields}
+C -> User : {items, page, page_size, total, visible_fields}
 @enduml
 ```
 
 **步骤（含异常分支）：**
 
-1. 校验表存在且 ACTIVE；否则 `RESOURCE_NOT_FOUND/PRECONDITION_FAILED`。
+1. 校验表存在且 ACTIVE；否则 `NOT_FOUND/PRECONDITION_FAILED`。
 2. 权限校验：`TABLE_DATA >= VIEW`；否则 `PERMISSION_DENIED`。
 3. 读取字段元数据（按 sort_order），并计算列权限策略：
    - HIDDEN：不出现在返回字段列表
@@ -2398,8 +2778,9 @@ C -> User : {rows, total, visible_fields}
    - ORDER BY + LIMIT/OFFSET
 10. 执行 QueryRunner；若超时/存储不可用：返回 `STORAGE_UNAVAILABLE` 或 `INTERNAL_ERROR`。
 11. 返回结果中必须包含：
-    - rows（已按列权限裁剪）
+    - items（已按列权限裁剪）
     - total（可选，若实现成本高可先返回 `-1` 并在 V1.1 完善）
+    - page, page_size（回显最终分页参数）
     - visible_fields（字段元信息：code、display_name、ui_type、editable）
 12. 对 REFERENCE 字段：
     - 默认返回“引用值”（ref_field 对应的原始值）
@@ -2413,11 +2794,14 @@ C -> User : {rows, total, visible_fields}
 
 ### 7.6.1 资源树（scope=TABLE）依赖接口
 
-- `GET  /api/resource-trees/TABLE/children?parent_id={node_id}`
-- `POST /api/resource-trees/TABLE/folders`
-- `PATCH /api/resource-trees/TABLE/nodes/{node_id}`（重命名）
-- `POST /api/resource-trees/TABLE/move`
-- `DELETE /api/resource-trees/TABLE/nodes/{node_id}`（删除 Folder 或表 Node）
+建模模块依赖资源树提供“表/文件夹”的目录结构，统一使用资源树标准接口（不允许把 query 写进 URL）：
+
+- `GET  /api/resource-trees/{scope}/children`（其中 scope 固定为 `TABLE`；Query：parent_id?, include_resources?）
+- `POST /api/resource-trees/{scope}/folders`（scope=TABLE）
+- `PATCH /api/resource-trees/{scope}/nodes/{node_id}`（scope=TABLE）
+- `POST /api/resource-trees/{scope}/move`（scope=TABLE）
+- `POST /api/resource-trees/{scope}/reorder`（scope=TABLE）
+- `DELETE /api/resource-trees/{scope}/nodes/{node_id}`（scope=TABLE）
 
 ### 7.6.2 表元数据接口
 
@@ -2460,7 +2844,7 @@ C -> User : {rows, total, visible_fields}
 | PERMISSION_DENIED      |  403 | 权限不足                                   |
 | PARAM_INVALID          |  400 | 入参校验失败                               |
 | DSL_INVALID            |  400 | FilterDSL 语法非法                         |
-| RESOURCE_NOT_FOUND     |  404 | 表/字段/记录不存在                         |
+| NOT_FOUND              |  404 | 表/字段/记录不存在                         |
 | CONFLICT               |  409 | 唯一冲突/并发冲突                          |
 | PRECONDITION_FAILED    |  412 | 前置条件不满足（例如被引用、不可变更字段） |
 | DDL_EXECUTION_FAILED   |  500 | 物理 DDL 执行失败                          |
@@ -2496,10 +2880,12 @@ C -> User : {rows, total, visible_fields}
 
 **响应 data：**
 
-| 字段  | 类型  | 说明   |
-| ----- | ----- | ------ |
-| items | array | 表列表 |
-| total | int   | 总数   |
+| 字段      | 类型  | 说明                |
+| --------- | ----- | ------------------- |
+| items     | array | 表列表              |
+| page      | int   | 当前页（从 1 开始） |
+| page_size | int   | 分页大小            |
+| total     | int   | 总数                |
 
 **items[i] 字段：**
 
@@ -2682,7 +3068,7 @@ def create_table(req, tenant_id, tenant_user_id):
 
 **错误码：**
 
-- `RESOURCE_NOT_FOUND`：表不存在或不属于本租户
+- `NOT_FOUND`：表不存在或不属于本租户
 - `PERMISSION_DENIED`：无权限
 
 ---
@@ -2983,6 +3369,35 @@ order_by[i]：
 | field_code | string | 是   |          | 字段 code |
 | direction  | string | 是   | ASC/DESC | 排序方向  |
 
+**响应 data：**
+
+| 字段           | 类型  | 必填 | 说明                                                                          |
+| -------------- | ----- | :--: | ----------------------------------------------------------------------------- |
+| items          | array |  是  | 记录列表（每项为“字段 code -> 值”的对象；值类型由字段类型决定）               |
+| page           | int   |  是  | 当前页（从 1 开始）                                                           |
+| page_size      | int   |  是  | 分页大小                                                                      |
+| total          | int   |  是  | 总数（若实现成本高，允许临时返回 -1，但需在实现中标注 TODO 并在后续版本补齐） |
+| visible_fields | array |  是  | 可见字段元信息（按列权限裁剪后）                                              |
+
+visible_fields[i]：
+
+| 字段         | 类型   | 必填 | 说明                                            |
+| ------------ | ------ | :--: | ----------------------------------------------- |
+| field_code   | string |  是  | 字段 code                                       |
+| display_name | string |  是  | 显示名                                          |
+| data_type    | string |  是  | FieldType                                       |
+| ui_type      | string |  是  | UIType                                          |
+| editable     | bool   |  是  | 当前用户是否可编辑该列（列权限/表权限综合结果） |
+
+**错误码（至少）：**
+
+- `UNAUTHENTICATED`（401）
+- `PERMISSION_DENIED`（403）
+- `NOT_FOUND`（404，表不存在或按“不可见即不存在”处理）
+- `BAD_REQUEST`（400：FilterDSL/参数校验失败）
+- `PRECONDITION_FAILED`（412：排序字段不可见等前置条件不满足）
+- `INTERNAL_ERROR`（500）
+
 ---
 
 ### 7.8.13 GET /api/modeling/tables/{table_id}/records/{record_id}
@@ -2993,7 +3408,7 @@ order_by[i]：
 
 **行为：**
 
-- 若记录存在但不满足 RowPermission：返回 `RESOURCE_NOT_FOUND`（避免探测）
+- 若记录存在但不满足 RowPermission：返回 `NOT_FOUND`（避免探测）
 
 ---
 
@@ -3751,14 +4166,14 @@ participant "ResourceTreeService" as RTS
 participant "FlowRepo" as FR
 
 User -> UI : 打开 /flows
-UI -> API : GET /api/flows/tree?scope=FLOW
+UI -> API : GET /api/resource-trees/FLOW/children
 API -> PS : check FLOW>=VIEW (module entry)
 PS --> API : ok
 API -> RTS : list_tree(tenant_id, scope=FLOW)
 RTS --> API : tree
 API --> UI : tree
 
-UI -> API : GET /api/flows?folder_node_id=...&keyword=...
+UI -> API : GET /api/flows（Query: folder_node_id, keyword）
 API -> PS : filter_visible_flows(tenant_id,user,folder,keyword)
 PS --> API : allowed_resource_node_ids
 API -> FR : list_flows(tenant_id,allowed_resource_node_ids,filters)
@@ -3857,7 +4272,7 @@ API -> SVC : create_run(flow_id, trigger=MANUAL, user)
 SVC -> FR : has_running_run(flow_id)?
 FR --> SVC : yes/no
 alt running exists
-  SVC --> API : error FLOW__RUN_ALREADY_RUNNING
+  SVC --> API : error FLOW_RUN_ALREADY_RUNNING
 else no running
   SVC -> SVC : 校验DAG/节点配置(同保存校验)
   SVC -> PS : check TABLE_DATA>=EDIT for used tables (run-time)
@@ -4172,10 +4587,10 @@ metrics_expr 示例：
 
 #### A. 资源树（scope=FLOW，复用资源树服务）
 
-- GET /api/resource-tree?scope=FLOW
-- POST /api/resource-tree/folders（创建 Folder）
-- PATCH /api/resource-tree/nodes/{node_id}（重命名/移动）
-- DELETE /api/resource-tree/nodes/{node_id}（删除 Folder/Flow 节点）
+- GET /api/resource-trees/{scope}/children（scope=FLOW；Query: parent_id?）
+- POST /api/resource-trees/{scope}/folders（创建 Folder）
+- PATCH /api/resource-trees/{scope}/nodes/{node_id}（重命名/移动）
+- DELETE /api/resource-trees/{scope}/nodes/{node_id}（删除 Folder/Flow 节点）
 
 #### B. Flow 定义
 
@@ -4208,7 +4623,7 @@ metrics_expr 示例：
 
 #### F. 权限配置（复用授权接口，资源类型=FLOW）
 
-- GET /api/permissions/resources/{resource_node_id}?scope=FLOW
+- GET /api/permissions/resources/{resource_node_id}
 - POST /api/permissions/grants（授权）
 - DELETE /api/permissions/grants/{grant_id}（回收）
 
@@ -4259,17 +4674,17 @@ metrics_expr 示例：
 
 **入参（Query）**
 
-| 字段           | 类型   | 必填 | 说明                             |
-| -------------- | ------ | ---: | -------------------------------- |
-| folder_node_id | BIGINT |   否 | 资源树 folder 节点（scope=FLOW） |
-| include_descendants | boolean | 否 | true | 是否包含子目录（后代）中的任务流；仅当 folder_node_id 指向目录节点时生效 |
-| keyword        | STRING |   否 | 名称/编码模糊搜索                |
-| owner_id       | BIGINT |   否 | 负责人过滤                       |
-| enabled        | BOOL   |   否 | 是否启用过滤                     |
-| sort           | STRING |   否 | created_at/updated_graph_at      |
-| order          | STRING |   否 | ASC/DESC                         |
-| page           | INT    |   否 | 默认 1                           |
-| page_size      | INT    |   否 | 默认 20，最大 200                |
+| 字段                | 类型    | 必填 | 说明                             |
+| ------------------- | ------- | ---: | -------------------------------- | ------------------------------------------------------------------------ |
+| folder_node_id      | BIGINT  |   否 | 资源树 folder 节点（scope=FLOW） |
+| include_descendants | boolean |   否 | true                             | 是否包含子目录（后代）中的任务流；仅当 folder_node_id 指向目录节点时生效 |
+| keyword             | STRING  |   否 | 名称/编码模糊搜索                |
+| owner_id            | BIGINT  |   否 | 负责人过滤                       |
+| enabled             | BOOL    |   否 | 是否启用过滤                     |
+| sort                | STRING  |   否 | created_at/updated_graph_at      |
+| order               | STRING  |   否 | ASC/DESC                         |
+| page                | INT     |   否 | 默认 1                           |
+| page_size           | INT     |   否 | 默认 20，最大 200                |
 
 **出参 data**
 
@@ -4453,7 +4868,7 @@ def create_flow(tenant_id, user, body):
 ```python
 def get_flow(tenant_id, user, flow_id):
     flow = flow_repo.get(tenant_id, flow_id)
-    if not flow: raise Err("FLOW__NOT_FOUND")
+    if not flow: raise Err("FLOW_NOT_FOUND")
     permission_service.assert_flow_level(tenant_id, user, flow.resource_node_id, "VIEW")
     return flow
 ```
@@ -4795,7 +5210,7 @@ def save_graph(tenant_id, user, flow_id, payload):
 
 **接口**
 
-1. GET /api/permissions/resources/{resource_node_id}?scope=FLOW
+1. GET /api/permissions/resources/{resource_node_id}
 2. POST /api/permissions/grants
 3. DELETE /api/permissions/grants/{grant_id}
 
@@ -4877,9 +5292,9 @@ def save_graph(tenant_id, user, flow_id, payload):
 
 V1 的报表链路为：
 
-1) **Dataset（数据集）**：基于 Base Table 定义过滤/列选择，并刷新为 DW 物化表  
-2) **Chart（图表）**：绑定一个 Dataset，保存 query_config_json + viz_config_json  
-3) **Dashboard（仪表盘）**：通过 DashboardItem 引用多个 Chart，并以 layout_json 保存布局
+1. **Dataset（数据集）**：基于 Base Table 定义过滤/列选择，并刷新为 DW 物化表
+2. **Chart（图表）**：绑定一个 Dataset，保存 query_config_json + viz_config_json
+3. **Dashboard（仪表盘）**：通过 DashboardItem 引用多个 Chart，并以 layout_json 保存布局
 
 ### 9.1.2 依赖的公共能力
 
@@ -4893,11 +5308,11 @@ V1 的报表链路为：
 
 ## 9.2 V1 边界（必须遵守）
 
-1. **Dashboard filters_json（全局筛选）固定为空（null 或 []）**  
-   - 后端在保存/更新 Dashboard 时必须强校验：若 filters_json 非空，返回错误 `DASHBOARD_FILTERS_NOT_SUPPORTED`  
-2. **不支持整页 Dashboard 导出**（PDF/全页截图等）  
-   - 仅支持**单个 Chart**导出：数据（CSV）或图片（PNG）  
-3. Dataset 刷新仅支持**全量覆盖式物化**  
+1. **Dashboard filters_json（全局筛选）固定为空（null 或 []）**
+   - 后端在保存/更新 Dashboard 时必须强校验：若 filters_json 非空，返回错误 `DASHBOARD_FILTERS_NOT_SUPPORTED`
+2. **不支持整页 Dashboard 导出**（PDF/全页截图等）
+   - 仅支持**单个 Chart**导出：数据（CSV）或图片（PNG）
+3. Dataset 刷新仅支持**全量覆盖式物化**
 4. 不支持外部文件数据源直接作为 Dataset 输入（后续版本能力）
 
 ---
@@ -4917,7 +5332,7 @@ V1 的报表链路为：
 
 #### 状态枚举（必须实现）
 
-- `DRAFT`（可选）：仅保存配置，尚未首次刷新  
+- `DRAFT`（可选）：仅保存配置，尚未首次刷新
   - 若产品侧不需要草稿，可用 `ACTIVE + last_success_at=NULL` 表示“未就绪”
 - `ACTIVE`：可正常刷新、可被查询（**满足可查询还需 last_success_at 非空**）
 - `REFRESHING`：刷新进行中（同一数据集禁止并发刷新）
@@ -4978,29 +5393,34 @@ V1 的报表链路为：
 
 #### 9.3.3.2 刷新前必须校验的项目（按顺序执行，任一失败则阻断）
 
-1) **配置可用性校验**
+1. **配置可用性校验**
+
 - base_table 仍存在（table_catalog 可解析）
 - 选择字段仍存在且类型兼容（字段删除/类型变更会导致失败）
 - `base_filter_json` 可解析、可编译（FilterDSL 合法）
 
-2) **Owner 基本有效性**
+2. **Owner 基本有效性**
+
 - owner_user_id 必须存在且属于当前租户（TenantUser）
 - Owner 未被禁用、未离开租户、未被系统封禁
 
-3) **Owner 列权限覆盖校验（关键）**
+3. **Owner 列权限覆盖校验（关键）**
+
 - 计算 Owner 在来源表上的当前列权限结果 `current_allowed_columns`
 - 要求：`allowed_columns_snapshot ⊆ current_allowed_columns`
   - 若任一快照列在当前变为 HIDDEN/不可见 → 不通过（返回 `DATASET_OWNER_COLUMN_PERMISSION_SHRINK`）
 
-4) **Owner 行权限覆盖校验（关键）**
+4. **Owner 行权限覆盖校验（关键）**
+
 - 计算 Owner 在来源表上的当前行权限合并结果 `current_row_scope_filter`（OR 合并后归一化）
-- 要求：`RowScopeFilterSnapshot` 必须被 `current_row_scope_filter` 覆盖  
+- 要求：`RowScopeFilterSnapshot` 必须被 `current_row_scope_filter` 覆盖
   - V1 实现约束：仅支持“OR-of-clauses”的行权限归一化结构（与 RowPermission 合并规则一致）
   - 校验方式：`snapshot_clauses ⊆ current_clauses`
   - 若 Owner 权限收紧导致缺少任一快照 clause → 不通过（返回 `DATASET_OWNER_ROW_PERMISSION_SHRINK`）
   - 若 Owner 权限扩大（current_clauses 增多）→ 允许刷新（数据集范围不扩大，仍按快照）
 
-5) **通过则允许刷新，否则进入 BLOCKED**
+5. **通过则允许刷新，否则进入 BLOCKED**
+
 - 若 3/4 任一失败：
   - `dataset.status = BLOCKED`
   - 写入 `blocked_reason_code` 与 `blocked_reason_detail_json`
@@ -5073,22 +5493,24 @@ V1 的报表链路为：
 
 Query：
 
-| 参数 | 类型 | 必填 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| folder_node_id | string | 否 | null | 资源树目录节点 id（scope=DATASET） |
-| include_descendants | boolean | 否 | true | 是否包含后代节点 |
-| keyword | string | 否 | null | 关键字（name） |
-| page | int | 否 | 1 | - |
-| page_size | int | 否 | 20 | 最大 100 |
+| 参数                | 类型    | 必填 | 默认 | 说明                               |
+| ------------------- | ------- | ---- | ---- | ---------------------------------- |
+| folder_node_id      | string  | 否   | null | 资源树目录节点 id（scope=DATASET） |
+| include_descendants | boolean | 否   | true | 是否包含后代节点                   |
+| keyword             | string  | 否   | null | 关键字（name）                     |
+| page                | int     | 否   | 1    | -                                  |
+| page_size           | int     | 否   | 20   | 最大 200                           |
 
 返回字段（核心）：
+
 - dataset_id, name, status
 - owner_user（id/name）
 - next_run_at, last_success_at
 - base_table_id
 
 错误码（至少）：
-- AUTH_REQUIRED
+
+- UNAUTHENTICATED
 - TENANT_NOT_FOUND
 - DATASET_FORBIDDEN_FOLDER
 - PARAM_INVALID_PAGE
@@ -5103,16 +5525,17 @@ Query：
 
 Body：
 
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| name | string | 是 | 名称 |
-| folder_node_id | string | 是 | scope=DATASET 的目录节点 |
-| base_table_id | string | 是 | 基础表 |
-| owner_user_id | string | 是 | owner |
+| 字段           | 类型   | 必填 | 说明                     |
+| -------------- | ------ | ---- | ------------------------ |
+| name           | string | 是   | 名称                     |
+| folder_node_id | string | 是   | scope=DATASET 的目录节点 |
+| base_table_id  | string | 是   | 基础表                   |
+| owner_user_id  | string | 是   | owner                    |
 
 返回：dataset_id + 初始字段
 
 错误码：
+
 - DATASET_NAME_DUPLICATE
 - RESOURCE_NODE_SCOPE_MISMATCH
 - BASE_TABLE_NOT_FOUND
@@ -5127,6 +5550,7 @@ Body：
 返回：Dataset 详情（含 base_filter_json、cron、状态、最近一次 run 概要）
 
 错误码：
+
 - DATASET_NOT_FOUND
 - DATASET_FORBIDDEN
 - INTERNAL_ERROR
@@ -5135,20 +5559,22 @@ Body：
 
 可更新字段：
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| name | string | - |
-| base_filter_json | json | 过滤 DSL |
-| owner_user_id | string | 变更 owner |
-| refresh_mode | enum(MANUAL/CRON) | - |
-| cron_expr | string | cron |
-| cron_enabled | boolean | 启停 |
+| 字段             | 类型              | 说明       |
+| ---------------- | ----------------- | ---------- |
+| name             | string            | -          |
+| base_filter_json | json              | 过滤 DSL   |
+| owner_user_id    | string            | 变更 owner |
+| refresh_mode     | enum(MANUAL/CRON) | -          |
+| cron_expr        | string            | cron       |
+| cron_enabled     | boolean           | 启停       |
 
 强校验：
+
 - base_filter_json 必须通过 DSL 校验
 - cron_enabled=true 时必须可计算 next_run_at
 
 错误码（节选）：
+
 - DATASET_NOT_FOUND
 - DATASET_FORBIDDEN
 - DATASET_STATUS_NOT_EDITABLE
@@ -5163,10 +5589,12 @@ Body：
 用途：从 DRAFT 启用为 ACTIVE（配置完整性校验）
 
 校验项：
+
 - base_table_id、owner_user_id、folder_node_id 合法
 - base_filter_json 结构合法
 
 错误码：
+
 - DATASET_NOT_FOUND
 - DATASET_FORBIDDEN
 - DATASET_STATUS_NOT_ENABLEABLE
@@ -5178,12 +5606,14 @@ Body：
 用途：手动触发刷新（MANUAL）
 
 流程：
-1) owner 合规校验  
-2) 创建 refresh_run（RUNNING）  
-3) 提交 TaskRunInstance（task_type=DATASET_REFRESH, task_id=dataset_id）  
-4) 返回 run_id
+
+1. owner 合规校验
+2. 创建 refresh_run（RUNNING）
+3. 提交 TaskRunInstance（task_type=DATASET_REFRESH, task_id=dataset_id）
+4. 返回 run_id
 
 错误码：
+
 - DATASET_NOT_FOUND
 - DATASET_FORBIDDEN
 - DATASET_STATUS_NOT_REFRESHABLE
@@ -5198,6 +5628,7 @@ Body：
 Query：page/page_size（最大 100）
 
 错误码：
+
 - DATASET_NOT_FOUND
 - DATASET_FORBIDDEN
 - PARAM_INVALID
@@ -5209,16 +5640,18 @@ Query：page/page_size（最大 100）
 
 Body：
 
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| runtime_filter_json | json | 否 | 运行时过滤 |
-| limit | int | 否 | 默认 200，最大 200 |
+| 字段                | 类型 | 必填 | 说明               |
+| ------------------- | ---- | ---- | ------------------ |
+| runtime_filter_json | json | 否   | 运行时过滤         |
+| limit               | int  | 否   | 默认 200，最大 200 |
 
 规则：
+
 - 若 dataset.status=ACTIVE 且 last_success_at 非空 且 dataset_table 存在：从 dataset_table 读
 - 否则：从 base_table 以当前定义“模拟执行”（不写入 dataset_table）
 
 错误码：
+
 - DATASET_NOT_FOUND
 - DATASET_FORBIDDEN
 - DATASET_FILTER_INVALID
@@ -5229,45 +5662,45 @@ Body：
 
 #### 9.3.7.1 表：dataset
 
-| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
-| --- | --- | --- | --- | --- | --- |
-| dataset_id | string | 系统 | 创建 | 否 | CREATE_DATASET |
-| tenant_id | string | TenantContext | 创建 | 否 | - |
-| folder_node_id | string | 前端 | 创建/移动 | 是 | UPDATE_DATASET |
-| name | string | 前端 | 创建/更新 | 是 | UPDATE_DATASET |
-| base_table_id | string | 前端 | 创建 | 否（V1） | - |
-| owner_user_id | string | 前端 | 创建/更新 | 是 | UPDATE_DATASET |
-| base_filter_json | json | 前端 | 更新 | 是 | UPDATE_DATASET |
-| allowed_columns_snapshot_json | json | 系统 | 创建/显式修改范围 | 是（仅范围编辑） | UPDATE_DATASET_SCOPE |
-| row_scope_filter_snapshot_json | json | 系统 | 创建/显式修改范围 | 是（仅范围编辑） | UPDATE_DATASET_SCOPE |
-| blocked_reason_code | string | 系统 | 进入 BLOCKED | 否 | - |
-| blocked_reason_detail_json | json | 系统 | 进入 BLOCKED | 否 | - |
-| last_failure_at | datetime | 系统 | 刷新失败 | 否 | - |
-| last_failed_reason | string | 系统 | 刷新失败 | 否 | - |
-| last_refresh_duration_ms | int | 系统 | 刷新结束 | 否 | - |
-| status | enum | 系统 | 状态迁移 | 否 | - |
-| dataset_table_name | string | 系统 | 创建 | 否 | - |
-| refresh_mode | enum | 前端 | 更新 | 是 | UPDATE_DATASET |
-| cron_expr | string | 前端 | 更新 | 是 | UPDATE_DATASET |
-| cron_enabled | boolean | 前端 | 更新 | 是 | UPDATE_DATASET |
-| next_run_at | datetime | 系统 | 计算 | 否 | - |
-| last_run_id | string | 系统 | 刷新触发 | 否 | - |
-| last_success_at | datetime | 系统 | 刷新成功 | 否 | - |
-| created_at/updated_at | datetime | 系统 | 创建/更新 | 否 | - |
+| 字段                           | 类型     | 来源          | 更新时机          | 可编辑           | 审计策略             |
+| ------------------------------ | -------- | ------------- | ----------------- | ---------------- | -------------------- |
+| dataset_id                     | string   | 系统          | 创建              | 否               | CREATE_DATASET       |
+| tenant_id                      | string   | TenantContext | 创建              | 否               | -                    |
+| folder_node_id                 | string   | 前端          | 创建/移动         | 是               | UPDATE_DATASET       |
+| name                           | string   | 前端          | 创建/更新         | 是               | UPDATE_DATASET       |
+| base_table_id                  | string   | 前端          | 创建              | 否（V1）         | -                    |
+| owner_user_id                  | string   | 前端          | 创建/更新         | 是               | UPDATE_DATASET       |
+| base_filter_json               | json     | 前端          | 更新              | 是               | UPDATE_DATASET       |
+| allowed_columns_snapshot_json  | json     | 系统          | 创建/显式修改范围 | 是（仅范围编辑） | UPDATE_DATASET_SCOPE |
+| row_scope_filter_snapshot_json | json     | 系统          | 创建/显式修改范围 | 是（仅范围编辑） | UPDATE_DATASET_SCOPE |
+| blocked_reason_code            | string   | 系统          | 进入 BLOCKED      | 否               | -                    |
+| blocked_reason_detail_json     | json     | 系统          | 进入 BLOCKED      | 否               | -                    |
+| last_failure_at                | datetime | 系统          | 刷新失败          | 否               | -                    |
+| last_failed_reason             | string   | 系统          | 刷新失败          | 否               | -                    |
+| last_refresh_duration_ms       | int      | 系统          | 刷新结束          | 否               | -                    |
+| status                         | enum     | 系统          | 状态迁移          | 否               | -                    |
+| dataset_table_name             | string   | 系统          | 创建              | 否               | -                    |
+| refresh_mode                   | enum     | 前端          | 更新              | 是               | UPDATE_DATASET       |
+| cron_expr                      | string   | 前端          | 更新              | 是               | UPDATE_DATASET       |
+| cron_enabled                   | boolean  | 前端          | 更新              | 是               | UPDATE_DATASET       |
+| next_run_at                    | datetime | 系统          | 计算              | 否               | -                    |
+| last_run_id                    | string   | 系统          | 刷新触发          | 否               | -                    |
+| last_success_at                | datetime | 系统          | 刷新成功          | 否               | -                    |
+| created_at/updated_at          | datetime | 系统          | 创建/更新         | 否               | -                    |
 
 #### 9.3.7.2 表：dataset_refresh_run
 
-| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
-| --- | --- | --- | --- | --- | --- |
-| run_id | string | 系统 | 触发刷新 | 否 | - |
-| tenant_id | string | TenantContext | 触发刷新 | 否 | - |
-| dataset_id | string | 系统 | 触发刷新 | 否 | - |
-| trigger | enum(MANUAL/CRON) | 系统 | 触发刷新 | 否 | - |
-| status | enum(RUNNING/SUCCESS/FAILED) | 系统 | 运行/结束 | 否 | - |
-| started_at/finished_at | datetime | 系统 | 运行/结束 | 否 | - |
-| row_count | bigint | DW | 成功结束 | 否 | - |
-| error_code | string | 系统 | 失败结束 | 否 | - |
-| error_message | string | 系统 | 失败结束 | 否 | - |
+| 字段                   | 类型                         | 来源          | 更新时机  | 可编辑 | 审计策略 |
+| ---------------------- | ---------------------------- | ------------- | --------- | ------ | -------- |
+| run_id                 | string                       | 系统          | 触发刷新  | 否     | -        |
+| tenant_id              | string                       | TenantContext | 触发刷新  | 否     | -        |
+| dataset_id             | string                       | 系统          | 触发刷新  | 否     | -        |
+| trigger                | enum(MANUAL/CRON)            | 系统          | 触发刷新  | 否     | -        |
+| status                 | enum(RUNNING/SUCCESS/FAILED) | 系统          | 运行/结束 | 否     | -        |
+| started_at/finished_at | datetime                     | 系统          | 运行/结束 | 否     | -        |
+| row_count              | bigint                       | DW            | 成功结束  | 否     | -        |
+| error_code             | string                       | 系统          | 失败结束  | 否     | -        |
+| error_message          | string                       | 系统          | 失败结束  | 否     | -        |
 
 ---
 
@@ -5287,10 +5720,10 @@ Body：
 ```json
 {
   "version": 1,
-  "dimensions": [{"field": "city", "alias": "城市"}],
-  "metrics": [{"agg": "sum", "field": "gmv", "alias": "GMV"}],
+  "dimensions": [{ "field": "city", "alias": "城市" }],
+  "metrics": [{ "agg": "sum", "field": "gmv", "alias": "GMV" }],
   "filters": [],
-  "orders": [{"by": "GMV", "dir": "desc"}],
+  "orders": [{ "by": "GMV", "dir": "desc" }],
   "limit": 100
 }
 ```
@@ -5313,7 +5746,7 @@ Body：
   "chart_type": "bar",
   "x": "城市",
   "y": ["GMV"],
-  "options": {"stack": false}
+  "options": { "stack": false }
 }
 ```
 
@@ -5339,20 +5772,22 @@ Body：
 
 Body：
 
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| dataset_id | string | 是 | Dataset |
-| query_config_json | json | 是 | QueryConfig |
-| viz_config_json | json | 否 | 可选（table 预览可不传） |
-| runtime_filter_json | json | 否 | 仅本次 |
-| limit | int | 否 | - |
+| 字段                | 类型   | 必填 | 说明                     |
+| ------------------- | ------ | ---- | ------------------------ |
+| dataset_id          | string | 是   | Dataset                  |
+| query_config_json   | json   | 是   | QueryConfig              |
+| viz_config_json     | json   | 否   | 可选（table 预览可不传） |
+| runtime_filter_json | json   | 否   | 仅本次                   |
+| limit               | int    | 否   | -                        |
 
 返回：
+
 - data：表格数据或图表数据序列
 - schema：列信息（name/type）
 - warnings：可选（如字段被权限裁剪）
 
 错误码（节选）：
+
 - DATASET_NOT_FOUND
 - DATASET_NOT_READY
 - DATASET_FORBIDDEN
@@ -5367,18 +5802,20 @@ Body：
 用途：保存 Chart
 
 规则：
+
 - 允许在被 Dashboard 引用时更新（不锁定）；更新会立即影响所有引用该 Chart 的 Dashboard 渲染结果。
 
 Body：
 
-| 字段 | 类型 | 必填 |
-| --- | --- | --- |
-| name | string | 是 |
-| dataset_id | string | 是 |
-| query_config_json | json | 是 |
-| viz_config_json | json | 是 |
+| 字段              | 类型   | 必填 |
+| ----------------- | ------ | ---- |
+| name              | string | 是   |
+| dataset_id        | string | 是   |
+| query_config_json | json   | 是   |
+| viz_config_json   | json   | 是   |
 
 错误码：
+
 - CHART_NAME_DUPLICATE
 - DATASET_NOT_READY
 - CHART_QUERY_INVALID
@@ -5389,6 +5826,7 @@ Body：
 #### 9.4.5.3 GET /api/charts
 
 Query：
+
 - dataset_id（可选）
 - keyword（可选）
 - page/page_size
@@ -5396,6 +5834,7 @@ Query：
 返回：仅返回用户有权限访问的数据集下的 charts（DATASET>=VIEW）
 
 错误码：
+
 - PARAM_INVALID
 - INTERNAL_ERROR
 
@@ -5406,6 +5845,7 @@ Query：
 可更新：name/query_config_json/viz_config_json
 
 错误码：
+
 - CHART_NOT_FOUND
 - CHART_FORBIDDEN
 - CHART_QUERY_INVALID
@@ -5416,27 +5856,27 @@ Query：
 #### 9.4.5.6 DELETE /api/charts/{chart_id}
 
 规则（与 PRD 对齐：允许删除，但必须做影响提示）：
+
 - 若 ref_count>0（被 Dashboard 引用）：
   - 第一次调用（未携带 force=true）：返回 `CHART_DELETE_CONFIRM_REQUIRED`，并在响应中带 `affected_dashboards_count`（可选带前 N 个 dashboard_id）
   - 确认后再次调用：`DELETE ...?force=true`，执行级联清理（详见 9.5 dashboard_item / layout_json 一致性规则）
 - 若 ref_count=0：直接删除
 
-
 ### 9.4.6 表结构
 
 #### 9.4.6.1 表：chart
 
-| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
-| --- | --- | --- | --- | --- | --- |
-| chart_id | string | 系统 | 创建 | 否 | CREATE_CHART |
-| tenant_id | string | TenantContext | 创建 | 否 | - |
-| name | string | 前端 | 创建/更新 | 是 | UPDATE_CHART |
-| dataset_id | string | 前端 | 创建 | 否 | - |
-| query_config_json | json | 前端 | 创建/更新 | 是 | UPDATE_CHART |
-| viz_config_json | json | 前端 | 创建/更新 | 是 | UPDATE_CHART |
-| ref_count | int | 系统 | 引用变更 | 否 | - |
-| created_by/updated_by | string | TenantUser | 创建/更新 | 否 | - |
-| created_at/updated_at | datetime | 系统 | 创建/更新 | 否 | - |
+| 字段                  | 类型     | 来源          | 更新时机  | 可编辑 | 审计策略     |
+| --------------------- | -------- | ------------- | --------- | ------ | ------------ |
+| chart_id              | string   | 系统          | 创建      | 否     | CREATE_CHART |
+| tenant_id             | string   | TenantContext | 创建      | 否     | -            |
+| name                  | string   | 前端          | 创建/更新 | 是     | UPDATE_CHART |
+| dataset_id            | string   | 前端          | 创建      | 否     | -            |
+| query_config_json     | json     | 前端          | 创建/更新 | 是     | UPDATE_CHART |
+| viz_config_json       | json     | 前端          | 创建/更新 | 是     | UPDATE_CHART |
+| ref_count             | int      | 系统          | 引用变更  | 否     | -            |
+| created_by/updated_by | string   | TenantUser    | 创建/更新 | 否     | -            |
+| created_at/updated_at | datetime | 系统          | 创建/更新 | 否     | -            |
 
 ---
 
@@ -5460,9 +5900,7 @@ layout_json 示例：
 {
   "version": 1,
   "cols": 24,
-  "items": [
-    {"id": "di_1", "x": 0, "y": 0, "w": 12, "h": 8}
-  ]
+  "items": [{ "id": "di_1", "x": 0, "y": 0, "w": 12, "h": 8 }]
 }
 ```
 
@@ -5472,23 +5910,25 @@ layout_json 示例：
 
 Query：
 
-| 参数 | 类型 | 必填 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| folder_node_id | string | 否 | null | scope=DASHBOARD |
-| include_descendants | boolean | 否 | true | - |
-| keyword | string | 否 | null | - |
-| page | int | 否 | 1 | - |
-| page_size | int | 否 | 20 | 最大 100 |
+| 参数                | 类型    | 必填 | 默认 | 说明            |
+| ------------------- | ------- | ---- | ---- | --------------- |
+| folder_node_id      | string  | 否   | null | scope=DASHBOARD |
+| include_descendants | boolean | 否   | true | -               |
+| keyword             | string  | 否   | null | -               |
+| page                | int     | 否   | 1    | -               |
+| page_size           | int     | 否   | 20   | 最大 200        |
 
 #### 9.5.3.2 POST /api/dashboards
 
 Body：name、folder_node_id、description（可选）
 
 行为：
-1) 创建 dashboard  
-2) 创建资源树叶子节点并绑定 dashboard_id  
+
+1. 创建 dashboard
+2. 创建资源树叶子节点并绑定 dashboard_id
 
 错误码：
+
 - DASHBOARD_NAME_DUPLICATE
 - DASHBOARD_FORBIDDEN_CREATE
 - RESOURCE_NODE_SCOPE_MISMATCH
@@ -5497,11 +5937,13 @@ Body：name、folder_node_id、description（可选）
 #### 9.5.3.3 GET /api/dashboards/{dashboard_id}
 
 返回：
+
 - dashboard（含 layout_json、auto_refresh）
 - items（dashboard_item 列表）
 - charts（批量返回 items 引用的 charts，便于前端一次拿齐配置）
 
 错误码：
+
 - DASHBOARD_NOT_FOUND
 - DASHBOARD_FORBIDDEN
 - INTERNAL_ERROR
@@ -5511,9 +5953,11 @@ Body：name、folder_node_id、description（可选）
 可更新：name/description/auto_refresh/auto_refresh_interval_min
 
 强校验：
+
 - filters_json 若出现且非空：拒绝（DASHBOARD_FILTERS_NOT_SUPPORTED）
 
 错误码：
+
 - DASHBOARD_NOT_FOUND
 - DASHBOARD_FORBIDDEN
 - DASHBOARD_FILTERS_NOT_SUPPORTED
@@ -5527,13 +5971,15 @@ Body：name、folder_node_id、description（可选）
 Body：chart_id
 
 行为：
-1) 校验用户对 dashboard 有 DASHBOARD>=EDIT  
-2) 校验 chart 可访问（DATASET>=VIEW）  
-3) 创建 dashboard_item  
-4) chart.ref_count +1  
-5) 返回 dashboard_item_id（默认位置由前端后续提交 layout）
+
+1. 校验用户对 dashboard 有 DASHBOARD>=EDIT
+2. 校验 chart 可访问（DATASET>=VIEW）
+3. 创建 dashboard_item
+4. chart.ref_count +1
+5. 返回 dashboard_item_id（默认位置由前端后续提交 layout）
 
 错误码：
+
 - DASHBOARD_NOT_FOUND
 - DASHBOARD_FORBIDDEN
 - CHART_NOT_FOUND
@@ -5544,11 +5990,13 @@ Body：chart_id
 #### 9.5.3.6 DELETE /api/dashboards/{dashboard_id}/items/{dashboard_item_id}
 
 行为：
-1) 删除 dashboard_item  
-2) 从 dashboard.layout_json.items 中移除对应项（若存在）  
-3) chart.ref_count -1
+
+1. 删除 dashboard_item
+2. 从 dashboard.layout_json.items 中移除对应项（若存在）
+3. chart.ref_count -1
 
 错误码：
+
 - DASHBOARD_NOT_FOUND
 - DASHBOARD_FORBIDDEN
 - DASHBOARD_ITEM_NOT_FOUND
@@ -5559,6 +6007,7 @@ Body：chart_id
 Body：layout_json（必须）
 
 校验（与 PRD layout_json schema 对齐）：
+
 - version=1
 - cols 固定为 24（V1）
 - items 数量 <= 50
@@ -5569,12 +6018,11 @@ Body：layout_json（必须）
 - x + w <= cols
 
 错误码：
+
 - DASHBOARD_NOT_FOUND
 - DASHBOARD_FORBIDDEN
 - DASHBOARD_LAYOUT_INVALID
 - INTERNAL_ERROR
-
-
 
 #### 9.5.3.X POST /api/dashboards/{dashboard_id}/items
 
@@ -5582,22 +6030,24 @@ Body：layout_json（必须）
 
 Body：
 
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| chart_id | string | 是 | 目标图表 |
-| title_override | string | 否 | 局部标题覆盖 |
-| note | string | 否 | 局部备注 |
+| 字段           | 类型   | 必填 | 说明         |
+| -------------- | ------ | ---- | ------------ |
+| chart_id       | string | 是   | 目标图表     |
+| title_override | string | 否   | 局部标题覆盖 |
+| note           | string | 否   | 局部备注     |
 
 行为：
-1) 校验 dashboard 存在且可编辑（DASHBOARD>=EDIT）
-2) 校验 chart 存在且可访问（CHART>=VIEW）
-3) 校验 dashboard 当前 item 数量 < 50（上限由 PRD 固定）
-4) 创建 dashboard_item
-5) chart.ref_count += 1
-6) 返回 dashboard_item_id
-7) **位置/尺寸不在本接口写入**：前端必须随后调用 `PUT /api/dashboards/{dashboard_id}/layout` 保存布局
+
+1. 校验 dashboard 存在且可编辑（DASHBOARD>=EDIT）
+2. 校验 chart 存在且可访问（CHART>=VIEW）
+3. 校验 dashboard 当前 item 数量 < 50（上限由 PRD 固定）
+4. 创建 dashboard_item
+5. chart.ref_count += 1
+6. 返回 dashboard_item_id
+7. **位置/尺寸不在本接口写入**：前端必须随后调用 `PUT /api/dashboards/{dashboard_id}/layout` 保存布局
 
 错误码（至少）：
+
 - DASHBOARD_NOT_FOUND
 - DASHBOARD_FORBIDDEN
 - CHART_NOT_FOUND
@@ -5612,16 +6062,18 @@ Body：
 
 Body（至少包含一个字段）：
 
-| 字段 | 类型 | 必填 |
-| --- | --- | --- |
-| title_override | string | 否 |
-| note | string | 否 |
+| 字段           | 类型   | 必填 |
+| -------------- | ------ | ---- |
+| title_override | string | 否   |
+| note           | string | 否   |
 
 规则：
+
 - 仅更新 dashboard_item，不影响 chart
 - 允许空字符串（表示清空）
 
 错误码：
+
 - DASHBOARD_NOT_FOUND
 - DASHBOARD_FORBIDDEN
 - DASHBOARD_ITEM_NOT_FOUND
@@ -5633,14 +6085,16 @@ Body（至少包含一个字段）：
 用途：从仪表盘移除一个卡片
 
 行为：
-1) 校验 dashboard 可编辑
-2) 校验 dashboard_item 属于该 dashboard
-3) 删除 dashboard_item
-4) chart.ref_count -= 1
-5) 后端必须同步更新 dashboard.layout_json：剔除 items[].id=dashboard_item_id
-6) 写审计：REMOVE_DASHBOARD_ITEM
+
+1. 校验 dashboard 可编辑
+2. 校验 dashboard_item 属于该 dashboard
+3. 删除 dashboard_item
+4. chart.ref_count -= 1
+5. 后端必须同步更新 dashboard.layout_json：剔除 items[].id=dashboard_item_id
+6. 写审计：REMOVE_DASHBOARD_ITEM
 
 错误码：
+
 - DASHBOARD_NOT_FOUND
 - DASHBOARD_FORBIDDEN
 - DASHBOARD_ITEM_NOT_FOUND
@@ -5652,56 +6106,54 @@ Body（至少包含一个字段）：
 - PRD 的打开/渲染流程为“前端并发拉取 dashboard_items + charts + chart preview”，因此 V1 **不对外提供** `POST /api/dashboards/{dashboard_id}/render`。
 - 若后续需要做服务端聚合优化，可作为内部接口实现，但不得作为对外稳定 API（避免与前端渲染职责冲突）。
 
-
 ### 9.5.4 表结构
 
 #### 9.5.4.1 表：dashboard
 
-| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
-| --- | --- | --- | --- | --- | --- |
-| dashboard_id | string | 系统 | 创建 | 否 | CREATE_DASHBOARD |
-| tenant_id | string | TenantContext | 创建 | 否 | - |
-| resource_node_id | string | 系统 | 创建 | 否 | - |
-| name | string | 前端 | 创建/更新 | 是 | UPDATE_DASHBOARD |
-| description | string | 前端 | 创建/更新 | 是 | UPDATE_DASHBOARD |
-| filters_json | json | 系统 | 创建/更新 | 否（V1 固定空） | - |
-| layout_json | json | 前端 | 更新布局 | 是 | UPDATE_DASHBOARD_LAYOUT |
-| auto_refresh | boolean | 前端 | 更新 | 是 | UPDATE_DASHBOARD |
-| auto_refresh_interval_min | int | 前端 | 更新 | 是 | UPDATE_DASHBOARD |
-| created_by/updated_by | string | TenantUser | 创建/更新 | 否 | - |
-| created_at/updated_at | datetime | 系统 | 创建/更新 | 否 | - |
+| 字段                      | 类型     | 来源          | 更新时机  | 可编辑          | 审计策略                |
+| ------------------------- | -------- | ------------- | --------- | --------------- | ----------------------- |
+| dashboard_id              | string   | 系统          | 创建      | 否              | CREATE_DASHBOARD        |
+| tenant_id                 | string   | TenantContext | 创建      | 否              | -                       |
+| resource_node_id          | string   | 系统          | 创建      | 否              | -                       |
+| name                      | string   | 前端          | 创建/更新 | 是              | UPDATE_DASHBOARD        |
+| description               | string   | 前端          | 创建/更新 | 是              | UPDATE_DASHBOARD        |
+| filters_json              | json     | 系统          | 创建/更新 | 否（V1 固定空） | -                       |
+| layout_json               | json     | 前端          | 更新布局  | 是              | UPDATE_DASHBOARD_LAYOUT |
+| auto_refresh              | boolean  | 前端          | 更新      | 是              | UPDATE_DASHBOARD        |
+| auto_refresh_interval_min | int      | 前端          | 更新      | 是              | UPDATE_DASHBOARD        |
+| created_by/updated_by     | string   | TenantUser    | 创建/更新 | 否              | -                       |
+| created_at/updated_at     | datetime | 系统          | 创建/更新 | 否              | -                       |
 
 #### 9.5.4.2 表：dashboard_item
 
-| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
-| --- | --- | --- | --- | --- | --- |
-| dashboard_item_id | string | 系统 | 添加图表 | 否 | ADD_DASHBOARD_ITEM |
-| tenant_id | string | TenantContext | 创建 | 否 | - |
-| dashboard_id | string | 系统 | 创建 | 否 | - |
-| chart_id | string | 前端 | 创建 | 否 | - |
-| created_by | string | TenantUser | 创建 | 否 | - |
-| created_at | datetime | 系统 | 创建 | 否 | - |
+| 字段              | 类型     | 来源          | 更新时机 | 可编辑 | 审计策略           |
+| ----------------- | -------- | ------------- | -------- | ------ | ------------------ |
+| dashboard_item_id | string   | 系统          | 添加图表 | 否     | ADD_DASHBOARD_ITEM |
+| tenant_id         | string   | TenantContext | 创建     | 否     | -                  |
+| dashboard_id      | string   | 系统          | 创建     | 否     | -                  |
+| chart_id          | string   | 前端          | 创建     | 否     | -                  |
+| created_by        | string   | TenantUser    | 创建     | 否     | -                  |
+| created_at        | datetime | 系统          | 创建     | 否     | -                  |
 
 ---
-
-
 
 #### 9.5.4.2 表：dashboard_item
 
 > 说明：dashboard_item 只负责“引用关系 + 局部展示覆盖”，**位置与尺寸仅存于 dashboard.layout_json**（唯一真实来源）。
 
-| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
-| --- | --- | --- | --- | --- | --- |
-| dashboard_item_id | string | 系统 | 创建 | 否 | ADD_DASHBOARD_ITEM |
-| tenant_id | string | TenantContext | 创建 | 否 | - |
-| dashboard_id | string | 前端 | 创建 | 否 | - |
-| chart_id | string | 前端 | 创建 | 否 | - |
-| title_override | string | 前端 | 创建/更新 | 是 | UPDATE_DASHBOARD_ITEM |
-| note | string | 前端 | 创建/更新 | 是 | UPDATE_DASHBOARD_ITEM |
-| created_by/updated_by | string | TenantUser | 创建/更新 | 否 | - |
-| created_at/updated_at | datetime | 系统 | 创建/更新 | 否 | - |
+| 字段                  | 类型     | 来源          | 更新时机  | 可编辑 | 审计策略              |
+| --------------------- | -------- | ------------- | --------- | ------ | --------------------- |
+| dashboard_item_id     | string   | 系统          | 创建      | 否     | ADD_DASHBOARD_ITEM    |
+| tenant_id             | string   | TenantContext | 创建      | 否     | -                     |
+| dashboard_id          | string   | 前端          | 创建      | 否     | -                     |
+| chart_id              | string   | 前端          | 创建      | 否     | -                     |
+| title_override        | string   | 前端          | 创建/更新 | 是     | UPDATE_DASHBOARD_ITEM |
+| note                  | string   | 前端          | 创建/更新 | 是     | UPDATE_DASHBOARD_ITEM |
+| created_by/updated_by | string   | TenantUser    | 创建/更新 | 否     | -                     |
+| created_at/updated_at | datetime | 系统          | 创建/更新 | 否     | -                     |
 
 一致性规则（必须实现）：
+
 1. 新增 item：
    - 插入 dashboard_item
    - 同步 `chart.ref_count += 1`
@@ -5730,18 +6182,20 @@ Body（至少包含一个字段）：
 
 Body：
 
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| export_type | enum(DATA/IMAGE) | 是 | - |
-| format | enum(CSV/PNG) | 是 | - |
+| 字段        | 类型             | 必填 | 说明 |
+| ----------- | ---------------- | ---- | ---- |
+| export_type | enum(DATA/IMAGE) | 是   | -    |
+| format      | enum(CSV/PNG)    | 是   | -    |
 
 流程：
-1) 校验 chart 可访问  
-2) 创建 export_job（PENDING）  
-3) 提交 TaskRunInstance（task_type=EXPORT, task_id=export_job_id）  
-4) 返回 export_job_id  
+
+1. 校验 chart 可访问
+2. 创建 export_job（PENDING）
+3. 提交 TaskRunInstance（task_type=EXPORT, task_id=export_job_id）
+4. 返回 export_job_id
 
 错误码：
+
 - CHART_NOT_FOUND
 - CHART_FORBIDDEN
 - EXPORT_TYPE_NOT_SUPPORTED
@@ -5762,19 +6216,19 @@ Body：
 
 #### 表：export_job
 
-| 字段 | 类型 | 来源 | 更新时机 | 可编辑 | 审计策略 |
-| --- | --- | --- | --- | --- | --- |
-| export_job_id | string | 系统 | 创建 | 否 | CREATE_EXPORT |
-| tenant_id | string | TenantContext | 创建 | 否 | - |
-| object_type | enum(CHART) | 系统 | 创建 | 否 | - |
-| object_id | string | chart_id | 创建 | 否 | - |
-| export_type | enum(DATA/IMAGE) | 前端 | 创建 | 否 | - |
-| format | enum(CSV/PNG) | 前端 | 创建 | 否 | - |
-| status | enum(PENDING/RUNNING/SUCCESS/FAILED) | 系统 | 运行/结束 | 否 | - |
-| file_url | string | 系统 | 成功结束 | 否 | - |
-| error_message | string | 系统 | 失败结束 | 否 | - |
-| created_by | string | TenantUser | 创建 | 否 | - |
-| created_at/updated_at | datetime | 系统 | 创建/更新 | 否 | - |
+| 字段                  | 类型                                 | 来源          | 更新时机  | 可编辑 | 审计策略      |
+| --------------------- | ------------------------------------ | ------------- | --------- | ------ | ------------- |
+| export_job_id         | string                               | 系统          | 创建      | 否     | CREATE_EXPORT |
+| tenant_id             | string                               | TenantContext | 创建      | 否     | -             |
+| object_type           | enum(CHART)                          | 系统          | 创建      | 否     | -             |
+| object_id             | string                               | chart_id      | 创建      | 否     | -             |
+| export_type           | enum(DATA/IMAGE)                     | 前端          | 创建      | 否     | -             |
+| format                | enum(CSV/PNG)                        | 前端          | 创建      | 否     | -             |
+| status                | enum(PENDING/RUNNING/SUCCESS/FAILED) | 系统          | 运行/结束 | 否     | -             |
+| file_url              | string                               | 系统          | 成功结束  | 否     | -             |
+| error_message         | string                               | 系统          | 失败结束  | 否     | -             |
+| created_by            | string                               | TenantUser    | 创建      | 否     | -             |
+| created_at/updated_at | datetime                             | 系统          | 创建/更新 | 否     | -             |
 
 ---
 
@@ -5841,6 +6295,7 @@ end
 - Dataset last_success_at 为空或 dataset_table 不存在时：
   - 禁止 Chart 保存（返回 DATASET_NOT_READY）
   - 禁止 Chart preview/export（返回 DATASET_NOT_READY）
+
 # 10 审计模块（Audit Logs）
 
 ## 10.0 章节定位与目标
@@ -5916,8 +6371,8 @@ end
 | FLOW          | 任务流                     |                  flow.id |
 | FLOW_RUN      | 运行实例                   |              flow_run.id |
 | DATASET       | 数据集                     |               dataset.id |
-| DASHBOARD         | 看板                       |                 board.id |
-| CHART        | 看板组件                   |          board_widget.id |
+| DASHBOARD     | 看板                       |                 board.id |
+| CHART         | 看板组件                   |          board_widget.id |
 | EXPORT_JOB    | 导出任务                   |     report_export_job.id |
 | QUERY_RUN     | 查询执行记录               | query_run.id（若已实现） |
 | TENANT        | 租户（平台后台使用）       |        tenant.id（可选） |
@@ -6149,7 +6604,7 @@ participant "PermissionService" as PS
 participant "AuditRepo" as AR
 
 User -> UI : 打开审计日志
-UI -> API : GET /api/audit-logs?...
+UI -> API : GET /api/audit-logs
 API -> PS : assert owner (tenant)
 PS --> API : ok
 API -> AR : query list (tenant_id + filters)
@@ -6234,7 +6689,7 @@ JOB -> JOB : write SYSTEM audit (optional)
 **权限：**
 
 - 仅允许 `tenant_user.is_owner=1` 访问；
-- 其它角色一律返回 `AUDIT__NO_PERMISSION`。
+- 其它角色一律返回 `AUDIT_NO_PERMISSION`。
 
 **入参（Query）**
 
@@ -6280,18 +6735,18 @@ JOB -> JOB : write SYSTEM audit (optional)
 **校验规则与异常分支（必须覆盖）**
 
 1. 权限校验：
-   - 若当前 tenant_user 非 owner：`AUDIT__NO_PERMISSION`。
+   - 若当前 tenant_user 非 owner：`AUDIT_NO_PERMISSION`。
 2. 时间范围校验：
    - start_time/end_time 必填；
-   - start_time > end_time：`AUDIT__INVALID_TIME_RANGE`；
-   - 查询跨度 > 90 天：`AUDIT__INVALID_TIME_RANGE`（避免全表扫描）。
+   - start_time > end_time：`AUDIT_INVALID_TIME_RANGE`；
+   - 查询跨度 > 90 天：`AUDIT_INVALID_TIME_RANGE`（避免全表扫描）。
 3. 枚举校验：
-   - module/action/target_type 若提供，必须在枚举表中：否则 `AUDIT__INVALID_PARAM`。
+   - module/action/target_type 若提供，必须在枚举表中：否则 `AUDIT_INVALID_PARAM`。
 4. page_size 校验：
-   - page_size>200：`AUDIT__PAGE_SIZE_TOO_LARGE`。
+   - page_size>200：`AUDIT_PAGE_SIZE_TOO_LARGE`。
 5. keyword 校验：
-   - 长度>100：`AUDIT__INVALID_PARAM`。
-6. DB 异常：`DB__ERROR`。
+   - 长度>100：`AUDIT_INVALID_PARAM`。
+6. DB 异常：`DB_ERROR`。
 
 **错误码**
 
@@ -6305,16 +6760,16 @@ JOB -> JOB : write SYSTEM audit (optional)
 
 ```python
 def list_audit_logs(ctx, q):
-    permission_service.assert_owner(ctx.tenant_id, ctx.tenant_user_id)  # raises AUDIT__NO_PERMISSION
+    permission_service.assert_owner(ctx.tenant_id, ctx.tenant_user_id)  # raises AUDIT_NO_PERMISSION
 
     start, end = parse_time(q.start_time), parse_time(q.end_time)
-    if start > end: raise Err("AUDIT__INVALID_TIME_RANGE")
-    if (end - start).days > 90: raise Err("AUDIT__INVALID_TIME_RANGE")
+    if start > end: raise Err("AUDIT_INVALID_TIME_RANGE")
+    if (end - start).days > 90: raise Err("AUDIT_INVALID_TIME_RANGE")
 
-    if q.module and q.module not in AUDIT_MODULES: raise Err("AUDIT__INVALID_PARAM")
-    if q.action and q.action not in ACTION_TYPES: raise Err("AUDIT__INVALID_PARAM")
-    if q.target_type and q.target_type not in TARGET_TYPES: raise Err("AUDIT__INVALID_PARAM")
-    if q.page_size and q.page_size > 200: raise Err("AUDIT__PAGE_SIZE_TOO_LARGE")
+    if q.module and q.module not in AUDIT_MODULES: raise Err("AUDIT_INVALID_PARAM")
+    if q.action and q.action not in ACTION_TYPES: raise Err("AUDIT_INVALID_PARAM")
+    if q.target_type and q.target_type not in TARGET_TYPES: raise Err("AUDIT_INVALID_PARAM")
+    if q.page_size and q.page_size > 200: raise Err("AUDIT_PAGE_SIZE_TOO_LARGE")
 
     return audit_repo.page_query(
         tenant_id=ctx.tenant_id,
@@ -6362,7 +6817,7 @@ def list_audit_logs(ctx, q):
     "metrics": { "duration_ms": 120 }
   },
   "result": "FAILED",
-  "error_code": "MODEL__FIELD_REFERENCED",
+  "error_code": "MODEL_FIELD_REFERENCED",
   "error_message": "字段被数据集引用，禁止删除",
   "actor_tenant_user_id": 100,
   "actor_display_name": "李四",
@@ -6373,8 +6828,8 @@ def list_audit_logs(ctx, q):
 **校验与异常分支**
 
 1. 校验 Owner 权限；
-2. audit_id 必须属于当前 tenant_id，否则返回 `AUDIT__NOT_FOUND`；
-3. DB 异常：`DB__ERROR`。
+2. audit_id 必须属于当前 tenant_id，否则返回 `AUDIT_NOT_FOUND`；
+3. DB 异常：`DB_ERROR`。
 
 **错误码**
 
@@ -6388,7 +6843,7 @@ def list_audit_logs(ctx, q):
 def get_audit_log_detail(ctx, audit_id):
     permission_service.assert_owner(ctx.tenant_id, ctx.tenant_user_id)
     log = audit_repo.get_by_id(tenant_id=ctx.tenant_id, audit_id=audit_id)
-    if not log: raise Err("AUDIT__NOT_FOUND")
+    if not log: raise Err("AUDIT_NOT_FOUND")
     return log
 ```
 
@@ -6484,8 +6939,8 @@ def get_audit_log_detail(ctx, audit_id):
 
 **异常分支**
 
-- 非平台管理员：`PLATFORM__NO_PERMISSION`
-- 时间范围非法：`AUDIT__INVALID_TIME_RANGE`
+- 非平台管理员：`PLATFORM_NO_PERMISSION`
+- 时间范围非法：`AUDIT_INVALID_TIME_RANGE`
 - tenant_id 不存在：本接口不强制校验（允许查询空结果）
 
 ---
@@ -6498,8 +6953,8 @@ def get_audit_log_detail(ctx, audit_id):
 
 **异常分支**
 
-- 非平台管理员：`PLATFORM__NO_PERMISSION`
-- audit_id 不存在：`AUDIT__NOT_FOUND`
+- 非平台管理员：`PLATFORM_NO_PERMISSION`
+- audit_id 不存在：`AUDIT_NOT_FOUND`
 
 ---
 

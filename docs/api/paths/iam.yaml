@@ -2,164 +2,780 @@ p__api__permissions__grants:
   post:
     tags:
     - IAM
-    summary: POST /api/permissions/grants
+    summary: 创建/更新授权
     operationId: post_api_permissions_grants
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_permissions_grants
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: ../components/schemas.yaml#/Req_post_api_permissions_grants
-    responses:
-      '200':
-        description: OK
-        content:
-          application/json:
-            schema:
-              $ref: ../components/schemas.yaml#/Envelope_post_api_permissions_grants
-      '400':
-        $ref: ../components/responses.yaml#/BadRequest
-      '401':
-        $ref: ../components/responses.yaml#/Unauthorized
-      '403':
-        $ref: ../components/responses.yaml#/Forbidden
-      '404':
-        $ref: ../components/responses.yaml#/NotFound
-      '409':
-        $ref: ../components/responses.yaml#/Conflict
-      '500':
-        $ref: ../components/responses.yaml#/InternalError
+            $ref: '#/components/schemas/Req_post_api_permissions_grants'
 p__api__permissions__grants__grant_id:
-  parameters:
-  - name: grant_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   delete:
     tags:
     - IAM
-    summary: DELETE /api/permissions/grants/{grant_id}
+    summary: 撤销授权
     operationId: delete_api_permissions_grants_grant_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: grant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_delete_api_permissions_grants_grant_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_permissions_grants_grant_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
 p__api__permissions__resources__resource_node_id:
-  parameters:
-  - name: resource_node_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
   get:
     tags:
     - IAM
-    summary: GET /api/permissions/resources/{resource_node_id}
+    summary: 权限面板数据
     operationId: get_api_permissions_resources_resource_node_id
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: resource_node_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_permissions_resources_resource_node_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_permissions_resources_resource_node_id
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
-p__api__platform__audit_logs:
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__api__tenants__tenant_id__roles:
   get:
     tags:
     - IAM
-    summary: GET /api/platform/audit-logs
-    operationId: get_api_platform_audit_logs
+    summary: 角色列表
+    operationId: get_api_tenants_tenant_id_roles
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
-    - $ref: ../components/parameters.yaml#/Page
-    - $ref: ../components/parameters.yaml#/PageSize
-    - $ref: ../components/parameters.yaml#/Keyword
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - $ref: ../openapi.yaml#/components/parameters/PageParam
+    - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
+    - $ref: ../openapi.yaml#/components/parameters/SortByParam
+    - $ref: ../openapi.yaml#/components/parameters/SortOrderParam
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_platform_audit_logs
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_tenants_tenant_id_roles
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
-p__api__platform__audit_logs__audit_id:
-  parameters:
-  - name: audit_id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Path parameter (placeholder type).
+        $ref: ../openapi.yaml#/components/responses/InternalError
+  post:
+    tags:
+    - IAM
+    summary: 创建角色
+    operationId: post_api_tenants_tenant_id_roles
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_tenants_tenant_id_roles
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Req_post_api_tenants_tenant_id_roles'
+p__api__tenants__tenant_id__roles__role_id:
+  delete:
+    tags:
+    - IAM
+    summary: 删除角色
+    operationId: delete_api_tenants_tenant_id_roles_role_id
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: role_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_tenants_tenant_id_roles_role_id
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+  patch:
+    tags:
+    - IAM
+    summary: 更新角色
+    operationId: patch_api_tenants_tenant_id_roles_role_id
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: role_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_tenants_tenant_id_roles_role_id
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Req_patch_api_tenants_tenant_id_roles_role_id'
+p__api__tenants__tenant_id__roles__role_id__resource-permissions:
   get:
     tags:
     - IAM
-    summary: GET /api/platform/audit-logs/{audit_id}
-    operationId: get_api_platform_audit_logs_audit_id
+    summary: 查询角色资源授权
+    operationId: get_api_tenants_tenant_id_roles_role_id_resource_permissions
     parameters:
-    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: role_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../components/schemas.yaml#/Envelope_get_api_platform_audit_logs_audit_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_tenants_tenant_id_roles_role_id_resource_permissions
       '400':
-        $ref: ../components/responses.yaml#/BadRequest
+        $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
-        $ref: ../components/responses.yaml#/Unauthorized
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
       '403':
-        $ref: ../components/responses.yaml#/Forbidden
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '404':
-        $ref: ../components/responses.yaml#/NotFound
+        $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
-        $ref: ../components/responses.yaml#/Conflict
+        $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
-        $ref: ../components/responses.yaml#/InternalError
+        $ref: ../openapi.yaml#/components/responses/InternalError
+  put:
+    tags:
+    - IAM
+    summary: 保存角色资源授权
+    operationId: put_api_tenants_tenant_id_roles_role_id_resource_permissions
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: role_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_put_api_tenants_tenant_id_roles_role_id_resource_permissions
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Req_put_api_tenants_tenant_id_roles_role_id_resource_permissions'
+p__api__tenants__tenant_id__tables__table_id__column-permissions:
+  get:
+    tags:
+    - IAM
+    summary: 字段权限查询
+    operationId: get_api_tenants_tenant_id_tables_table_id_column_permissions
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_tenants_tenant_id_tables_table_id_column_permissions
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+  put:
+    tags:
+    - IAM
+    summary: 字段权限保存
+    operationId: put_api_tenants_tenant_id_tables_table_id_column_permissions
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_put_api_tenants_tenant_id_tables_table_id_column_permissions
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Req_put_api_tenants_tenant_id_tables_table_id_column_permissions'
+p__api__tenants__tenant_id__tables__table_id__row-permissions:
+  get:
+    tags:
+    - IAM
+    summary: 行权限查询
+    operationId: get_api_tenants_tenant_id_tables_table_id_row_permissions
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_tenants_tenant_id_tables_table_id_row_permissions
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+  post:
+    tags:
+    - IAM
+    summary: 创建行权限
+    operationId: post_api_tenants_tenant_id_tables_table_id_row_permissions
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_tenants_tenant_id_tables_table_id_row_permissions
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Req_post_api_tenants_tenant_id_tables_table_id_row_permissions'
+p__api__tenants__tenant_id__tables__table_id__row-permissions__row_perm_id:
+  delete:
+    tags:
+    - IAM
+    summary: 删除行权限
+    operationId: delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: row_perm_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+  patch:
+    tags:
+    - IAM
+    summary: 更新行权限
+    operationId: patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: table_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: row_perm_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Req_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id'
+p__api__tenants__tenant_id__users__tenant_user_id__owner:
+  delete:
+    tags:
+    - IAM
+    summary: 取消 Owner
+    operationId: delete_api_tenants_tenant_id_users_tenant_user_id_owner
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: tenant_user_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_tenants_tenant_id_users_tenant_user_id_owner
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+  post:
+    tags:
+    - IAM
+    summary: 设为 Owner
+    operationId: post_api_tenants_tenant_id_users_tenant_user_id_owner
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: tenant_user_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_tenants_tenant_id_users_tenant_user_id_owner
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__api__tenants__tenant_id__users__tenant_user_id__roles:
+  post:
+    tags:
+    - IAM
+    summary: 绑定角色
+    operationId: post_api_tenants_tenant_id_users_tenant_user_id_roles
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: tenant_user_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_tenants_tenant_id_users_tenant_user_id_roles
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__api__tenants__tenant_id__users__tenant_user_id__roles__role_id:
+  delete:
+    tags:
+    - IAM
+    summary: 解绑角色
+    operationId: delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: tenant_user_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    - name: role_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
