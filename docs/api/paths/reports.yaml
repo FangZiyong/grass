@@ -1,0 +1,547 @@
+p__api__charts:
+  get:
+    tags:
+    - Reports
+    summary: GET /api/charts
+    operationId: get_api_charts
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../components/parameters.yaml#/Page
+    - $ref: ../components/parameters.yaml#/PageSize
+    - $ref: ../components/parameters.yaml#/Keyword
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_charts
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  post:
+    tags:
+    - Reports
+    summary: POST /api/charts
+    operationId: post_api_charts
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_charts
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_charts
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__charts__preview:
+  post:
+    tags:
+    - Reports
+    summary: POST /api/charts/preview
+    operationId: post_api_charts_preview
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_charts_preview
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_charts_preview
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__charts__chart_id:
+  parameters:
+  - name: chart_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  delete:
+    tags:
+    - Reports
+    summary: DELETE /api/charts/{chart_id}
+    operationId: delete_api_charts_chart_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_delete_api_charts_chart_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  get:
+    tags:
+    - Reports
+    summary: GET /api/charts/{chart_id}
+    operationId: get_api_charts_chart_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_charts_chart_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  patch:
+    tags:
+    - Reports
+    summary: PATCH /api/charts/{chart_id}
+    operationId: patch_api_charts_chart_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_patch_api_charts_chart_id
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_patch_api_charts_chart_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__charts__chart_id__exports:
+  parameters:
+  - name: chart_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  post:
+    tags:
+    - Reports
+    summary: POST /api/charts/{chart_id}/exports
+    operationId: post_api_charts_chart_id_exports
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_charts_chart_id_exports
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_charts_chart_id_exports
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__dashboards:
+  get:
+    tags:
+    - Reports
+    summary: GET /api/dashboards
+    operationId: get_api_dashboards
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../components/parameters.yaml#/Page
+    - $ref: ../components/parameters.yaml#/PageSize
+    - $ref: ../components/parameters.yaml#/Keyword
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_dashboards
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  post:
+    tags:
+    - Reports
+    summary: POST /api/dashboards
+    operationId: post_api_dashboards
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_dashboards
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_dashboards
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__dashboards__dashboard_id:
+  parameters:
+  - name: dashboard_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  get:
+    tags:
+    - Reports
+    summary: GET /api/dashboards/{dashboard_id}
+    operationId: get_api_dashboards_dashboard_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_dashboards_dashboard_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  patch:
+    tags:
+    - Reports
+    summary: PATCH /api/dashboards/{dashboard_id}
+    operationId: patch_api_dashboards_dashboard_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_patch_api_dashboards_dashboard_id
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_patch_api_dashboards_dashboard_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__dashboards__dashboard_id__items:
+  parameters:
+  - name: dashboard_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  post:
+    tags:
+    - Reports
+    summary: POST /api/dashboards/{dashboard_id}/items
+    operationId: post_api_dashboards_dashboard_id_items
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_dashboards_dashboard_id_items
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_dashboards_dashboard_id_items
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__dashboards__dashboard_id__items__dashboard_item_id:
+  parameters:
+  - name: dashboard_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  - name: dashboard_item_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  delete:
+    tags:
+    - Reports
+    summary: DELETE /api/dashboards/{dashboard_id}/items/{dashboard_item_id}
+    operationId: delete_api_dashboards_dashboard_id_items_dashboard_item_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_delete_api_dashboards_dashboard_id_items_dashboard_item_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+  patch:
+    tags:
+    - Reports
+    summary: PATCH /api/dashboards/{dashboard_id}/items/{dashboard_item_id}
+    operationId: patch_api_dashboards_dashboard_id_items_dashboard_item_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_patch_api_dashboards_dashboard_id_items_dashboard_item_id
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_patch_api_dashboards_dashboard_id_items_dashboard_item_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__dashboards__dashboard_id__layout:
+  parameters:
+  - name: dashboard_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  put:
+    tags:
+    - Reports
+    summary: PUT /api/dashboards/{dashboard_id}/layout
+    operationId: put_api_dashboards_dashboard_id_layout
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_put_api_dashboards_dashboard_id_layout
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_put_api_dashboards_dashboard_id_layout
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__dashboards__dashboard_id__render:
+  parameters:
+  - name: dashboard_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  post:
+    tags:
+    - Reports
+    summary: POST /api/dashboards/{dashboard_id}/render
+    operationId: post_api_dashboards_dashboard_id_render
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas.yaml#/Req_post_api_dashboards_dashboard_id_render
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_post_api_dashboards_dashboard_id_render
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError

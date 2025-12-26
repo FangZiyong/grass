@@ -1,0 +1,124 @@
+p__api__audit_logs:
+  get:
+    tags:
+    - AuditLogs
+    summary: GET /api/audit-logs
+    operationId: get_api_audit_logs
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../components/parameters.yaml#/Page
+    - $ref: ../components/parameters.yaml#/PageSize
+    - $ref: ../components/parameters.yaml#/Keyword
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_audit_logs
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__audit_logs__meta__actions:
+  get:
+    tags:
+    - AuditLogs
+    summary: GET /api/audit-logs/meta/actions
+    operationId: get_api_audit_logs_meta_actions
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../components/parameters.yaml#/Page
+    - $ref: ../components/parameters.yaml#/PageSize
+    - $ref: ../components/parameters.yaml#/Keyword
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_audit_logs_meta_actions
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__audit_logs__meta__target_types:
+  get:
+    tags:
+    - AuditLogs
+    summary: GET /api/audit-logs/meta/target-types
+    operationId: get_api_audit_logs_meta_target_types
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    - $ref: ../components/parameters.yaml#/Page
+    - $ref: ../components/parameters.yaml#/PageSize
+    - $ref: ../components/parameters.yaml#/Keyword
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_audit_logs_meta_target_types
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError
+p__api__audit_logs__audit_id:
+  parameters:
+  - name: audit_id
+    in: path
+    required: true
+    schema:
+      type: string
+    description: Path parameter (placeholder type).
+  get:
+    tags:
+    - AuditLogs
+    summary: GET /api/audit-logs/{audit_id}
+    operationId: get_api_audit_logs_audit_id
+    parameters:
+    - $ref: ../components/parameters.yaml#/XTenantId
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../components/schemas.yaml#/Envelope_get_api_audit_logs_audit_id
+      '400':
+        $ref: ../components/responses.yaml#/BadRequest
+      '401':
+        $ref: ../components/responses.yaml#/Unauthorized
+      '403':
+        $ref: ../components/responses.yaml#/Forbidden
+      '404':
+        $ref: ../components/responses.yaml#/NotFound
+      '409':
+        $ref: ../components/responses.yaml#/Conflict
+      '500':
+        $ref: ../components/responses.yaml#/InternalError

@@ -1,0 +1,2047 @@
+ApiCode:
+  type: string
+  description: Business/result code. Align with tech.md error code table.
+  example: OK
+ApiEnvelopeBase:
+  type: object
+  additionalProperties: false
+  required:
+  - success
+  - code
+  - message
+  - data
+  - trace_id
+  properties:
+    success:
+      type: boolean
+    code:
+      $ref: '#/components/schemas/ApiCode'
+    message:
+      type: string
+    data: {}
+    trace_id:
+      type: string
+      description: Request trace id for debugging
+ApiEnvelopeError:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: false
+      data:
+        nullable: true
+EmptyObject:
+  type: object
+  additionalProperties: false
+  description: Placeholder object. Replace with real DTO.
+PageResultBase:
+  type: object
+  additionalProperties: false
+  required:
+  - total
+  - items
+  properties:
+    total:
+      type: integer
+      format: int64
+      minimum: 0
+    items:
+      type: array
+      items: {}
+FilterOperator:
+  type: string
+  description: Filter operator enum placeholder
+  example: EQ
+FilterCondition:
+  type: object
+  additionalProperties: false
+  required:
+  - field
+  - operator
+  properties:
+    field:
+      type: string
+    operator:
+      $ref: '#/components/schemas/FilterOperator'
+    value: {}
+FilterGroup:
+  type: object
+  additionalProperties: false
+  required:
+  - op
+  - conditions
+  properties:
+    op:
+      type: string
+      enum:
+      - AND
+      - OR
+    conditions:
+      type: array
+      items:
+        $ref: '#/components/schemas/FilterNode'
+FilterNode:
+  oneOf:
+  - $ref: '#/components/schemas/FilterGroup'
+  - $ref: '#/components/schemas/FilterCondition'
+Res_get_api_me:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_me:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_me'
+Res_get_api_tenants:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_tenants:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_tenants'
+Req_post_api_tenants_switch:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_tenants_switch:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_tenants_switch:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_tenants_switch'
+Res_get_api_tenants_tenant_id_roles:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_tenants_tenant_id_roles:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_tenants_tenant_id_roles'
+Req_post_api_tenants_tenant_id_roles:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_tenants_tenant_id_roles:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_tenants_tenant_id_roles:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_tenants_tenant_id_roles'
+Res_delete_api_tenants_tenant_id_roles_role_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_tenants_tenant_id_roles_role_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_tenants_tenant_id_roles_role_id'
+Req_patch_api_tenants_tenant_id_roles_role_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_api_tenants_tenant_id_roles_role_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_api_tenants_tenant_id_roles_role_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_api_tenants_tenant_id_roles_role_id'
+Res_get_api_tenants_tenant_id_roles_role_id_resource_permissions:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_tenants_tenant_id_roles_role_id_resource_permissions:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_tenants_tenant_id_roles_role_id_resource_permissions'
+Req_put_api_tenants_tenant_id_roles_role_id_resource_permissions:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_put_api_tenants_tenant_id_roles_role_id_resource_permissions:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_put_api_tenants_tenant_id_roles_role_id_resource_permissions:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_put_api_tenants_tenant_id_roles_role_id_resource_permissions'
+Res_get_api_tenants_tenant_id_tables_table_id_column_permissions:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_tenants_tenant_id_tables_table_id_column_permissions:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_tenants_tenant_id_tables_table_id_column_permissions'
+Req_put_api_tenants_tenant_id_tables_table_id_column_permissions:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_put_api_tenants_tenant_id_tables_table_id_column_permissions:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_put_api_tenants_tenant_id_tables_table_id_column_permissions:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_put_api_tenants_tenant_id_tables_table_id_column_permissions'
+Res_get_api_tenants_tenant_id_tables_table_id_row_permissions:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_tenants_tenant_id_tables_table_id_row_permissions:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_tenants_tenant_id_tables_table_id_row_permissions'
+Req_post_api_tenants_tenant_id_tables_table_id_row_permissions:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_tenants_tenant_id_tables_table_id_row_permissions:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_tenants_tenant_id_tables_table_id_row_permissions:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_tenants_tenant_id_tables_table_id_row_permissions'
+Res_delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id'
+Req_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id'
+Res_delete_api_tenants_tenant_id_users_tenant_user_id_owner:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_tenants_tenant_id_users_tenant_user_id_owner:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_tenants_tenant_id_users_tenant_user_id_owner'
+Req_post_api_tenants_tenant_id_users_tenant_user_id_owner:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_tenants_tenant_id_users_tenant_user_id_owner:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_tenants_tenant_id_users_tenant_user_id_owner:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_tenants_tenant_id_users_tenant_user_id_owner'
+Req_post_api_tenants_tenant_id_users_tenant_user_id_roles:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_tenants_tenant_id_users_tenant_user_id_roles:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_tenants_tenant_id_users_tenant_user_id_roles:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_tenants_tenant_id_users_tenant_user_id_roles'
+Res_delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id'
+Req_post_api_auth_login:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_auth_login:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_auth_login:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_auth_login'
+Req_post_api_auth_logout:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_auth_logout:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_auth_logout:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_auth_logout'
+Req_post_api_auth_refresh:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_auth_refresh:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_auth_refresh:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_auth_refresh'
+Res_get_admin_api_users:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_admin_api_users:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_admin_api_users'
+Req_post_admin_api_users:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_admin_api_users:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_admin_api_users:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_admin_api_users'
+Req_patch_admin_api_users_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_admin_api_users_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_admin_api_users_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_admin_api_users_id'
+Req_post_admin_api_users_id_disable:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_admin_api_users_id_disable:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_admin_api_users_id_disable:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_admin_api_users_id_disable'
+Req_post_admin_api_users_id_enable:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_admin_api_users_id_enable:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_admin_api_users_id_enable:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_admin_api_users_id_enable'
+Req_post_admin_api_users_id_reset_password:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_admin_api_users_id_reset_password:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_admin_api_users_id_reset_password:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_admin_api_users_id_reset_password'
+Res_get_admin_api_tenants:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_admin_api_tenants:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_admin_api_tenants'
+Req_post_admin_api_tenants:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_admin_api_tenants:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_admin_api_tenants:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_admin_api_tenants'
+Req_patch_admin_api_tenants_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_admin_api_tenants_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_admin_api_tenants_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_admin_api_tenants_id'
+Req_post_admin_api_tenants_id_enable:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_admin_api_tenants_id_enable:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_admin_api_tenants_id_enable:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_admin_api_tenants_id_enable'
+Req_post_admin_api_tenants_id_suspend:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_admin_api_tenants_id_suspend:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_admin_api_tenants_id_suspend:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_admin_api_tenants_id_suspend'
+Res_get_admin_api_tenants_tenantId_users:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_admin_api_tenants_tenantId_users:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_admin_api_tenants_tenantId_users'
+Req_post_admin_api_tenants_tenantId_users:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_admin_api_tenants_tenantId_users:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_admin_api_tenants_tenantId_users:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_admin_api_tenants_tenantId_users'
+Res_delete_admin_api_tenants_tenantId_users_tenantUserId:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_admin_api_tenants_tenantId_users_tenantUserId:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_admin_api_tenants_tenantId_users_tenantUserId'
+Req_patch_admin_api_tenants_tenantId_users_tenantUserId:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_admin_api_tenants_tenantId_users_tenantUserId:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_admin_api_tenants_tenantId_users_tenantUserId:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_admin_api_tenants_tenantId_users_tenantUserId'
+Res_get_api_resource_trees_TABLE_children:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_resource_trees_TABLE_children:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_resource_trees_TABLE_children'
+Req_post_api_resource_trees_TABLE_folders:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_resource_trees_TABLE_folders:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_resource_trees_TABLE_folders:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_resource_trees_TABLE_folders'
+Req_post_api_resource_trees_TABLE_move:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_resource_trees_TABLE_move:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_resource_trees_TABLE_move:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_resource_trees_TABLE_move'
+Res_delete_api_resource_trees_TABLE_nodes_node_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_resource_trees_TABLE_nodes_node_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_resource_trees_TABLE_nodes_node_id'
+Req_patch_api_resource_trees_TABLE_nodes_node_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_api_resource_trees_TABLE_nodes_node_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_api_resource_trees_TABLE_nodes_node_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_api_resource_trees_TABLE_nodes_node_id'
+Res_get_api_resource_trees_scope_children:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_resource_trees_scope_children:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_resource_trees_scope_children'
+Req_post_api_resource_trees_scope_folders:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_resource_trees_scope_folders:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_resource_trees_scope_folders:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_resource_trees_scope_folders'
+Req_post_api_resource_trees_scope_move:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_resource_trees_scope_move:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_resource_trees_scope_move:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_resource_trees_scope_move'
+Res_delete_api_resource_trees_scope_nodes_node_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_resource_trees_scope_nodes_node_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_resource_trees_scope_nodes_node_id'
+Req_patch_api_resource_trees_scope_nodes_node_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_api_resource_trees_scope_nodes_node_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_api_resource_trees_scope_nodes_node_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_api_resource_trees_scope_nodes_node_id'
+Req_post_api_resource_trees_scope_reorder:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_resource_trees_scope_reorder:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_resource_trees_scope_reorder:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_resource_trees_scope_reorder'
+Req_post_api_query_export_csv:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_query_export_csv:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_query_export_csv:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_query_export_csv'
+Req_post_api_query_run:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_query_run:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_query_run:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_query_run'
+Req_post_api_query_validate:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_query_validate:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_query_validate:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_query_validate'
+Res_get_api_notifications:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_notifications:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_notifications'
+Req_post_api_notifications_mark_read:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_notifications_mark_read:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_notifications_mark_read:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_notifications_mark_read'
+Res_get_api_notifications_unread_count:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_notifications_unread_count:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_notifications_unread_count'
+Req_post_api_assist_code_suggest:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_assist_code_suggest:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_assist_code_suggest:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_assist_code_suggest'
+Res_get_api_modeling_tables:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_modeling_tables:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_modeling_tables'
+Req_post_api_modeling_tables:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_modeling_tables:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_modeling_tables:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_modeling_tables'
+Res_get_api_modeling_tables_ref_table_id_reference_candidates:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_modeling_tables_ref_table_id_reference_candidates:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_modeling_tables_ref_table_id_reference_candidates'
+Res_delete_api_modeling_tables_table_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_modeling_tables_table_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_modeling_tables_table_id'
+Res_get_api_modeling_tables_table_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_modeling_tables_table_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_modeling_tables_table_id'
+Req_patch_api_modeling_tables_table_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_api_modeling_tables_table_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_api_modeling_tables_table_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_api_modeling_tables_table_id'
+Req_post_api_modeling_tables_table_id_data_query:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_modeling_tables_table_id_data_query:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_modeling_tables_table_id_data_query:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_modeling_tables_table_id_data_query'
+Res_get_api_modeling_tables_table_id_fields:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_modeling_tables_table_id_fields:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_modeling_tables_table_id_fields'
+Req_post_api_modeling_tables_table_id_fields:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_modeling_tables_table_id_fields:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_modeling_tables_table_id_fields:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_modeling_tables_table_id_fields'
+Req_post_api_modeling_tables_table_id_fields_reorder:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_modeling_tables_table_id_fields_reorder:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_modeling_tables_table_id_fields_reorder:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_modeling_tables_table_id_fields_reorder'
+Res_delete_api_modeling_tables_table_id_fields_field_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_modeling_tables_table_id_fields_field_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_modeling_tables_table_id_fields_field_id'
+Req_patch_api_modeling_tables_table_id_fields_field_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_api_modeling_tables_table_id_fields_field_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_api_modeling_tables_table_id_fields_field_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_api_modeling_tables_table_id_fields_field_id'
+Req_post_api_modeling_tables_table_id_records:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_modeling_tables_table_id_records:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_modeling_tables_table_id_records:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_modeling_tables_table_id_records'
+Req_post_api_modeling_tables_table_id_records_batch_delete:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_modeling_tables_table_id_records_batch_delete:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_modeling_tables_table_id_records_batch_delete:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_modeling_tables_table_id_records_batch_delete'
+Res_delete_api_modeling_tables_table_id_records_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_modeling_tables_table_id_records_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_modeling_tables_table_id_records_id'
+Res_get_api_modeling_tables_table_id_records_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_modeling_tables_table_id_records_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_modeling_tables_table_id_records_id'
+Req_patch_api_modeling_tables_table_id_records_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_api_modeling_tables_table_id_records_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_api_modeling_tables_table_id_records_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_api_modeling_tables_table_id_records_id'
+Res_get_api_flows:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_flows:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_flows'
+Req_post_api_flows:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_flows:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_flows:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_flows'
+Res_get_api_flows_tree:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_flows_tree:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_flows_tree'
+Res_delete_api_flows_flow_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_flows_flow_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_flows_flow_id'
+Res_get_api_flows_flow_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_flows_flow_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_flows_flow_id'
+Req_patch_api_flows_flow_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_api_flows_flow_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_api_flows_flow_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_api_flows_flow_id'
+Res_get_api_flows_flow_id_graph:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_flows_flow_id_graph:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_flows_flow_id_graph'
+Req_put_api_flows_flow_id_graph:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_put_api_flows_flow_id_graph:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_put_api_flows_flow_id_graph:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_put_api_flows_flow_id_graph'
+Res_get_api_flows_flow_id_logs:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_flows_flow_id_logs:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_flows_flow_id_logs'
+Res_get_api_flows_flow_id_runs:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_flows_flow_id_runs:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_flows_flow_id_runs'
+Req_post_api_flows_flow_id_runs:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_flows_flow_id_runs:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_flows_flow_id_runs:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_flows_flow_id_runs'
+Res_get_api_flows_flow_id_schedule:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_flows_flow_id_schedule:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_flows_flow_id_schedule'
+Req_put_api_flows_flow_id_schedule:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_put_api_flows_flow_id_schedule:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_put_api_flows_flow_id_schedule:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_put_api_flows_flow_id_schedule'
+Req_post_api_flows_flow_id_validate:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_flows_flow_id_validate:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_flows_flow_id_validate:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_flows_flow_id_validate'
+Res_get_api_flow_node_runs_node_run_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_flow_node_runs_node_run_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_flow_node_runs_node_run_id'
+Res_get_api_flow_runs_run_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_flow_runs_run_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_flow_runs_run_id'
+Res_get_api_flow_runs_run_id_logs:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_flow_runs_run_id_logs:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_flow_runs_run_id_logs'
+Res_get_api_flow_runs_run_id_node_runs:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_flow_runs_run_id_node_runs:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_flow_runs_run_id_node_runs'
+Req_post_api_permissions_grants:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_permissions_grants:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_permissions_grants:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_permissions_grants'
+Res_delete_api_permissions_grants_grant_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_permissions_grants_grant_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_permissions_grants_grant_id'
+Res_get_api_permissions_resources_resource_node_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_permissions_resources_resource_node_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_permissions_resources_resource_node_id'
+Res_get_api_platform_audit_logs:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_platform_audit_logs:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_platform_audit_logs'
+Res_get_api_platform_audit_logs_audit_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_platform_audit_logs_audit_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_platform_audit_logs_audit_id'
+Res_get_api_datasets:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_datasets:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_datasets'
+Req_post_api_datasets:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_datasets:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_datasets:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_datasets'
+Res_get_api_datasets_dataset_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_datasets_dataset_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_datasets_dataset_id'
+Req_patch_api_datasets_dataset_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_api_datasets_dataset_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_api_datasets_dataset_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_api_datasets_dataset_id'
+Req_post_api_datasets_dataset_id_enable:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_datasets_dataset_id_enable:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_datasets_dataset_id_enable:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_datasets_dataset_id_enable'
+Req_post_api_datasets_dataset_id_preview:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_datasets_dataset_id_preview:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_datasets_dataset_id_preview:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_datasets_dataset_id_preview'
+Req_post_api_datasets_dataset_id_refresh:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_datasets_dataset_id_refresh:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_datasets_dataset_id_refresh:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_datasets_dataset_id_refresh'
+Res_get_api_datasets_dataset_id_refresh_runs:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_datasets_dataset_id_refresh_runs:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_datasets_dataset_id_refresh_runs'
+Req_post_api_datasets_id_refresh:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_datasets_id_refresh:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_datasets_id_refresh:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_datasets_id_refresh'
+Res_get_api_charts:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_charts:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_charts'
+Req_post_api_charts:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_charts:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_charts:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_charts'
+Req_post_api_charts_preview:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_charts_preview:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_charts_preview:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_charts_preview'
+Res_delete_api_charts_chart_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_charts_chart_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_charts_chart_id'
+Res_get_api_charts_chart_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_charts_chart_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_charts_chart_id'
+Req_patch_api_charts_chart_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_api_charts_chart_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_api_charts_chart_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_api_charts_chart_id'
+Req_post_api_charts_chart_id_exports:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_charts_chart_id_exports:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_charts_chart_id_exports:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_charts_chart_id_exports'
+Res_get_api_dashboards:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_dashboards:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_dashboards'
+Req_post_api_dashboards:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_dashboards:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_dashboards:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_dashboards'
+Res_get_api_dashboards_dashboard_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_dashboards_dashboard_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_dashboards_dashboard_id'
+Req_patch_api_dashboards_dashboard_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_api_dashboards_dashboard_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_api_dashboards_dashboard_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_api_dashboards_dashboard_id'
+Req_post_api_dashboards_dashboard_id_items:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_dashboards_dashboard_id_items:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_dashboards_dashboard_id_items:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_dashboards_dashboard_id_items'
+Res_delete_api_dashboards_dashboard_id_items_dashboard_item_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_delete_api_dashboards_dashboard_id_items_dashboard_item_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_delete_api_dashboards_dashboard_id_items_dashboard_item_id'
+Req_patch_api_dashboards_dashboard_id_items_dashboard_item_id:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_patch_api_dashboards_dashboard_id_items_dashboard_item_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_patch_api_dashboards_dashboard_id_items_dashboard_item_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_patch_api_dashboards_dashboard_id_items_dashboard_item_id'
+Req_put_api_dashboards_dashboard_id_layout:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_put_api_dashboards_dashboard_id_layout:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_put_api_dashboards_dashboard_id_layout:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_put_api_dashboards_dashboard_id_layout'
+Req_post_api_dashboards_dashboard_id_render:
+  type: object
+  additionalProperties: false
+  description: 'TODO: define request body schema'
+  properties: {}
+Res_post_api_dashboards_dashboard_id_render:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_post_api_dashboards_dashboard_id_render:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_post_api_dashboards_dashboard_id_render'
+Res_get_api_exports_export_job_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_exports_export_job_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_exports_export_job_id'
+Res_get_api_audit_logs:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_audit_logs:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_audit_logs'
+Res_get_api_audit_logs_meta_actions:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_audit_logs_meta_actions:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_audit_logs_meta_actions'
+Res_get_api_audit_logs_meta_target_types:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_audit_logs_meta_target_types:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_audit_logs_meta_target_types'
+Res_get_api_audit_logs_audit_id:
+  $ref: '#/components/schemas/EmptyObject'
+Envelope_get_api_audit_logs_audit_id:
+  allOf:
+  - $ref: '#/components/schemas/ApiEnvelopeBase'
+  - type: object
+    properties:
+      success:
+        const: true
+      code:
+        const: OK
+      data:
+        $ref: '#/components/schemas/Res_get_api_audit_logs_audit_id'
