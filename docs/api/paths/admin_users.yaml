@@ -128,6 +128,36 @@ p__admin__api__users__user_id:
         application/json:
           schema:
             $ref: ../openapi.yaml#/components/schemas/Req_patch_admin_api_users_user_id
+  get:
+    tags:
+    - AdminUsers
+    summary: 获取平台用户详情（GlobalUser）。
+    operationId: get_admin_api_users_user_id
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: user_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_admin_api_users_user_id
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
 p__admin__api__users__user_id__disable:
   post:
     tags:

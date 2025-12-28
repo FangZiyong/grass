@@ -24,20 +24,6 @@ p__admin__api__tenants:
       schema:
         type: string
         description: BASIC/PRO/ENTERPRISE
-    - name: page
-      in: query
-      required: false
-      schema:
-        type: integer
-        format: int32
-        default: 1
-    - name: page_size
-      in: query
-      required: false
-      schema:
-        type: integer
-        format: int32
-        default: 50
     - $ref: ../openapi.yaml#/components/parameters/PageParam
     - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
     - $ref: ../openapi.yaml#/components/parameters/SortByParam
@@ -224,20 +210,6 @@ p__admin__api__tenants__tenant_id__users:
       schema:
         type: string
         description: ACTIVE/DISABLED
-    - name: page
-      in: query
-      required: false
-      schema:
-        type: integer
-        format: int32
-        default: 1
-    - name: page_size
-      in: query
-      required: false
-      schema:
-        type: integer
-        format: int32
-        default: 50
     - $ref: ../openapi.yaml#/components/parameters/PageParam
     - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
     - $ref: ../openapi.yaml#/components/parameters/SortByParam

@@ -221,6 +221,12 @@ paths:
     $ref: ./paths/resource_trees.yaml#/p__api__resource-trees__scope__nodes__node_id
   /api/resource-trees/{scope}/reorder:
     $ref: ./paths/resource_trees.yaml#/p__api__resource-trees__scope__reorder
+  /healthz:
+    $ref: ./paths/misc.yaml#/p__healthz
+  /api/platform/audit-logs/meta/actions:
+    $ref: ./paths/platform.yaml#/p__api__platform__audit-logs__meta__actions
+  /api/platform/audit-logs/meta/target-types:
+    $ref: ./paths/platform.yaml#/p__api__platform__audit-logs__meta__target-types
 components:
   securitySchemes:
     bearerAuth:
@@ -548,7 +554,8 @@ components:
       properties:
         items:
           type: array
-          items: {}
+          items:
+            $ref: '#/components/schemas/AdminUserDTO'
           description: 用户列表
         page:
           type: integer
@@ -3585,6 +3592,90 @@ components:
       - role_id
       - name
       additionalProperties: false
+    HealthzDTO: &id002
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+        ts:
+          type: string
+          format: date-time
+          description: 服务器时间（ISO 8601）
+      required:
+      - status
+      - ts
+      additionalProperties: false
+    RespData_get_healthz: *id002
+    RespEnvelope_get_healthz:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_healthz'
+    RespEnvelope_get_api_platform_audit_logs_meta_actions:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_audit_logs_meta_actions'
+    RespEnvelope_get_api_platform_audit_logs_meta_target_types:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_audit_logs_meta_target_types'
+    AdminUserDTO:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          format: int64
+        login_name:
+          type: string
+        display_name:
+          type: string
+        email:
+          type: string
+          format: email
+        is_platform_admin:
+          type: boolean
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DISABLED
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601 时间戳
+        updated_at:
+          type: string
+          format: date-time
+          description: ISO 8601 时间戳
+          nullable: true
+      required:
+      - user_id
+      - login_name
+      - display_name
+      - email
+      - is_platform_admin
+      - status
+      - created_at
+      additionalProperties: false
+    RespData_get_admin_api_users_user_id:
+      $ref: '#/components/schemas/AdminUserDTO'
+    RespEnvelope_get_admin_api_users_user_id:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/AdminUserDTO'
   parameters:
     TenantIdHeader:
       name: X-Tenant-Id

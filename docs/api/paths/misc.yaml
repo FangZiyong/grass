@@ -206,20 +206,6 @@ p__api__dashboards:
       schema:
         type: string
         description: '-'
-    - name: page
-      in: query
-      required: false
-      schema:
-        type: integer
-        format: int32
-        description: '-'
-    - name: page_size
-      in: query
-      required: false
-      schema:
-        type: integer
-        format: int32
-        description: 最大 200
     - $ref: ../openapi.yaml#/components/parameters/PageParam
     - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
     - $ref: ../openapi.yaml#/components/parameters/SortByParam
@@ -303,20 +289,6 @@ p__api__datasets:
       schema:
         type: string
         description: 关键字（name）
-    - name: page
-      in: query
-      required: false
-      schema:
-        type: integer
-        format: int32
-        description: '-'
-    - name: page_size
-      in: query
-      required: false
-      schema:
-        type: integer
-        format: int32
-        description: 最大 200
     - $ref: ../openapi.yaml#/components/parameters/PageParam
     - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
     - $ref: ../openapi.yaml#/components/parameters/SortByParam
@@ -433,22 +405,6 @@ p__api__flows:
         type: string
         description: ASC/DESC
       description: ASC/DESC
-    - name: page
-      in: query
-      required: false
-      schema:
-        type: integer
-        format: int32
-        description: 默认 1
-      description: 默认 1
-    - name: page_size
-      in: query
-      required: false
-      schema:
-        type: integer
-        format: int32
-        description: 默认 20，最大 200
-      description: 默认 20，最大 200
     - $ref: ../openapi.yaml#/components/parameters/PageParam
     - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
     - $ref: ../openapi.yaml#/components/parameters/SortByParam
@@ -505,3 +461,21 @@ p__api__flows:
         application/json:
           schema:
             $ref: ../openapi.yaml#/components/schemas/Req_post_api_flows
+p__healthz:
+  get:
+    tags:
+    - Misc
+    summary: 健康检查（用于 LB/K8s 探活）。
+    operationId: get_healthz
+    security: []
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_healthz
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError

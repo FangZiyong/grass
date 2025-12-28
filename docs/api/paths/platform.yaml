@@ -79,22 +79,6 @@ p__api__platform__audit-logs:
         type: string
         description: ≤100
       description: ≤100
-    - name: page
-      in: query
-      required: false
-      schema:
-        type: integer
-        format: int32
-        description: 默认 1
-      description: 默认 1
-    - name: page_size
-      in: query
-      required: false
-      schema:
-        type: integer
-        format: int32
-        description: 默认 20，最大 200
-      description: 默认 20，最大 200
     - $ref: ../openapi.yaml#/components/parameters/PageParam
     - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
     - $ref: ../openapi.yaml#/components/parameters/SortByParam
@@ -149,5 +133,51 @@ p__api__platform__audit-logs__audit_id:
         $ref: ../openapi.yaml#/components/responses/NotFound
       '409':
         $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__api__platform__audit-logs__meta__actions:
+  get:
+    tags:
+    - Platform
+    summary: 跨租户：审计操作类型枚举与分组。
+    operationId: get_api_platform_audit_logs_meta_actions
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_platform_audit_logs_meta_actions
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
+p__api__platform__audit-logs__meta__target-types:
+  get:
+    tags:
+    - Platform
+    summary: 跨租户：审计目标类型枚举。
+    operationId: get_api_platform_audit_logs_meta_target_types
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_platform_audit_logs_meta_target_types
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
       '500':
         $ref: ../openapi.yaml#/components/responses/InternalError

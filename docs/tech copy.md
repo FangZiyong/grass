@@ -342,6 +342,17 @@ V1.0 不提供通知中心/消息中心（含 IM 推送）。运行结果请在 
 
 - 权限相关错误需要给出明确可执行的提示（如联系租户管理员）。
 
+### 3.3.4 健康检查（必须提供）
+
+服务必须提供健康检查端点，用于负载均衡 / 容器探活：
+
+- `GET /healthz`：**无需鉴权**，返回统一壳 `OK`，`data.status="ok"`。
+
+说明：
+
+- 该接口只用于基础设施探活，不承载业务信息；不要返回敏感数据。
+- `ts` 以服务端当前时间回传，便于排障比对时钟偏差。
+
 ## 3.4 FilterDSL（统一过滤 JSON）规范
 
 ### 3.4.1 目标约束
@@ -732,31 +743,34 @@ API -> Client : {tenant_id, redirect_url}
 
 8. `POST /admin/api/users`（创建 GlobalUser：含初始密码策略）
 
-9. `PATCH /admin/api/users/{user_id}`（编辑 GlobalUser：显示名/邮箱/is_platform_admin/status）
+9. `GET /admin/api/users/{user_id}`（GlobalUser 详情）
 
-10. `POST /admin/api/users/{user_id}/enable`（启用）
 
-11. `POST /admin/api/users/{user_id}/disable`（禁用）
+10. `PATCH /admin/api/users/{user_id}`（编辑 GlobalUser：显示名/邮箱/is_platform_admin/status）
 
-12. `POST /admin/api/users/{user_id}/reset_password`（可选：重置密码）
+11. `POST /admin/api/users/{user_id}/enable`（启用）
 
-13. `GET /admin/api/tenants`（Tenant 列表：搜索/筛选）
+12. `POST /admin/api/users/{user_id}/disable`（禁用）
 
-14. `POST /admin/api/tenants`（创建 Tenant：code/name/plan/status）
+13. `POST /admin/api/users/{user_id}/reset_password`（可选：重置密码）
 
-15. `PATCH /admin/api/tenants/{tenant_id}`（编辑 Tenant：**name/plan/status**；code 不可改）
+14. `GET /admin/api/tenants`（Tenant 列表：搜索/筛选）
 
-16. `POST /admin/api/tenants/{tenant_id}/enable`（启用）
+15. `POST /admin/api/tenants`（创建 Tenant：code/name/plan/status）
 
-17. `POST /admin/api/tenants/{tenant_id}/suspend`（停用）
+16. `PATCH /admin/api/tenants/{tenant_id}`（编辑 Tenant：**name/plan/status**；code 不可改）
 
-18. `GET /admin/api/tenants/{tenant_id}/users`（租户成员列表）
+17. `POST /admin/api/tenants/{tenant_id}/enable`（启用）
 
-19. `POST /admin/api/tenants/{tenant_id}/users`（添加成员：从 GlobalUser 搜索添加，可批量，可设 Owner，可选初始角色）
+18. `POST /admin/api/tenants/{tenant_id}/suspend`（停用）
 
-20. `PATCH /admin/api/tenants/{tenant_id}/users/{tenant_user_id}`（修改成员：状态/Owner/角色）
+19. `GET /admin/api/tenants/{tenant_id}/users`（租户成员列表）
 
-21. `DELETE /admin/api/tenants/{tenant_id}/users/{tenant_user_id}`（移除成员：删除 TenantUser）
+20. `POST /admin/api/tenants/{tenant_id}/users`（添加成员：从 GlobalUser 搜索添加，可批量，可设 Owner，可选初始角色）
+
+21. `PATCH /admin/api/tenants/{tenant_id}/users/{tenant_user_id}`（修改成员：状态/Owner/角色）
+
+22. `DELETE /admin/api/tenants/{tenant_id}/users/{tenant_user_id}`（移除成员：删除 TenantUser）
 
 ---
 
@@ -4371,7 +4385,7 @@ end
 
 ### 8.5.1 运行前校验（保存/运行共用）
 
-> 校验入口：保存 DAG（PUT /graph）与运行触发（POST /runs）均必须执行。
+> 校验入口：保存 DAG（PUT /api/flows/{flow_id}/graph）与运行触发（POST /api/flows/{flow_id}/runs）均必须执行。
 
 #### 8.5.1.1 校验步骤（不少于 15 步，含异常分支）
 
