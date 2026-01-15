@@ -2,7 +2,7 @@ p__api__me:
   get:
     tags:
     - Accounts
-    summary: GET /api/me
+    summary: 获取当前登录用户信息
     operationId: get_api_me
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
@@ -77,7 +77,7 @@ p__api__tenants__switch:
   post:
     tags:
     - Accounts
-    summary: POST /api/tenants/switch
+    summary: 切换当前租户
     operationId: post_api_tenants_switch
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader

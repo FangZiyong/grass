@@ -2,7 +2,7 @@ p__api__datasets__dataset_id:
   get:
     tags:
     - Datasets
-    summary: GET /api/datasets/{dataset_id}
+    summary: 获取数据集详情
     operationId: get_api_datasets_dataset_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -35,7 +35,7 @@ p__api__datasets__dataset_id:
   patch:
     tags:
     - Datasets
-    summary: PATCH /api/datasets/{dataset_id}
+    summary: 更新数据集配置
     operationId: patch_api_datasets_dataset_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -70,12 +70,12 @@ p__api__datasets__dataset_id:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_patch_api_datasets_dataset_id'
+            $ref: '../openapi.yaml#/components/schemas/Req_patch_api_datasets_dataset_id'
 p__api__datasets__dataset_id__enable:
   post:
     tags:
     - Datasets
-    summary: POST /api/datasets/{dataset_id}/enable
+    summary: 启用数据集（DRAFT→ACTIVE）
     operationId: post_api_datasets_dataset_id_enable
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -109,7 +109,7 @@ p__api__datasets__dataset_id__preview:
   post:
     tags:
     - Datasets
-    summary: POST /api/datasets/{dataset_id}/preview
+    summary: 预览数据集（不落表）
     operationId: post_api_datasets_dataset_id_preview
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -149,7 +149,7 @@ p__api__datasets__dataset_id__refresh:
   post:
     tags:
     - Datasets
-    summary: POST /api/datasets/{dataset_id}/refresh
+    summary: 手动触发数据集刷新
     operationId: post_api_datasets_dataset_id_refresh
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -183,7 +183,7 @@ p__api__datasets__dataset_id__refresh-runs:
   get:
     tags:
     - Datasets
-    summary: GET /api/datasets/{dataset_id}/refresh-runs
+    summary: 数据集刷新日志列表
     operationId: get_api_datasets_dataset_id_refresh_runs
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader

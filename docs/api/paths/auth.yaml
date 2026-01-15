@@ -2,7 +2,7 @@ p__api__auth__login:
   post:
     tags:
     - Auth
-    summary: POST /api/auth/login
+    summary: 用户登录
     operationId: post_api_auth_login
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader

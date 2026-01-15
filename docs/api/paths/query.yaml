@@ -31,7 +31,7 @@ p__api__query__export__csv:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_post_api_query_export_csv'
+            $ref: '../openapi.yaml#/components/schemas/Req_post_api_query_export_csv'
 p__api__query__run:
   post:
     tags:
@@ -65,7 +65,7 @@ p__api__query__run:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_post_api_query_run'
+            $ref: '../openapi.yaml#/components/schemas/Req_post_api_query_run'
 p__api__query__validate:
   post:
     tags:
@@ -99,4 +99,4 @@ p__api__query__validate:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_post_api_query_validate'
+            $ref: '../openapi.yaml#/components/schemas/Req_post_api_query_validate'

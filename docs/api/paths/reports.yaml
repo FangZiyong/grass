@@ -2,7 +2,7 @@ p__api__charts__preview:
   post:
     tags:
     - Reports
-    summary: POST /api/charts/preview
+    summary: 预览图表
     operationId: post_api_charts_preview
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -36,7 +36,7 @@ p__api__charts__chart_id:
   delete:
     tags:
     - Reports
-    summary: DELETE /api/charts/{chart_id}
+    summary: 删除图表
     operationId: delete_api_charts_chart_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -69,7 +69,7 @@ p__api__charts__chart_id:
   get:
     tags:
     - Reports
-    summary: GET /api/charts/{chart_id}
+    summary: 获取图表详情
     operationId: get_api_charts_chart_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -102,7 +102,7 @@ p__api__charts__chart_id:
   patch:
     tags:
     - Reports
-    summary: PATCH /api/charts/{chart_id}
+    summary: 更新图表
     operationId: patch_api_charts_chart_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -137,12 +137,12 @@ p__api__charts__chart_id:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_patch_api_charts_chart_id'
+            $ref: '../openapi.yaml#/components/schemas/Req_patch_api_charts_chart_id'
 p__api__charts__chart_id__exports:
   post:
     tags:
     - Reports
-    summary: POST /api/charts/{chart_id}/exports
+    summary: 创建图表导出任务
     operationId: post_api_charts_chart_id_exports
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -182,7 +182,7 @@ p__api__dashboards__dashboard_id:
   get:
     tags:
     - Reports
-    summary: GET /api/dashboards/{dashboard_id}
+    summary: 获取仪表盘详情
     operationId: get_api_dashboards_dashboard_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -215,7 +215,7 @@ p__api__dashboards__dashboard_id:
   patch:
     tags:
     - Reports
-    summary: PATCH /api/dashboards/{dashboard_id}
+    summary: 更新仪表盘
     operationId: patch_api_dashboards_dashboard_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -250,12 +250,12 @@ p__api__dashboards__dashboard_id:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_patch_api_dashboards_dashboard_id'
+            $ref: '../openapi.yaml#/components/schemas/Req_patch_api_dashboards_dashboard_id'
 p__api__dashboards__dashboard_id__items:
   post:
     tags:
     - Reports
-    summary: POST /api/dashboards/{dashboard_id}/items
+    summary: 向仪表盘添加图表卡片
     operationId: post_api_dashboards_dashboard_id_items
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -295,7 +295,7 @@ p__api__dashboards__dashboard_id__items__dashboard_item_id:
   delete:
     tags:
     - Reports
-    summary: DELETE /api/dashboards/{dashboard_id}/items/{dashboard_item_id}
+    summary: 从仪表盘移除图表卡片
     operationId: delete_api_dashboards_dashboard_id_items_dashboard_item_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -334,7 +334,7 @@ p__api__dashboards__dashboard_id__items__dashboard_item_id:
   patch:
     tags:
     - Reports
-    summary: PATCH /api/dashboards/{dashboard_id}/items/{dashboard_item_id}
+    summary: 编辑仪表盘卡片信息
     operationId: patch_api_dashboards_dashboard_id_items_dashboard_item_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -380,7 +380,7 @@ p__api__dashboards__dashboard_id__layout:
   put:
     tags:
     - Reports
-    summary: PUT /api/dashboards/{dashboard_id}/layout
+    summary: 保存仪表盘布局
     operationId: put_api_dashboards_dashboard_id_layout
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -415,4 +415,4 @@ p__api__dashboards__dashboard_id__layout:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_put_api_dashboards_dashboard_id_layout'
+            $ref: '../openapi.yaml#/components/schemas/Req_put_api_dashboards_dashboard_id_layout'

@@ -11,7 +11,7 @@ p__api__resource-trees__scope__children:
       in: path
       required: true
       schema:
-        $ref: '#/components/schemas/ResourceScope'
+        $ref: '../openapi.yaml#/components/schemas/ResourceScope'
     responses:
       '200':
         description: OK
@@ -44,7 +44,7 @@ p__api__resource-trees__scope__folders:
       in: path
       required: true
       schema:
-        $ref: '#/components/schemas/ResourceScope'
+        $ref: '../openapi.yaml#/components/schemas/ResourceScope'
     responses:
       '200':
         description: OK
@@ -69,7 +69,7 @@ p__api__resource-trees__scope__folders:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ResourceTreeCreateFolderRequest'
+            $ref: '../openapi.yaml#/components/schemas/ResourceTreeCreateFolderRequest'
 p__api__resource-trees__scope__move:
   post:
     tags:
@@ -83,7 +83,7 @@ p__api__resource-trees__scope__move:
       in: path
       required: true
       schema:
-        $ref: '#/components/schemas/ResourceScope'
+        $ref: '../openapi.yaml#/components/schemas/ResourceScope'
     responses:
       '200':
         description: OK
@@ -108,7 +108,7 @@ p__api__resource-trees__scope__move:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ResourceTreeMoveRequest'
+            $ref: '../openapi.yaml#/components/schemas/ResourceTreeMoveRequest'
 p__api__resource-trees__scope__nodes__node_id:
   delete:
     tags:
@@ -122,7 +122,7 @@ p__api__resource-trees__scope__nodes__node_id:
       in: path
       required: true
       schema:
-        $ref: '#/components/schemas/ResourceScope'
+        $ref: '../openapi.yaml#/components/schemas/ResourceScope'
     - name: node_id
       in: path
       required: true
@@ -160,7 +160,7 @@ p__api__resource-trees__scope__nodes__node_id:
       in: path
       required: true
       schema:
-        $ref: '#/components/schemas/ResourceScope'
+        $ref: '../openapi.yaml#/components/schemas/ResourceScope'
     - name: node_id
       in: path
       required: true
@@ -191,7 +191,7 @@ p__api__resource-trees__scope__nodes__node_id:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ResourceTreeRenameRequest'
+            $ref: '../openapi.yaml#/components/schemas/ResourceTreeRenameRequest'
 p__api__resource-trees__scope__reorder:
   post:
     tags:
@@ -205,7 +205,7 @@ p__api__resource-trees__scope__reorder:
       in: path
       required: true
       schema:
-        $ref: '#/components/schemas/ResourceScope'
+        $ref: '../openapi.yaml#/components/schemas/ResourceScope'
     responses:
       '200':
         description: OK
@@ -230,4 +230,4 @@ p__api__resource-trees__scope__reorder:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ResourceTreeReorderRequest'
+            $ref: '../openapi.yaml#/components/schemas/ResourceTreeReorderRequest'

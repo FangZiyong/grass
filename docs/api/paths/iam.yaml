@@ -31,7 +31,7 @@ p__api__permissions__grants:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_post_api_permissions_grants'
+            $ref: '../openapi.yaml#/components/schemas/Req_post_api_permissions_grants'
 p__api__permissions__grants__grant_id:
   delete:
     tags:
@@ -176,7 +176,7 @@ p__api__tenants__tenant_id__roles:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_post_api_tenants_tenant_id_roles'
+            $ref: '../openapi.yaml#/components/schemas/Req_post_api_tenants_tenant_id_roles'
 p__api__tenants__tenant_id__roles__role_id:
   delete:
     tags:
@@ -261,7 +261,7 @@ p__api__tenants__tenant_id__roles__role_id:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_patch_api_tenants_tenant_id_roles_role_id'
+            $ref: '../openapi.yaml#/components/schemas/Req_patch_api_tenants_tenant_id_roles_role_id'
 p__api__tenants__tenant_id__roles__role_id__resource-permissions:
   get:
     tags:
@@ -346,7 +346,7 @@ p__api__tenants__tenant_id__roles__role_id__resource-permissions:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_put_api_tenants_tenant_id_roles_role_id_resource_permissions'
+            $ref: '../openapi.yaml#/components/schemas/Req_put_api_tenants_tenant_id_roles_role_id_resource_permissions'
 p__api__tenants__tenant_id__tables__table_id__column-permissions:
   get:
     tags:
@@ -431,7 +431,7 @@ p__api__tenants__tenant_id__tables__table_id__column-permissions:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_put_api_tenants_tenant_id_tables_table_id_column_permissions'
+            $ref: '../openapi.yaml#/components/schemas/Req_put_api_tenants_tenant_id_tables_table_id_column_permissions'
 p__api__tenants__tenant_id__tables__table_id__row-permissions:
   get:
     tags:
@@ -516,7 +516,7 @@ p__api__tenants__tenant_id__tables__table_id__row-permissions:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_post_api_tenants_tenant_id_tables_table_id_row_permissions'
+            $ref: '../openapi.yaml#/components/schemas/Req_post_api_tenants_tenant_id_tables_table_id_row_permissions'
 p__api__tenants__tenant_id__tables__table_id__row-permissions__row_perm_id:
   delete:
     tags:
@@ -613,7 +613,7 @@ p__api__tenants__tenant_id__tables__table_id__row-permissions__row_perm_id:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id'
+            $ref: '../openapi.yaml#/components/schemas/Req_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id'
 p__api__tenants__tenant_id__users__tenant_user_id__owner:
   delete:
     tags:

@@ -281,7 +281,7 @@ p__api__modeling__tables__table_id__data__query:
   post:
     tags:
     - Modeling
-    summary: POST /api/modeling/tables/{table_id}/data/query
+    summary: 查询建模表数据
     operationId: post_api_modeling_tables_table_id_data_query
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -389,7 +389,7 @@ p__api__modeling__tables__table_id__fields:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_post_api_modeling_tables_table_id_fields'
+            $ref: '../openapi.yaml#/components/schemas/Req_post_api_modeling_tables_table_id_fields'
 p__api__modeling__tables__table_id__fields__reorder:
   post:
     tags:

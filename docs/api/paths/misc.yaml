@@ -118,7 +118,7 @@ p__api__charts:
   get:
     tags:
     - Misc
-    summary: GET /api/charts
+    summary: 图表列表
     operationId: get_api_charts
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -149,7 +149,7 @@ p__api__charts:
   post:
     tags:
     - Misc
-    summary: POST /api/charts
+    summary: 保存图表
     operationId: post_api_charts
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -183,7 +183,7 @@ p__api__dashboards:
   get:
     tags:
     - Misc
-    summary: GET /api/dashboards
+    summary: 仪表盘列表
     operationId: get_api_dashboards
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -232,7 +232,7 @@ p__api__dashboards:
   post:
     tags:
     - Misc
-    summary: POST /api/dashboards
+    summary: 创建仪表盘
     operationId: post_api_dashboards
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -261,12 +261,12 @@ p__api__dashboards:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Req_post_api_dashboards'
+            $ref: '../openapi.yaml#/components/schemas/Req_post_api_dashboards'
 p__api__datasets:
   get:
     tags:
     - Misc
-    summary: GET /api/datasets
+    summary: 数据集列表（资源树过滤）
     operationId: get_api_datasets
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
@@ -315,7 +315,7 @@ p__api__datasets:
   post:
     tags:
     - Misc
-    summary: POST /api/datasets
+    summary: 创建数据集（DRAFT）
     operationId: post_api_datasets
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader

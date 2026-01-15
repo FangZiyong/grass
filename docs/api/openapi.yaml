@@ -2402,7 +2402,7 @@ components:
           description: 切换成功的租户
         redirect_url:
           type: string
-          description: 前端跳转地址（例如 `/t/{tenant_id}/modeling`）
+          description: 前端跳转地址（例如 `/t/{tenant_id}`）
       additionalProperties: false
     RespEnvelope_post_api_tenants_switch:
       allOf:

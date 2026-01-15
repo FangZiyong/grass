@@ -1,6 +1,6 @@
 # 1 文档基本信息
 
-## 0.3 文档一致性与生成链路（冻结规则）
+## 1.0 文档一致性与生成链路（冻结规则）
 
 为保证“先定义接口契约 → 再实现 → 再自动校验”可稳定执行，V1.0 起冻结如下链路与规则：
 
@@ -911,7 +911,7 @@ UserService.me(user_id):
 | 字段         | 类型   | 必填 | 说明                                           |
 | ------------ | ------ | :--: | ---------------------------------------------- |
 | tenant_id    | number |  是  | 切换成功的租户                                 |
-| redirect_url | string |  是  | 前端跳转地址（例如 `/t/{tenant_id}/modeling`） |
+| redirect_url | string |  是  | 前端跳转地址（例如 `/t/{tenant_id}`） |
 
 **校验与异常分支**
 
@@ -944,7 +944,7 @@ TenantService.switch_tenant(user_id, tenant_id):
   if tu.status != "ACTIVE": return error(TENANT_USER_DISABLED, 403)
 
   GlobalUserRepo.update_last_tenant(user_id, tenant_id)
-  return ok({tenant_id:tenant_id, redirect_url: "/t/"+tenant_id+"/modeling"})
+  return ok({tenant_id:tenant_id, redirect_url: "/t/"+tenant_id"})
 ```
 
 ---

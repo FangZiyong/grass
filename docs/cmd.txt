@@ -1,1 +1,2 @@
-npx @redocly/cli preview-docs openapi.yaml
+npx @redocly/cli bundle openapi.yaml -o openapi.bundle.yaml
+npx @redocly/cli build-docs openapi.bundle.yaml -o docs.html

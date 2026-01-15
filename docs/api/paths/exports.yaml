@@ -2,7 +2,7 @@ p__api__exports__export_job_id:
   get:
     tags:
     - Exports
-    summary: GET /api/exports/{export_job_id}
+    summary: 查询导出任务状态
     operationId: get_api_exports_export_job_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
