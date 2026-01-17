@@ -1,2 +1,12 @@
 npx @redocly/cli bundle openapi.yaml -o openapi.bundle.yaml
 npx @redocly/cli build-docs openapi.bundle.yaml -o docs.html
+
+
+任务清单： @docs/task.md 
+prd： @docs/prd.md 
+技术文档： @docs/tech.md 
+接口文档： @docs/api/ 
+整体架构： @docs/architecture.md 
+
+请你仔细根据上述内容，完成task中的T0.4的任务
+注意要完成完整测试，并且注意回归。

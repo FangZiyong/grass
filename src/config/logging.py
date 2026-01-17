@@ -43,7 +43,7 @@ LOGGING = {
     "disable_existing_loggers": False,
     "filters": {
         "request_context": {
-            "()": "config.logging.RequestContextFilter",
+            "()": RequestContextFilter,
         }
     },
     "formatters": {

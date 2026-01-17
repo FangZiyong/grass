@@ -5,25 +5,12 @@ from dotenv import load_dotenv
 
 # 自定义日志配置（避免覆盖 Django 默认 LOGGING_CONFIG）
 from config.logging import LOGGING as LOGGING_SETTINGS
-from django.utils import module_loading as django_module_loading
-from django.utils import log as django_log
 
-
-def _import_string_compatible(dotted_path: str):
-    """
-    兼容 import_string：支持多段 dotted path（取最后一段作为属性名）。
-    """
-    try:
-        module_path, class_name = dotted_path.rsplit(".", 1)
-    except ValueError as err:
-        raise ImportError(f"{dotted_path} doesn't look like a module path") from err
-    return django_module_loading.cached_import(module_path, class_name)
-
-
-# 覆盖 Django 内部 import_string，避免 split(".", 1) 造成的导入失败
-django_module_loading.import_string = _import_string_compatible
-# django.utils.log 在导入时会绑定 import_string，需要同步替换
-django_log.import_string = _import_string_compatible
+# 注意：不再覆盖 import_string
+# Django 的原始 import_string 已经使用 rsplit(".", 1)，支持多段 dotted path
+# 日志配置中使用类对象（RequestContextFilter），不需要字符串路径导入
+# 如果将来需要使用字符串路径，可以使用 "config.logging.RequestContextFilter"
+# Django 的原始 import_string 可以正确处理
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 project_root = BASE_DIR.parent
@@ -51,6 +38,11 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "drf_spectacular",
+    "config.apps.ConfigConfig",  # 确保在 Django setup 后重新加载 DRF 配置
+    # 业务应用
+    "apps.accounts",
+    "apps.tenants",
+    "apps.execution",
 ]
 
 MIDDLEWARE = [
@@ -60,6 +52,10 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # TenantContext 必须在 AuthContext 之后执行（因为需要 user_id）
+    # 但 AuthContext 是通过 DRF Authentication 实现的，在中间件之后执行
+    # 所以这里先放在 AuthenticationMiddleware 之后，实际执行顺序由 DRF 决定
+    "common.middleware.tenant_context.TenantContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -136,6 +132,9 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.FormParser",
         "rest_framework.parsers.MultiPartParser",
     ],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "common.middleware.auth_context.JWTAuthentication",
+    ],
     "EXCEPTION_HANDLER": "common.errors.handlers.drf_exception_handler",
     "DEFAULT_PAGINATION_CLASS": "common.http.pagination.DefaultPageNumberPagination",
     "PAGE_SIZE": 20,
@@ -149,4 +148,48 @@ SPECTACULAR_SETTINGS = {
 }
 
 LOGGING = LOGGING_SETTINGS
+
+# JWT 配置
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", SECRET_KEY)
+
+# Celery 配置
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30分钟
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25分钟
+
+# DRF 配置初始化
+# 
+# 问题：DRF 的 api_settings 在模块导入时就被创建，此时 Django 可能还没有 setup，
+# 导致 settings.REST_FRAMEWORK 可能不存在，api_settings.user_settings 会缓存空字典。
+# 
+# 解决方案：在 Django setup 后重新加载 DRF 配置。
+# 这个逻辑在 AppConfig.ready() 中执行，确保在所有情况下都能正确加载。
+def _reload_drf_settings():
+    """重新加载 DRF 配置，确保使用正确的 settings.REST_FRAMEWORK"""
+    try:
+        from rest_framework.settings import api_settings
+        api_settings.reload()
+    except ImportError:
+        pass
+
+
+# 存储配置
+STORAGE_TYPE = os.environ.get("STORAGE_TYPE", "LOCAL").upper()  # LOCAL | S3
+
+# LOCAL 存储配置
+STORAGE_LOCAL_BASE_DIR = os.environ.get("STORAGE_LOCAL_BASE_DIR", None)  # 默认使用项目根目录下的 storage
+STORAGE_LOCAL_BASE_URL = os.environ.get("STORAGE_LOCAL_BASE_URL", "/storage/")
+
+# S3 存储配置（可选）
+STORAGE_S3_ENDPOINT_URL = os.environ.get("STORAGE_S3_ENDPOINT_URL", "")
+STORAGE_S3_BUCKET_NAME = os.environ.get("STORAGE_S3_BUCKET_NAME", "")
+STORAGE_S3_ACCESS_KEY_ID = os.environ.get("STORAGE_S3_ACCESS_KEY_ID", "")
+STORAGE_S3_SECRET_ACCESS_KEY = os.environ.get("STORAGE_S3_SECRET_ACCESS_KEY", "")
+STORAGE_S3_REGION = os.environ.get("STORAGE_S3_REGION", "us-east-1")
 

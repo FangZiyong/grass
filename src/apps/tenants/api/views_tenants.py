@@ -1,0 +1,80 @@
+"""
+Tenant API Views
+
+根据 tech.md §4.7.3 和 architecture.md：
+- GET /api/tenants：租户列表（T2.2任务实现）
+- POST /api/tenants/switch：切换租户（T2.3任务实现）
+
+注意：T0.5任务主要关注中间件，API接口的具体实现在T2.2和T2.3任务中完成。
+这里先创建基础结构。
+"""
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+
+from apps.tenants.selectors import list_user_tenants
+from apps.tenants.services import switch_tenant
+from common.http.response import envelope_response
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def tenant_list_view(request: Request):
+    """
+    获取当前用户可访问的租户列表
+    
+    根据 tech.md §4.7.2 和 T2.2任务：
+    - 返回用户所属的 ACTIVE 租户列表
+    - 包含最近租户标识（T1.5任务实现）
+    
+    注意：完整实现在T2.2任务中完成，这里先提供占位实现。
+    """
+    user_id = request.user.id if hasattr(request.user, "id") else request.user.user_id
+    
+    # 获取用户所属的 ACTIVE 租户
+    tenants = list_user_tenants(user_id, status="ACTIVE")
+    
+    # TODO: 标记最近租户（T1.5任务实现）
+    # TODO: 序列化返回（T2.2任务完善）
+    
+    from apps.tenants.api.serializers import TenantBriefSerializer
+    serializer = TenantBriefSerializer(tenants, many=True)
+    
+    return envelope_response(
+        data={"items": serializer.data, "total": len(serializer.data)},
+        request=request,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def tenant_switch_view(request: Request):
+    """
+    切换租户上下文
+    
+    根据 tech.md §4.7.3 和 T2.3任务：
+    - 校验租户存在且为 ACTIVE
+    - 校验用户属于该租户
+    - 更新 last_tenant_id（T1.5任务实现）
+    
+    注意：完整实现在T2.3任务中完成，这里先提供基础实现。
+    """
+    from apps.tenants.api.serializers import TenantSwitchSerializer, TenantSwitchResponseSerializer
+    
+    serializer = TenantSwitchSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    
+    user_id = request.user.id if hasattr(request.user, "id") else request.user.user_id
+    tenant_id = serializer.validated_data["tenant_id"]
+    
+    # 调用服务层切换租户
+    result = switch_tenant(user_id, tenant_id)
+    
+    response_serializer = TenantSwitchResponseSerializer(data=result)
+    response_serializer.is_valid(raise_exception=True)
+    
+    return envelope_response(
+        data=response_serializer.validated_data,
+        request=request,
+    )
+
