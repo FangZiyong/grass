@@ -84,15 +84,33 @@ class TenantContextMiddleware:
             # /api/me 需要认证但可能不需要租户上下文（如果没有租户也可以返回基本信息）
             # 这里先允许通过，由视图层决定是否需要租户上下文
         ]
-        return any(path.startswith(p) for p in public_paths)
+        normalized_path = self._strip_api_prefix(path)
+        return any(path.startswith(p) for p in public_paths) or any(
+            normalized_path.startswith(p) for p in public_paths
+        )
     
     def _is_tenant_management_path(self, path: str) -> bool:
         """判断是否为租户管理路径（不需要租户上下文，因为这些接口本身就是用来获取和切换租户的）"""
+        normalized_path = self._strip_api_prefix(path)
         tenant_management_paths = [
             "/api/tenants",  # GET /api/tenants（租户列表）和 POST /api/tenants/switch（切换租户）
         ]
         # 精确匹配 /api/tenants 或 /api/tenants/switch
-        return path in ["/api/tenants", "/api/tenants/"] or path.startswith("/api/tenants/switch")
+        return (
+            path in ["/api/tenants", "/api/tenants/"]
+            or path.startswith("/api/tenants/switch")
+            or normalized_path in ["/api/tenants", "/api/tenants/"]
+            or normalized_path.startswith("/api/tenants/switch")
+        )
+
+    @staticmethod
+    def _strip_api_prefix(path: str) -> str:
+        """
+        仅处理 /api/api/* 的重复前缀，兼容路由前缀重复的情况。
+        """
+        if path.startswith("/api/api/"):
+            return path[len("/api") :]
+        return path
     
     def _extract_tenant_id(self, request: HttpRequest) -> Optional[int]:
         """

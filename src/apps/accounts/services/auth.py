@@ -124,12 +124,10 @@ def set_refresh_cookie(response, refresh_token: str, expires_at: timezone.dateti
     """
     写入 refresh token 的 HttpOnly Cookie。
     """
-    max_age = max(int((expires_at - timezone.now()).total_seconds()), 0)
     response.set_cookie(
         REFRESH_COOKIE_NAME,
         refresh_token,
-        max_age=max_age,
-        expires=expires_at,
+        max_age=max(int((expires_at - timezone.now()).total_seconds()), 0),
         httponly=True,
         secure=REFRESH_COOKIE_SECURE,
         samesite=REFRESH_COOKIE_SAMESITE,
