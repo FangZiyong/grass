@@ -47,3 +47,35 @@ class LoginResponseEnvelopeSerializer(serializers.Serializer):
     message = serializers.CharField()
     data = LoginResponseDataSerializer()
     request_id = serializers.CharField()
+
+
+class RefreshResponseDataSerializer(serializers.Serializer):
+    """刷新响应 data"""
+
+    access_token = serializers.CharField()
+    expires_in = serializers.IntegerField()
+    user = LoginUserSerializer()
+
+
+class RefreshResponseEnvelopeSerializer(serializers.Serializer):
+    """刷新响应统一壳"""
+
+    code = serializers.CharField()
+    message = serializers.CharField()
+    data = RefreshResponseDataSerializer()
+    request_id = serializers.CharField()
+
+
+class LogoutResponseDataSerializer(serializers.Serializer):
+    """登出响应 data（空对象）"""
+
+    pass
+
+
+class LogoutResponseEnvelopeSerializer(serializers.Serializer):
+    """登出响应统一壳"""
+
+    code = serializers.CharField()
+    message = serializers.CharField()
+    data = LogoutResponseDataSerializer()
+    request_id = serializers.CharField()

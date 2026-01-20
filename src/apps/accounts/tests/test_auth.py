@@ -3,14 +3,18 @@
 """
 from unittest.mock import patch
 
+from datetime import timedelta
+
 from django.contrib.auth.hashers import make_password
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.accounts.models.sessions import AuthSession, AuthSessionStatus
 from apps.accounts.models.users import GlobalUser, GlobalUserStatus
 from apps.accounts.services import auth as auth_service
+from apps.accounts.services.tokens import generate_refresh_token, hash_refresh_token
 from apps.tenants.models.tenant import Tenant, TenantStatus
 from apps.tenants.models.tenant_user import TenantUser, TenantUserStatus
 
@@ -154,3 +158,179 @@ class LoginAPITest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
         self.assertEqual(response.data["code"], "AUTH_TOO_MANY_ATTEMPTS")
+
+
+class RefreshAPITest(TestCase):
+    """刷新接口测试"""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = GlobalUser.objects.create(
+            login_name="bob",
+            display_name="Bob",
+            email="bob@example.com",
+            password_hash=make_password("Password123!"),
+            status=GlobalUserStatus.ACTIVE,
+            is_platform_admin=True,
+        )
+
+    def _create_session(self, *, status: str = AuthSessionStatus.ACTIVE, expires_at=None):
+        refresh_token = generate_refresh_token()
+        refresh_hash = hash_refresh_token(refresh_token)
+        if expires_at is None:
+            expires_at = timezone.now() + timedelta(days=1)
+        session = AuthSession.objects.create(
+            user=self.user,
+            refresh_token_hash=refresh_hash,
+            status=status,
+            issued_at=timezone.now(),
+            expires_at=expires_at,
+            device_info={},
+        )
+        return session, refresh_token
+
+    def test_refresh_success(self):
+        """成功刷新：返回新 access_token，轮换 refresh cookie"""
+        _, refresh_token = self._create_session()
+        self.client.cookies[auth_service.REFRESH_COOKIE_NAME] = refresh_token
+
+        response = self.client.post("/api/auth/refresh")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["code"], "OK")
+        data = response.data["data"]
+        self.assertIn("access_token", data)
+        self.assertIn("expires_in", data)
+        self.assertIn("user", data)
+
+        cookie = response.cookies.get(auth_service.REFRESH_COOKIE_NAME)
+        self.assertIsNotNone(cookie)
+        self.assertTrue(cookie.get("httponly"))
+
+    def test_refresh_missing_cookie(self):
+        """缺少 refresh cookie"""
+        response = self.client.post("/api/auth/refresh")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data["code"], "AUTH_INVALID_TOKEN")
+
+    def test_refresh_invalid_token(self):
+        """refresh token 无效"""
+        self.client.cookies[auth_service.REFRESH_COOKIE_NAME] = "invalid-token"
+
+        response = self.client.post("/api/auth/refresh")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data["code"], "AUTH_INVALID_TOKEN")
+
+    def test_refresh_session_revoked(self):
+        """会话已撤销"""
+        _, refresh_token = self._create_session(status=AuthSessionStatus.REVOKED)
+        self.client.cookies[auth_service.REFRESH_COOKIE_NAME] = refresh_token
+
+        response = self.client.post("/api/auth/refresh")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data["code"], "AUTH_SESSION_REVOKED")
+
+    def test_refresh_session_expired(self):
+        """会话已过期"""
+        expired_at = timezone.now() - timedelta(seconds=1)
+        _, refresh_token = self._create_session(expires_at=expired_at)
+        self.client.cookies[auth_service.REFRESH_COOKIE_NAME] = refresh_token
+
+        response = self.client.post("/api/auth/refresh")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data["code"], "AUTH_SESSION_EXPIRED")
+
+    def test_refresh_user_disabled(self):
+        """用户被禁用"""
+        _, refresh_token = self._create_session()
+        self.user.status = GlobalUserStatus.DISABLED
+        self.user.save(update_fields=["status", "updated_at"])
+        self.client.cookies[auth_service.REFRESH_COOKIE_NAME] = refresh_token
+
+        response = self.client.post("/api/auth/refresh")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["code"], "AUTH_USER_DISABLED")
+
+
+class LogoutAPITest(TestCase):
+    """登出接口测试"""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = GlobalUser.objects.create(
+            login_name="charlie",
+            display_name="Charlie",
+            email="charlie@example.com",
+            password_hash=make_password("Password123!"),
+            status=GlobalUserStatus.ACTIVE,
+            is_platform_admin=False,
+        )
+
+    def _create_session(self, *, status_value: str = AuthSessionStatus.ACTIVE):
+        refresh_token = generate_refresh_token()
+        refresh_hash = hash_refresh_token(refresh_token)
+        session = AuthSession.objects.create(
+            user=self.user,
+            refresh_token_hash=refresh_hash,
+            status=status_value,
+            issued_at=timezone.now(),
+            expires_at=timezone.now() + timedelta(days=1),
+            revoked_at=(timezone.now() if status_value == AuthSessionStatus.REVOKED else None),
+            device_info={},
+        )
+        return session, refresh_token
+
+    def test_logout_success_revokes_session_and_clears_cookie(self):
+        """成功登出：撤销会话并清理 refresh cookie"""
+        session, refresh_token = self._create_session()
+        self.client.cookies[auth_service.REFRESH_COOKIE_NAME] = refresh_token
+
+        response = self.client.post("/api/auth/logout")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["code"], "OK")
+
+        session.refresh_from_db()
+        self.assertEqual(session.status, AuthSessionStatus.REVOKED)
+        self.assertIsNotNone(session.revoked_at)
+
+        cookie = response.cookies.get(auth_service.REFRESH_COOKIE_NAME)
+        self.assertIsNotNone(cookie)
+        self.assertEqual(cookie.value, "")
+        self.assertEqual(cookie.get("max-age"), 0)
+
+    def test_logout_missing_cookie(self):
+        """未登录：缺少 refresh cookie"""
+        response = self.client.post("/api/auth/logout")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data["code"], "AUTH_INVALID_TOKEN")
+
+    def test_logout_session_not_found(self):
+        """无 session：refresh token 不存在"""
+        self.client.cookies[auth_service.REFRESH_COOKIE_NAME] = "missing-session-token"
+
+        response = self.client.post("/api/auth/logout")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data["code"], "AUTH_INVALID_TOKEN")
+
+    def test_logout_session_revoked(self):
+        """会话已撤销：返回 OK"""
+        session, refresh_token = self._create_session(status_value=AuthSessionStatus.REVOKED)
+        revoked_at = session.revoked_at
+        self.client.cookies[auth_service.REFRESH_COOKIE_NAME] = refresh_token
+
+        response = self.client.post("/api/auth/logout")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["code"], "OK")
+
+        session.refresh_from_db()
+        self.assertEqual(session.status, AuthSessionStatus.REVOKED)
+        self.assertEqual(session.revoked_at, revoked_at)

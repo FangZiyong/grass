@@ -25,6 +25,7 @@ REFRESH_COOKIE_PATH = getattr(settings, "AUTH_REFRESH_COOKIE_PATH", "/")
 REFRESH_COOKIE_SAMESITE = getattr(settings, "AUTH_REFRESH_COOKIE_SAMESITE", "Lax")
 REFRESH_COOKIE_SECURE = getattr(settings, "AUTH_REFRESH_COOKIE_SECURE", False)
 REQUIRE_TLS = getattr(settings, "AUTH_REQUIRE_TLS", False)
+REFRESH_ROTATE = getattr(settings, "AUTH_REFRESH_ROTATE", True)
 
 
 @dataclass
@@ -32,6 +33,13 @@ class LoginResult:
     payload: dict[str, Any]
     refresh_token: str
     refresh_expires_at: timezone.datetime
+
+
+@dataclass
+class RefreshResult:
+    payload: dict[str, Any]
+    refresh_token: Optional[str]
+    refresh_expires_at: Optional[timezone.datetime]
 
 
 def login(login_name: str, password: str, request=None) -> LoginResult:
@@ -48,7 +56,7 @@ def login(login_name: str, password: str, request=None) -> LoginResult:
     user = GlobalUser.objects.filter(login_name=login_name).first()
     if user is None:
         raise GrassAPIException(
-            detail="Invalid login credentials.",
+            detail="用户不存在或密码错误",
             status_code=status.HTTP_401_UNAUTHORIZED,
             code="AUTH_INVALID_CREDENTIALS",
         )
@@ -71,7 +79,7 @@ def login(login_name: str, password: str, request=None) -> LoginResult:
     if not check_password(password, user.password_hash):
         record_failed_login(login_name, client_ip)
         raise GrassAPIException(
-            detail="Invalid login credentials.",
+            detail="用户不存在或密码错误",
             status_code=status.HTTP_401_UNAUTHORIZED,
             code="AUTH_INVALID_CREDENTIALS",
         )
@@ -80,6 +88,9 @@ def login(login_name: str, password: str, request=None) -> LoginResult:
         user_id=user.id,
         is_platform_admin=user.is_platform_admin,
     )
+    # refresh token 仅保存哈希，明文只下发给客户端：
+    # - 数据库泄漏时降低风险
+    # - 需要时可通过哈希校验匹配
     refresh_token = generate_refresh_token()
     refresh_hash = hash_refresh_token(refresh_token)
     now = timezone.now()
@@ -88,6 +99,10 @@ def login(login_name: str, password: str, request=None) -> LoginResult:
 
     try:
         with transaction.atomic():
+            # 创建会话记录，便于：
+            # - 主动撤销（logout/后台踢下线）
+            # - 被动过期（超时/轮换）
+            # - 审计设备信息
             AuthSession.objects.create(
                 user=user,
                 refresh_token_hash=refresh_hash,
@@ -132,6 +147,141 @@ def set_refresh_cookie(response, refresh_token: str, expires_at: timezone.dateti
         secure=REFRESH_COOKIE_SECURE,
         samesite=REFRESH_COOKIE_SAMESITE,
         path=REFRESH_COOKIE_PATH,
+    )
+
+
+def clear_refresh_cookie(response) -> None:
+    """
+    清理 refresh token 的 Cookie。
+    """
+    response.set_cookie(
+        REFRESH_COOKIE_NAME,
+        "",
+        max_age=0,
+        expires=0,
+        httponly=True,
+        secure=REFRESH_COOKIE_SECURE,
+        samesite=REFRESH_COOKIE_SAMESITE,
+        path=REFRESH_COOKIE_PATH,
+    )
+
+
+def logout(request=None) -> None:
+    """
+    撤销当前 refresh 会话。
+    """
+    refresh_token = None
+    if request is not None and hasattr(request, "COOKIES"):
+        refresh_token = request.COOKIES.get(REFRESH_COOKIE_NAME)
+    if not refresh_token:
+        raise GrassAPIException(
+            detail="Refresh token is missing.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="AUTH_INVALID_TOKEN",
+        )
+
+    refresh_hash = hash_refresh_token(refresh_token)
+    session = AuthSession.objects.filter(refresh_token_hash=refresh_hash).first()
+    if session is None:
+        raise GrassAPIException(
+            detail="Invalid refresh token.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="AUTH_INVALID_TOKEN",
+        )
+
+    if session.status == AuthSessionStatus.ACTIVE:
+        now = timezone.now()
+        session.status = AuthSessionStatus.REVOKED
+        session.revoked_at = now
+        session.save(update_fields=["status", "revoked_at", "updated_at"])
+def refresh(request=None) -> RefreshResult:
+    """
+    使用 refresh cookie 换取新的 access token。
+    """
+    refresh_token = None
+    if request is not None and hasattr(request, "COOKIES"):
+        refresh_token = request.COOKIES.get(REFRESH_COOKIE_NAME)
+    if not refresh_token:
+        raise GrassAPIException(
+            detail="Refresh token is missing.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="AUTH_INVALID_TOKEN",
+        )
+
+    refresh_hash = hash_refresh_token(refresh_token)
+    # 按哈希定位会话，避免存储明文 token：
+    # - refresh cookie 泄漏可被单点撤销
+    session = (
+        AuthSession.objects.select_related("user")
+        .filter(refresh_token_hash=refresh_hash)
+        .first()
+    )
+    if session is None:
+        raise GrassAPIException(
+            detail="Invalid refresh token.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="AUTH_INVALID_TOKEN",
+        )
+
+    if session.status == AuthSessionStatus.REVOKED:
+        raise GrassAPIException(
+            detail="Refresh session is revoked.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="AUTH_SESSION_REVOKED",
+        )
+    if session.status == AuthSessionStatus.EXPIRED:
+        raise GrassAPIException(
+            detail="Refresh session has expired.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="AUTH_SESSION_EXPIRED",
+        )
+
+    now = timezone.now()
+    if session.expires_at <= now:
+        # 过期后持久化状态，便于后续审计与防重复使用
+        session.status = AuthSessionStatus.EXPIRED
+        session.save(update_fields=["status", "updated_at"])
+        raise GrassAPIException(
+            detail="Refresh session has expired.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="AUTH_SESSION_EXPIRED",
+        )
+
+    user = session.user
+    if user.status != GlobalUserStatus.ACTIVE:
+        raise GrassAPIException(
+            detail="User is disabled.",
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="AUTH_USER_DISABLED",
+        )
+
+    access_token, expires_in = issue_access_token(
+        user_id=user.id,
+        is_platform_admin=user.is_platform_admin,
+    )
+
+    new_refresh_token: Optional[str] = None
+    new_refresh_expires_at: Optional[timezone.datetime] = None
+    if REFRESH_ROTATE:
+        # 轮换 refresh：
+        # - 换新 token 哈希
+        # - 延长过期时间
+        new_refresh_token = generate_refresh_token()
+        session.refresh_token_hash = hash_refresh_token(new_refresh_token)
+        session.issued_at = now
+        new_refresh_expires_at = now + timedelta(days=REFRESH_TOKEN_TTL_DAYS)
+        session.expires_at = new_refresh_expires_at
+        session.save(update_fields=["refresh_token_hash", "issued_at", "expires_at", "updated_at"])
+
+    payload = {
+        "access_token": access_token,
+        "expires_in": expires_in,
+        "user": _build_user_payload(user),
+    }
+    return RefreshResult(
+        payload=payload,
+        refresh_token=new_refresh_token,
+        refresh_expires_at=new_refresh_expires_at,
     )
 
 
