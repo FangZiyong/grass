@@ -38,12 +38,12 @@ class ServerErrorView(APIView):
 
 
 urlpatterns = [
-    path("validation-error", ValidationErrorView.as_view()),
-    path("unauthenticated", UnauthenticatedView.as_view()),
-    path("forbidden", ForbiddenView.as_view()),
-    path("not-found", NotFoundView.as_view()),
-    path("conflict", ConflictView.as_view()),
-    path("server-error", ServerErrorView.as_view()),
+    path("api/auth/validation-error", ValidationErrorView.as_view()),
+    path("api/auth/unauthenticated", UnauthenticatedView.as_view()),
+    path("api/auth/forbidden", ForbiddenView.as_view()),
+    path("api/auth/not-found", NotFoundView.as_view()),
+    path("api/auth/conflict", ConflictView.as_view()),
+    path("api/auth/server-error", ServerErrorView.as_view()),
 ]
 
 
@@ -52,7 +52,7 @@ class ExceptionHandlerTests(APISimpleTestCase):
     client_class = APIClient
 
     def test_validation_error_returns_bad_request_shell(self):
-        response = self.client.get("/validation-error")
+        response = self.client.get("/api/auth/validation-error")
         body = response.json()
 
         self.assertEqual(response.status_code, 400)
@@ -62,7 +62,7 @@ class ExceptionHandlerTests(APISimpleTestCase):
         self.assertEqual(response["X-Request-Id"], body["request_id"])
 
     def test_not_authenticated_returns_401(self):
-        response = self.client.get("/unauthenticated")
+        response = self.client.get("/api/auth/unauthenticated")
         body = response.json()
 
         self.assertEqual(response.status_code, 401)
@@ -72,7 +72,7 @@ class ExceptionHandlerTests(APISimpleTestCase):
 
     def test_permission_denied_respects_request_id(self):
         request_id = "req_test_permission"
-        response = self.client.get("/forbidden", HTTP_X_REQUEST_ID=request_id)
+        response = self.client.get("/api/auth/forbidden", HTTP_X_REQUEST_ID=request_id)
         body = response.json()
 
         self.assertEqual(response.status_code, 403)
@@ -81,7 +81,7 @@ class ExceptionHandlerTests(APISimpleTestCase):
         self.assertEqual(response["X-Request-Id"], request_id)
 
     def test_http404_returns_not_found_shell(self):
-        response = self.client.get("/not-found")
+        response = self.client.get("/api/auth/not-found")
         body = response.json()
 
         self.assertEqual(response.status_code, 404)
@@ -89,7 +89,7 @@ class ExceptionHandlerTests(APISimpleTestCase):
         self.assertEqual(body["data"], None)
 
     def test_integrity_error_returns_conflict(self):
-        response = self.client.get("/conflict")
+        response = self.client.get("/api/auth/conflict")
         body = response.json()
 
         self.assertEqual(response.status_code, 409)
@@ -97,7 +97,7 @@ class ExceptionHandlerTests(APISimpleTestCase):
         self.assertEqual(body["data"], None)
 
     def test_unhandled_exception_returns_internal_error(self):
-        response = self.client.get("/server-error")
+        response = self.client.get("/api/auth/server-error")
         body = response.json()
 
         self.assertEqual(response.status_code, 500)

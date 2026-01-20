@@ -259,7 +259,11 @@ class S3StorageClientTest(TestCase):
 class GetStorageClientTest(TestCase):
     """测试 get_storage_client 工厂函数"""
 
-    @override_settings(STORAGE_TYPE="LOCAL", STORAGE_LOCAL_BASE_DIR=None, STORAGE_LOCAL_BASE_URL="/storage/")
+    @override_settings(
+        STORAGE_TYPE="LOCAL",
+        STORAGE_LOCAL_BASE_DIR=None,
+        STORAGE_LOCAL_BASE_URL="/storage/",
+    )
     def test_get_local_storage_client(self):
         """测试获取本地存储客户端"""
         client = get_storage_client()
@@ -319,4 +323,3 @@ class GetStorageClientTest(TestCase):
 
         self.assertEqual(cm.exception.status_code, 500)
         self.assertIn("unsupported", str(cm.exception.detail).lower())
-

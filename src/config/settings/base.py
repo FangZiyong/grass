@@ -3,14 +3,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# 自定义日志配置（避免覆盖 Django 默认 LOGGING_CONFIG）
+# 自定义日志配置
 from config.logging import LOGGING as LOGGING_SETTINGS
-
-# 注意：不再覆盖 import_string
-# Django 的原始 import_string 已经使用 rsplit(".", 1)，支持多段 dotted path
-# 日志配置中使用类对象（RequestContextFilter），不需要字符串路径导入
-# 如果将来需要使用字符串路径，可以使用 "config.logging.RequestContextFilter"
-# Django 的原始 import_string 可以正确处理
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 project_root = BASE_DIR.parent
@@ -147,6 +141,8 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": True,
 }
 
+# LOGGING_CONFIG 使用 Django 默认 dictConfig
+LOGGING_CONFIG = "logging.config.dictConfig"
 LOGGING = LOGGING_SETTINGS
 
 # JWT 配置

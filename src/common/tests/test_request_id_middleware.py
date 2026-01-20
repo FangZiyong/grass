@@ -21,8 +21,8 @@ class ErrorView(APIView):
 
 
 urlpatterns = [
-    path("request-id", RequestIdView.as_view()),
-    path("request-error", ErrorView.as_view()),
+    path("api/auth/request-id", RequestIdView.as_view()),
+    path("api/auth/request-error", ErrorView.as_view()),
 ]
 
 
@@ -31,7 +31,7 @@ class RequestIdMiddlewareTests(APISimpleTestCase):
     client_class = APIClient
 
     def test_request_id_generated_and_set_on_request(self):
-        response = self.client.get("/request-id")
+        response = self.client.get("/api/auth/request-id")
         body = response.json()
 
         self.assertEqual(response.status_code, 200)
@@ -42,7 +42,7 @@ class RequestIdMiddlewareTests(APISimpleTestCase):
     def test_request_id_header_is_preserved(self):
         request_id = "req_test_middleware"
 
-        response = self.client.get("/request-id", HTTP_X_REQUEST_ID=request_id)
+        response = self.client.get("/api/auth/request-id", HTTP_X_REQUEST_ID=request_id)
         body = response.json()
 
         self.assertEqual(response.status_code, 200)
@@ -51,7 +51,7 @@ class RequestIdMiddlewareTests(APISimpleTestCase):
         self.assertEqual(response["X-Request-Id"], request_id)
 
     def test_request_id_available_on_error_response(self):
-        response = self.client.get("/request-error")
+        response = self.client.get("/api/auth/request-error")
         body = response.json()
 
         self.assertEqual(response.status_code, 500)

@@ -1,25 +1,33 @@
-# Django 后端目录设计（与 PRD/技术文档对齐，V1.2）
-
-- 生成日期：2025-12-25
-- 变更：同步 tech.md 修正（资源树接口统一；移除废弃 {id} 路径；render 标注为内部/实验）
-
----
 
 ## 0. 目标与约束
 
-本文件用于**指导后端代码实现**：目录结构、文件职责、模型归属、服务划分、以及接口清单与代码落点。所有接口清单以 `tech.md` 为准（文档里标注“必须实现”的均视为硬要求）。
+本文件用于**指导后端代码实现**：目录结构、文件职责、模型归属、服务划分、接口清单与代码落点。所有接口清单以 `tech.md` 为准（文档里标注“必须实现”的均视为硬要求）。
 
-**硬约束（实现必须满足）**
+### 0.1 硬约束（实现必须满足）
 
-- `src/` 布局；`config/` 只放项目配置；业务逻辑只放在 `apps/`；横切能力下沉到 `common/`。
-- 业务写操作必须走 `services/*`（用例层），只读查询走 `selectors.py`（Query 层），避免 View 直接写数据库。
-- 权限校验：资源级（RolePermission）+ 行级（RowPermission）+ 列级（ColumnPermission）都必须在后端强制执行。
-- 审计：权限变更、关键配置变更（Flow/Modeling/Reports）必须写审计（见 `common.audit.emitter`）。
-- 平台后台：所有 `/admin/*` 与 `/admin/api/*` 必须只允许 `is_platform_admin=true` 用户访问，否则 403。
+- **目录职责清晰**
+  - `src/`：业务代码根目录
+  - `config/`：仅放 Django 项目配置（settings/urls/asgi/wsgi/celery/logging）
+  - `apps/`：仅放业务域（Domain）代码
+  - `common/`：横切能力（错误/审计/DSL/上下文/中间件/工具）
+  - `integrations/`：外部系统适配（DW/Storage/LLM…）
+- **分层与写路径**
+  - 业务写操作必须走 `services/*`（用例层）
+  - 只读查询走 `selectors.py`（Query 层）
+  - 禁止 View 直接写数据库（避免绕开权限/审计/一致性策略）
+- **权限强制执行（后端兜底）**
+  - 资源级（RolePermission）+ 行级（RowPermission）+ 列级（ColumnPermission）必须强制执行
+  - QueryEngine / 记录读取必须叠加行列权限约束
+- **审计强制**
+  - 权限变更、关键配置变更（Flow/Modeling/Reports）必须写审计（见 `common.audit.emitter`）
+- **平台后台强隔离**
+  - 所有 `/admin/*` 与 `/admin/api/*` 仅允许 `is_platform_admin=true` 用户访问，否则 403
 
 ---
 
 ## 1. 总体目录树（ASCII Tree）
+
+> 说明：`tests/` 将采用“模块内单测 + 顶层集成测”的混合策略（见第 2.3 节）。
 
 ```text
 repo/
@@ -114,25 +122,45 @@ repo/
     │   ├── audit_logs/
     │   ├── platform_admin/
     │   └── assist/
-    └── tests/
+    └── tests/                  # 仅放集成/冒烟/E2E（不要把所有单测堆这里）
         ├── __init__.py
-        └── test_smoke.py
+        └── smoke/
+            └── test_smoke.py
 ```
 
 ---
 
 ## 2. 分层与依赖方向（防循环依赖）
 
+### 2.1 模块职责
+
 - `config/`：Django 项目配置（settings/urls/asgi/wsgi/celery/logging）。
-- `common/`：跨领域基础能力（TenantContext、统一错误码、FilterDSL 编译、审计 emitter 等）。
+- `common/`：跨领域基础能力（TenantContext、统一错误码、FilterDSL 编译、审计 emitter、middleware 等）。
 - `integrations/`：外部系统适配（DW、存储、LLM）。
 - `apps/*`：按业务域拆分（accounts/tenants/iam/modeling/flows/reports/…）。
+- `tests/`：系统级集成测试与冒烟测试（跨模块链路验证）。
 
-**依赖规则（必须遵守）**
+### 2.2 依赖规则（必须遵守）
 
-1. `apps/*` 可以依赖 `common/` 与 `integrations/`。
-2. `apps/A` 与 `apps/B` 互相调用时：优先通过 `selectors.py`（只读）或 service 的“稳定接口”函数；禁止直接 import 对方 models 进行复杂操作。
-3. `execution/` 不反向依赖 `reports/flows/modeling`：通过 `execution.registry.tasks` 做 handler 注册反转依赖。
+1. `apps/*` **可以依赖** `common/` 与 `integrations/`。
+2. `apps/A` 与 `apps/B` 互相调用时：
+   - **优先**通过 `selectors.py`（只读）或 `services` 中对外暴露的“稳定接口函数”。
+   - **禁止**直接 import 对方 models 进行复杂业务操作（易破坏事务/权限/审计）。
+3. `execution/` **不反向依赖** `reports/flows/modeling`：通过 `execution.registry.tasks` 做 handler 注册反转依赖。
+4. `common/` 不允许 import `apps/*`（避免 common 变成“大而全业务层”）。
+
+### 2.3 测试组织规则（强制执行）
+
+为避免 `src/tests/` 爆炸式增长，采用 **“模块内单测 + 顶层集成测”**：
+
+- ✅ **模块内 tests/**（单元测试 & 该模块 API 测试）
+  - 放置位置：`src/apps/<app_name>/tests/`
+  - 适用范围：只依赖本模块（或可通过 mock 隔离外部模块）
+- ✅ **顶层 src/tests/**（跨模块集成 / E2E / 冒烟）
+  - 放置位置：`src/tests/integration/`、`src/tests/e2e/`、`src/tests/smoke/`
+  - 适用范围：涉及多个 app 的链路测试、真实 DB/Redis/Celery 的组合测试
+
+> 规则：**谁的逻辑，就把测试放谁旁边；跨模块行为，放顶层 `src/tests/`。**
 
 ---
 
@@ -140,12 +168,12 @@ repo/
 
 - `accounts`：平台用户与会话（GlobalUser/AuthSession）；`/api/auth/*`、`/api/me`
 - `tenants`：租户（Tenant）与成员实体（TenantUser）；`/api/tenants`、`/api/tenants/switch`
-- `iam`：租户内角色与权限（Role/RolePermission/RowPermission/ColumnPermission）；接口挂在 `/api/tenants/{tenant_id}/...`
+- `iam`：租户内角色与权限（Role/RolePermission/RowPermission/ColumnPermission）
 - `resource_tree`：资源树（ResourceTreeNode），对接 TABLE/FLOW/DATASET/DASHBOARD 等 scope
 - `modeling`：建模（ModelingTable/ModelingField + 记录 CRUD + REFERENCE 推导关系）
 - `query_engine`：Query/Filter 编译与执行；`/api/query/*`
 - `execution`：统一执行框架（TaskRunInstance + scheduler/worker）
-- `reports`：报表链路（Dataset/Chart/Dashboard/ExportJob/DatasetRefreshRun）
+- `reports`：Dataset/Chart/Dashboard/ExportJob/DatasetRefreshRun
 - `flows`：Flow DAG 与运行（Flow/Node/Edge/Run/NodeRun/RunLog）
 - `notifications`：站内通知；`/api/notifications*`
 - `audit_logs`：租户审计；`/api/audit-logs*`
@@ -238,6 +266,7 @@ src/apps/tenants/
 │   └── urls.py
 ├── migrations/
 └── tests/
+    └── __init__.py
 ```
 
 ## 模型（与 tech.md 数据表对齐）
@@ -303,6 +332,7 @@ src/apps/iam/
 │   └── urls.py
 ├── migrations/
 └── tests/
+    └── __init__.py
 ```
 
 ## 模型（与 tech.md 数据表对齐）
@@ -331,27 +361,26 @@ src/apps/iam/
 
 ## API（接口清单与代码落点）
 
+> 说明：本表仅列出关键路径；完整清单以 `tech.md` 为准。
+
 | 方法   | 路径                                                                       | 说明                                  | View（views\_\*.py）                             | Serializer                      | Service（函数）                                 | 权限                                 |
 | ------ | -------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------ | ------------------------------- | ----------------------------------------------- | ------------------------------------ |
-| POST   | `/api/permissions/grants`                                                  | 创建授权 grant（资源级）              | `views_permissions.GrantCreateView`              | `GrantCreateSerializer`         | `permission_service.create_grant()`             | TENANT_SETTINGS:MANAGE               |
-| DELETE | `/api/permissions/grants/{grant_id}`                                       | 删除授权 grant                        | `views_permissions.GrantDeleteView`              | `EmptySerializer`               | `permission_service.delete_grant()`             | TENANT_SETTINGS:MANAGE               |
-| GET    | `/api/permissions/resources/{resource_node_id}`                            | 获取资源节点的授权详情（含继承/显式） | `views_permissions.ResourcePermGetView`          | `ResourcePermSerializer`        | `permission_service.get_resource_permissions()` | TENANT_SETTINGS:MANAGE               |
 | GET    | `/api/tenants/{tenant_id}/roles`                                           | 角色列表                              | `views_roles.RoleListView`                       | `RoleSerializer`                | `role_service.list_roles()`                     | TENANT_SETTINGS:VIEW/EDIT            |
 | POST   | `/api/tenants/{tenant_id}/roles`                                           | 创建角色                              | `views_roles.RoleCreateView`                     | `RoleCreateSerializer`          | `role_service.create_role()`                    | TENANT_SETTINGS:MANAGE               |
-| DELETE | `/api/tenants/{tenant_id}/roles/{role_id}`                                 | 删除角色（需校验无绑定或策略）        | `views_roles.RoleDeleteView`                     | `EmptySerializer`               | `role_service.delete_role()`                    | TENANT_SETTINGS:MANAGE               |
-| PATCH  | `/api/tenants/{tenant_id}/roles/{role_id}`                                 | 编辑角色（名称/描述等）               | `views_roles.RoleUpdateView`                     | `RoleUpdateSerializer`          | `role_service.update_role()`                    | TENANT_SETTINGS:MANAGE               |
+| PATCH  | `/api/tenants/{tenant_id}/roles/{role_id}`                                 | 编辑角色                              | `views_roles.RoleUpdateView`                     | `RoleUpdateSerializer`          | `role_service.update_role()`                    | TENANT_SETTINGS:MANAGE               |
+| DELETE | `/api/tenants/{tenant_id}/roles/{role_id}`                                 | 删除角色                              | `views_roles.RoleDeleteView`                     | `EmptySerializer`               | `role_service.delete_role()`                    | TENANT_SETTINGS:MANAGE               |
 | GET    | `/api/tenants/{tenant_id}/roles/{role_id}/resource-permissions`            | 读取角色资源权限（按 scope）          | `views_role_permissions.RoleResourcePermGetView` | `RoleResourcePermSerializer`    | `permission_service.get_role_resource_perms()`  | TENANT_SETTINGS:MANAGE               |
 | PUT    | `/api/tenants/{tenant_id}/roles/{role_id}/resource-permissions`            | 覆盖更新角色资源权限（按 scope）      | `views_role_permissions.RoleResourcePermPutView` | `RoleResourcePermPutSerializer` | `permission_service.set_role_resource_perms()`  | TENANT_SETTINGS:MANAGE               |
 | GET    | `/api/tenants/{tenant_id}/tables/{table_id}/column-permissions`            | 读取列权限（role_id 维度）            | `views_column_perms.ColumnPermGetView`           | `ColumnPermSerializer`          | `permission_service.get_column_perms()`         | TABLE:MANAGE                         |
 | PUT    | `/api/tenants/{tenant_id}/tables/{table_id}/column-permissions`            | 覆盖更新列权限（role_id 维度）        | `views_column_perms.ColumnPermPutView`           | `ColumnPermPutSerializer`       | `permission_service.set_column_perms()`         | TABLE:MANAGE                         |
 | GET    | `/api/tenants/{tenant_id}/tables/{table_id}/row-permissions`               | 读取行权限（role_id 维度）            | `views_row_perms.RowPermListView`                | `RowPermSerializer`             | `permission_service.list_row_perms()`           | TABLE:MANAGE                         |
 | POST   | `/api/tenants/{tenant_id}/tables/{table_id}/row-permissions`               | 创建行权限（FilterDSL）               | `views_row_perms.RowPermCreateView`              | `RowPermCreateSerializer`       | `permission_service.create_row_perm()`          | TABLE:MANAGE                         |
-| DELETE | `/api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}` | 删除行权限                            | `views_row_perms.RowPermDeleteView`              | `EmptySerializer`               | `permission_service.delete_row_perm()`          | TABLE:MANAGE                         |
 | PATCH  | `/api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}` | 编辑行权限                            | `views_row_perms.RowPermUpdateView`              | `RowPermUpdateSerializer`       | `permission_service.update_row_perm()`          | TABLE:MANAGE                         |
-| DELETE | `/api/tenants/{tenant_id}/users/{tenant_user_id}/owner`                    | 取消 Owner（一般仅用于回滚/限制）     | `views_membership.UnsetOwnerView`                | `EmptySerializer`               | `membership_service.unset_owner()`              | TENANT_SETTINGS:MANAGE（owner-only） |
-| POST   | `/api/tenants/{tenant_id}/users/{tenant_user_id}/owner`                    | 设为租户 Owner（转移所有权）          | `views_membership.SetOwnerView`                  | `EmptySerializer`               | `membership_service.set_owner()`                | TENANT_SETTINGS:MANAGE（owner-only） |
+| DELETE | `/api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}` | 删除行权限                            | `views_row_perms.RowPermDeleteView`              | `EmptySerializer`               | `permission_service.delete_row_perm()`          | TABLE:MANAGE                         |
 | POST   | `/api/tenants/{tenant_id}/users/{tenant_user_id}/roles`                    | 给成员授予角色                        | `views_membership.UserRoleGrantView`             | `UserRoleGrantSerializer`       | `membership_service.grant_roles()`              | TENANT_SETTINGS:MANAGE               |
 | DELETE | `/api/tenants/{tenant_id}/users/{tenant_user_id}/roles/{role_id}`          | 撤销成员角色                          | `views_membership.UserRoleRevokeView`            | `EmptySerializer`               | `membership_service.revoke_role()`              | TENANT_SETTINGS:MANAGE               |
+| POST   | `/api/tenants/{tenant_id}/users/{tenant_user_id}/owner`                    | 设为租户 Owner（转移所有权）          | `views_membership.SetOwnerView`                  | `EmptySerializer`               | `membership_service.set_owner()`                | TENANT_SETTINGS:MANAGE（owner-only） |
+| DELETE | `/api/tenants/{tenant_id}/users/{tenant_user_id}/owner`                    | 取消 Owner                            | `views_membership.UnsetOwnerView`                | `EmptySerializer`               | `membership_service.unset_owner()`              | TENANT_SETTINGS:MANAGE（owner-only） |
 
 ---
 
@@ -378,6 +407,7 @@ src/apps/resource_tree/
 │   └── urls.py
 ├── migrations/
 └── tests/
+    └── __init__.py
 ```
 
 ## 模型（与 tech.md 数据表对齐）
@@ -394,18 +424,18 @@ src/apps/resource_tree/
   - `update_node(scope, node_id, name/parent/order)`
   - `move_nodes(scope, moves[])`
   - `reorder(scope, parent_id, ordered_ids[])`
-  - `delete_node(scope, node_id)`：需校验空文件夹或采用递归删除策略（与产品决策一致）
+  - `delete_node(scope, node_id)`：空文件夹校验或递归删除策略（按产品决策）
 
 ## API（接口清单与代码落点）
 
-| 方法   | 路径                                        | 说明                                   | View（views\_\*.py）          | Serializer               | Service（函数）                | 权限                    |
-| ------ | ------------------------------------------- | -------------------------------------- | ----------------------------- | ------------------------ | ------------------------------ | ----------------------- |
-| GET    | `/api/resource-trees/{scope}/children`      | 获取 scope 下 children（node_id 可选） | `views_tree.ChildrenView`     | `TreeChildrenSerializer` | `tree_service.list_children()` | 资源可见（NONE 不可见） |
-| POST   | `/api/resource-trees/{scope}/folders`       | 创建文件夹                             | `views_tree.FolderCreateView` | `FolderCreateSerializer` | `tree_service.create_folder()` | 对应 scope:EDIT         |
-| POST   | `/api/resource-trees/{scope}/move`          | 移动节点（跨父节点）                   | `views_tree.MoveView`         | `MoveSerializer`         | `tree_service.move_nodes()`    | 对应 scope:EDIT         |
+| 方法   | 路径                                             | 说明                                   | View（views\_\*.py）          | Serializer               | Service（函数）                | 权限                    |
+| ------ | ------------------------------------------------ | -------------------------------------- | ----------------------------- | ------------------------ | ------------------------------ | ----------------------- |
+| GET    | `/api/resource-trees/{scope}/children`           | 获取 scope 下 children（node_id 可选） | `views_tree.ChildrenView`     | `TreeChildrenSerializer` | `tree_service.list_children()` | 资源可见（NONE 不可见） |
+| POST   | `/api/resource-trees/{scope}/folders`            | 创建文件夹                             | `views_tree.FolderCreateView` | `FolderCreateSerializer` | `tree_service.create_folder()` | 对应 scope:EDIT         |
+| POST   | `/api/resource-trees/{scope}/move`               | 移动节点（跨父节点）                   | `views_tree.MoveView`         | `MoveSerializer`         | `tree_service.move_nodes()`    | 对应 scope:EDIT         |
 | PATCH  | `/api/resource-trees/{scope}/nodes/{node_id}`    | 重命名/移动前置校验用字段更新          | `views_tree.NodeUpdateView`   | `NodeUpdateSerializer`   | `tree_service.update_node()`   | 对应 scope:EDIT         |
-| DELETE | `/api/resource-trees/{scope}/nodes/{node_id}`    | 删除节点/目录（需为空；或按产品策略递归/软删） | `views_tree.NodeDeleteView`   | `EmptySerializer`        | `tree_service.delete_node()`   | 对应 scope:MANAGE       |
-| POST   | `/api/resource-trees/{scope}/reorder`       | 同层排序调整                           | `views_tree.ReorderView`      | `ReorderSerializer`      | `tree_service.reorder()`       | 对应 scope:EDIT         |
+| DELETE | `/api/resource-trees/{scope}/nodes/{node_id}`    | 删除节点/目录                          | `views_tree.NodeDeleteView`   | `EmptySerializer`        | `tree_service.delete_node()`   | 对应 scope:MANAGE       |
+| POST   | `/api/resource-trees/{scope}/reorder`            | 同层排序调整                           | `views_tree.ReorderView`      | `ReorderSerializer`      | `tree_service.reorder()`       | 对应 scope:EDIT         |
 
 ---
 
@@ -446,48 +476,19 @@ src/apps/modeling/
 │   └── urls.py
 ├── migrations/
 └── tests/
+    └── __init__.py
 ```
-
-## 模型（与 tech.md 数据表对齐）
-
-| 文件              | 模型            | db_table         | 说明                                                         |
-| ----------------- | --------------- | ---------------- | ------------------------------------------------------------ |
-| `models/table.py` | `ModelingTable` | `modeling_table` | 表元数据：code/display_name/type/desc/owner 等。             |
-| `models/field.py` | `ModelingField` | `modeling_field` | 字段元数据：ui_type/数据类型/是否必填/REFERENCE 关联信息等。 |
 
 ## Services（用例层：写操作）
 
 - `services/tables.py`
   - `list_tables()` / `create_table()` / `get_table()` / `update_table()` / `delete_table()`
-  - 需要联动：DW DDL（`integrations.dw.ddl`）+ 资源树节点（scope=TABLE）+ 审计
+  - 联动：DW DDL（`integrations.dw.ddl`）+ 资源树节点（scope=TABLE）+ 审计
 - `services/fields.py`
   - `list_fields()` / `create_field()` / `update_field()` / `delete_field()` / `reorder_fields()`
-  - `create_field()` 若 ui_type=REFERENCE：写 ref_table/ref_display_field，并由 `domain/relation.py` 提供关系推导
 - `services/records.py`
   - `create_record()` / `get_record()` / `update_record()` / `delete_record()` / `batch_delete()`
   - `query_records()`：调用 QueryEngine（FilterDSL + 排序分页 + 行列权限）
-
-## API（接口清单与代码落点）
-
-| 方法   | 路径                                                       | 说明                                              | View（views\_\*.py）                      | Serializer                      | Service（函数）                              | 权限              |
-| ------ | ---------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------- | ------------------------------- | -------------------------------------------- | ----------------- |
-| GET    | `/api/modeling/tables`                                     | 表列表                                            | `views_tables.TableListView`              | `TableSerializer`               | `table_service.list_tables()`                | MODEL:VIEW        |
-| POST   | `/api/modeling/tables`                                     | 创建表（写 MetaDB + 同步 DW DDL）                 | `views_tables.TableCreateView`            | `TableCreateSerializer`         | `table_service.create_table()`               | MODEL:MANAGE      |
-| GET    | `/api/modeling/tables/{ref_table_id}/reference-candidates` | REFERENCE 候选字段/展示字段列表                   | `views_reference.ReferenceCandidatesView` | `ReferenceCandidatesSerializer` | `relation_domain.get_reference_candidates()` | MODEL:VIEW        |
-| DELETE | `/api/modeling/tables/{table_id}`                          | 删除表（校验引用/数据集/flow）                    | `views_tables.TableDeleteView`            | `EmptySerializer`               | `table_service.delete_table()`               | MODEL:MANAGE      |
-| GET    | `/api/modeling/tables/{table_id}`                          | 表详情                                            | `views_tables.TableDetailView`            | `TableDetailSerializer`         | `table_service.get_table()`                  | MODEL:VIEW        |
-| PATCH  | `/api/modeling/tables/{table_id}`                          | 编辑表（名称/描述等）                             | `views_tables.TableUpdateView`            | `TableUpdateSerializer`         | `table_service.update_table()`               | MODEL:MANAGE      |
-| POST   | `/api/modeling/tables/{table_id}/data/query`               | 查询表数据（QueryEngine：Filter/Sort/Pagination） | `views_records.RecordQueryView`           | `RecordQuerySerializer`         | `record_service.query_records()`             | TABLE_DATA:VIEW   |
-| GET    | `/api/modeling/tables/{table_id}/fields`                   | 字段列表                                          | `views_fields.FieldListView`              | `FieldSerializer`               | `field_service.list_fields()`                | MODEL:VIEW        |
-| POST   | `/api/modeling/tables/{table_id}/fields`                   | 创建字段（含 REFERENCE 推导）                     | `views_fields.FieldCreateView`            | `FieldCreateSerializer`         | `field_service.create_field()`               | MODEL:MANAGE      |
-| POST   | `/api/modeling/tables/{table_id}/fields/reorder`           | 字段顺序调整                                      | `views_fields.FieldReorderView`           | `FieldReorderSerializer`        | `field_service.reorder_fields()`             | MODEL:MANAGE      |
-| DELETE | `/api/modeling/tables/{table_id}/fields/{field_id}`        | 删除字段（校验引用）                              | `views_fields.FieldDeleteView`            | `EmptySerializer`               | `field_service.delete_field()`               | MODEL:MANAGE      |
-| PATCH  | `/api/modeling/tables/{table_id}/fields/{field_id}`        | 编辑字段                                          | `views_fields.FieldUpdateView`            | `FieldUpdateSerializer`         | `field_service.update_field()`               | MODEL:MANAGE      |
-| POST   | `/api/modeling/tables/{table_id}/records`                  | 新增表数据（写 DW）                               | `views_records.RecordCreateView`          | `RecordWriteSerializer`         | `record_service.create_record()`             | TABLE_DATA:EDIT   |
-| POST   | `/api/modeling/tables/{table_id}/records/batch-delete`     | 批量删除表数据                                    | `views_records.RecordBatchDeleteView`     | `RecordBatchDeleteSerializer`   | `record_service.batch_delete()`              | TABLE_DATA:MANAGE |
-| DELETE | `/api/modeling/tables/{table_id}/records/{id}`             | 删除表数据                                        | `views_records.RecordDeleteView`          | `EmptySerializer`               | `record_service.delete_record()`             | TABLE_DATA:MANAGE |
-| GET    | `/api/modeling/tables/{table_id}/records/{id}`             | 表数据详情（行/列权限应用）                       | `views_records.RecordDetailView`          | `RecordReadSerializer`          | `record_service.get_record()`                | TABLE_DATA:VIEW   |
-| PATCH  | `/api/modeling/tables/{table_id}/records/{id}`             | 更新表数据（列只读校验）                          | `views_records.RecordUpdateView`          | `RecordWriteSerializer`         | `record_service.update_record()`             | TABLE_DATA:EDIT   |
 
 ---
 
@@ -509,29 +510,20 @@ src/apps/query_engine/
 │   ├── __init__.py
 │   ├── constraints.py
 │   └── query_runner.py
-├── services.py               # validate/run/export（供 api/query/* 与 modeling 复用）
+├── services.py               # validate/run/export（供 api/query/* 与 modeling/reports 复用）
 └── api/
-    ├──_apply_views_in_api_package_only_.txt  # 说明：query API 统一挂在 apps/query_engine/api 下（可选）
+    ├── __init__.py
+    ├── serializers.py
+    ├── views_query.py
+    └── urls.py
 ```
-
-## 模型（与 tech.md 数据表对齐）
-
-本模块原则上不落独立业务表（仅复用各模块元数据与 DW 表），主要负责编译与执行。
 
 ## Services（用例层：写操作）
 
 - `services.py`
   - `validate()`：校验 FilterDSL / QueryConfig
   - `run()`：编译 SQL + 注入权限约束 + 执行（`integrations.dw.client`）
-  - `export_csv()`：创建 ExportJob（reports.export_job）并提交执行任务
-
-## API（接口清单与代码落点）
-
-| 方法 | 路径                    | 说明                                   | View（views\_\*.py）        | Serializer                | Service（函数）              | 权限                 |
-| ---- | ----------------------- | -------------------------------------- | --------------------------- | ------------------------- | ---------------------------- | -------------------- |
-| POST | `/api/query/export/csv` | 导出 CSV（创建 export_job + 异步）     | `views_query.ExportCsvView` | `QueryExportSerializer`   | `query_service.export_csv()` | 登录态（资源权限内） |
-| POST | `/api/query/run`        | 执行查询（叠加权限约束）               | `views_query.RunView`       | `QueryRunSerializer`      | `query_service.run()`        | 登录态（资源权限内） |
-| POST | `/api/query/validate`   | 校验 FilterDSL / QueryConfig（不执行） | `views_query.ValidateView`  | `QueryValidateSerializer` | `query_service.validate()`   | 登录态               |
+  - `export_csv()`：创建 ExportJob（`reports.export_job`）并提交执行任务
 
 ---
 
@@ -563,32 +555,13 @@ src/apps/execution/
         └── scheduler_tick.py
 ```
 
-## 模型（与 tech.md 数据表对齐）
-
-| 文件                 | 模型              | db_table            | 说明                                                                |
-| -------------------- | ----------------- | ------------------- | ------------------------------------------------------------------- |
-| `models/task_run.py` | `TaskRunInstance` | `task_run_instance` | 通用任务运行实体：task_type/task_id/status/started/finished/error。 |
-| `models/task_log.py` | `TaskRunLog`      | `task_run_log`      | 可选：统一 run 日志（若各业务 run 表已足够可不建）。                |
-
-## Services（用例层：写操作）
-
-执行框架多为基础设施代码：
-
-- `registry/tasks.py`：注册 task_type -> handler（业务模块在 AppConfig.ready() 注册）
-- `scheduler/dispatcher.py`：把 TaskRunInstance 投递到队列
-- `management/commands/scheduler_tick.py`：定时扫描 cron 触发（Flow/Dataset）并创建 TaskRunInstance
-- `worker/base.py`：handler 基类与上下文（tenant_id/request_id）
-
-## API（接口清单与代码落点）
-
-| 方法 | 路径 | 说明 | View（views\_\*.py） | Serializer | Service（函数） | 权限 |
-| ---- | ---- | ---- | -------------------- | ---------- | --------------- | ---- |
-
 ---
 
 # reports ｜报表链路
 
 **模块定位**：Dataset（物化表）→ Chart → Dashboard；支持 refresh_run 与 export_job。
+
+> 说明：`Dashboard.render` 标注为 **内部/实验**；不要作为稳定对外 API 的唯一实现依赖。
 
 ## 目录结构
 
@@ -598,12 +571,12 @@ src/apps/reports/
 ├── apps.py
 ├── models/
 │   ├── __init__.py
-│   ├── dataset.py            # Dataset（dataset）
-│   ├── dataset_refresh_run.py # DatasetRefreshRun（dataset_refresh_run）
-│   ├── chart.py              # Chart（chart）
-│   ├── dashboard.py          # Dashboard（dashboard）
-│   ├── dashboard_item.py     # DashboardItem（dashboard_item）
-│   └── export_job.py         # ExportJob（export_job）
+│   ├── dataset.py
+│   ├── dataset_refresh_run.py
+│   ├── chart.py
+│   ├── dashboard.py
+│   ├── dashboard_item.py
+│   └── export_job.py
 ├── services/
 │   ├── __init__.py
 │   ├── datasets.py
@@ -628,69 +601,8 @@ src/apps/reports/
 │   └── urls.py
 ├── migrations/
 └── tests/
+    └── __init__.py
 ```
-
-## 模型（与 tech.md 数据表对齐）
-
-| 文件                            | 模型                | db_table              | 说明                                                          |
-| ------------------------------- | ------------------- | --------------------- | ------------------------------------------------------------- |
-| `models/dataset.py`             | `Dataset`           | `dataset`             | Dataset 定义：base_table/base_filter/cron/enabled/status 等。 |
-| `models/dataset_refresh_run.py` | `DatasetRefreshRun` | `dataset_refresh_run` | 刷新运行记录：status/row_count/duration/error。               |
-| `models/chart.py`               | `Chart`             | `chart`               | Chart：dataset_id + query_config_json + viz_config_json。     |
-| `models/dashboard.py`           | `Dashboard`         | `dashboard`           | Dashboard：layout_json + 基本信息。                           |
-| `models/dashboard_item.py`      | `DashboardItem`     | `dashboard_item`      | 仪表盘元素：引用 chart + 位置信息。                           |
-| `models/export_job.py`          | `ExportJob`         | `export_job`          | 导出任务：type/status/file_url/created_by。                   |
-
-## Services（用例层：写操作）
-
-- `services/datasets.py`
-  - `list()` / `create()` / `get()` / `update()`
-  - `set_enabled()`：启停 cron
-  - `preview()`：不落库预览
-  - `refresh()`：创建 DatasetRefreshRun + 提交 TaskRunInstance
-  - `list_refresh_runs()`
-- `services/charts.py`
-  - `list()` / `create()` / `get()` / `update()` / `delete()`
-  - `preview()`：调用 QueryEngine
-- `services/dashboards.py`
-  - `list()` / `create()` / `get()` / `update()` / `set_layout()`
-  - `add_item()` / `update_item()` / `remove_item()`
-  - `render()`：批量执行 charts
-- `services/exports.py`
-  - `create_for_chart()` / `get_job()`
-- `workers/dataset_refresh.py`：DW tmp -> swap（原子替换）
-- `workers/export_job.py`：生成文件并上传 storage
-
-## API（接口清单与代码落点）
-
-| 方法   | 路径                                                       | 说明                                                 | View（views\_\*.py）                       | Serializer                      | Service（函数）                       | 权限           |
-| ------ | ---------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------ | ------------------------------- | ------------------------------------- | -------------- |
-| GET    | `/api/charts`                                              | Chart 列表                                           | `views_charts.ChartListView`               | `ChartSerializer`               | `chart_service.list()`                | CHART:VIEW     |
-| POST   | `/api/charts`                                              | 创建 Chart（query_config_json + viz_config_json）    | `views_charts.ChartCreateView`             | `ChartCreateSerializer`         | `chart_service.create()`              | CHART:EDIT     |
-| POST   | `/api/charts/preview`                                      | Chart 预览（执行 QueryConfig）                       | `views_charts.ChartPreviewView`            | `ChartPreviewSerializer`        | `chart_service.preview()`             | CHART:VIEW     |
-| DELETE | `/api/charts/{chart_id}`                                   | 删除 Chart                                           | `views_charts.ChartDeleteView`             | `EmptySerializer`               | `chart_service.delete()`              | CHART:MANAGE   |
-| GET    | `/api/charts/{chart_id}`                                   | Chart 详情                                           | `views_charts.ChartDetailView`             | `ChartDetailSerializer`         | `chart_service.get()`                 | CHART:VIEW     |
-| PATCH  | `/api/charts/{chart_id}`                                   | 编辑 Chart                                           | `views_charts.ChartUpdateView`             | `ChartUpdateSerializer`         | `chart_service.update()`              | CHART:EDIT     |
-| POST   | `/api/charts/{chart_id}/exports`                           | 创建图表导出任务（export_job）                       | `views_charts.ChartExportCreateView`       | `ChartExportSerializer`         | `export_service.create_for_chart()`   | CHART:VIEW     |
-| GET    | `/api/dashboards`                                          | Dashboard 列表                                       | `views_dashboards.DashboardListView`       | `DashboardSerializer`           | `dashboard_service.list()`            | DASHBOARD:VIEW |
-| POST   | `/api/dashboards`                                          | 创建 Dashboard                                       | `views_dashboards.DashboardCreateView`     | `DashboardCreateSerializer`     | `dashboard_service.create()`          | DASHBOARD:EDIT |
-| GET    | `/api/dashboards/{dashboard_id}`                           | Dashboard 详情                                       | `views_dashboards.DashboardDetailView`     | `DashboardDetailSerializer`     | `dashboard_service.get()`             | DASHBOARD:VIEW |
-| PATCH  | `/api/dashboards/{dashboard_id}`                           | 编辑 Dashboard 基本信息                              | `views_dashboards.DashboardUpdateView`     | `DashboardUpdateSerializer`     | `dashboard_service.update()`          | DASHBOARD:EDIT |
-| POST   | `/api/dashboards/{dashboard_id}/items`                     | 添加 DashboardItem（引用 chart）                     | `views_dashboards.DashboardItemCreateView` | `DashboardItemCreateSerializer` | `dashboard_service.add_item()`        | DASHBOARD:EDIT |
-| DELETE | `/api/dashboards/{dashboard_id}/items/{dashboard_item_id}` | 删除 DashboardItem                                   | `views_dashboards.DashboardItemDeleteView` | `EmptySerializer`               | `dashboard_service.remove_item()`     | DASHBOARD:EDIT |
-| PATCH  | `/api/dashboards/{dashboard_id}/items/{dashboard_item_id}` | 更新 DashboardItem（位置/尺寸等）                    | `views_dashboards.DashboardItemUpdateView` | `DashboardItemUpdateSerializer` | `dashboard_service.update_item()`     | DASHBOARD:EDIT |
-| PUT    | `/api/dashboards/{dashboard_id}/layout`                    | 覆盖更新 layout_json                                 | `views_dashboards.DashboardLayoutPutView`  | `DashboardLayoutSerializer`     | `dashboard_service.set_layout()`      | DASHBOARD:EDIT |
-| POST   | `/api/dashboards/{dashboard_id}/render`                    | 渲染/预览（内部/实验） Dashboard（批量执行 charts）                    | `views_dashboards.DashboardRenderView`     | `DashboardRenderSerializer`     | `dashboard_service.render()`          | DASHBOARD:VIEW |
-| GET    | `/api/datasets`                                            | Dataset 列表                                         | `views_datasets.DatasetListView`           | `DatasetSerializer`             | `dataset_service.list()`              | DATASET:VIEW   |
-| POST   | `/api/datasets`                                            | 创建 Dataset（定义 base_table + base_filter + cron） | `views_datasets.DatasetCreateView`         | `DatasetCreateSerializer`       | `dataset_service.create()`            | DATASET:MANAGE |
-| GET    | `/api/datasets/{dataset_id}`                               | Dataset 详情                                         | `views_datasets.DatasetDetailView`         | `DatasetDetailSerializer`       | `dataset_service.get()`               | DATASET:VIEW   |
-| PATCH  | `/api/datasets/{dataset_id}`                               | 编辑 Dataset                                         | `views_datasets.DatasetUpdateView`         | `DatasetUpdateSerializer`       | `dataset_service.update()`            | DATASET:EDIT   |
-| POST   | `/api/datasets/{dataset_id}/enable`                        | 启用/禁用 Dataset 调度                               | `views_datasets.DatasetEnableView`         | `DatasetEnableSerializer`       | `dataset_service.set_enabled()`       | DATASET:MANAGE |
-| POST   | `/api/datasets/{dataset_id}/preview`                       | 预览 Dataset（不落库）                               | `views_datasets.DatasetPreviewView`        | `DatasetPreviewSerializer`      | `dataset_service.preview()`           | DATASET:VIEW   |
-| POST   | `/api/datasets/{dataset_id}/refresh`                       | 手动触发 refresh（提交 TaskRunInstance）             | `views_datasets.DatasetRefreshView`        | `EmptySerializer`               | `dataset_service.refresh()`           | DATASET:EDIT   |
-| GET    | `/api/datasets/{dataset_id}/refresh-runs`                  | 刷新运行历史                                         | `views_datasets.DatasetRefreshRunListView` | `DatasetRefreshRunSerializer`   | `dataset_service.list_refresh_runs()` | DATASET:VIEW   |
-| POST   | `/api/datasets/{id}/refresh`                               | （见 tech.md 描述）                                  | `TBD`                                      | `TBD`                           | `TBD`                                 | TBD            |
-| GET    | `/api/exports/{export_job_id}`                             | 导出任务详情（状态/file_url）                        | `views_exports.ExportJobDetailView`        | `ExportJobSerializer`           | `export_service.get_job()`            | 对应资源:VIEW  |
 
 ---
 
@@ -706,12 +618,12 @@ src/apps/flows/
 ├── apps.py
 ├── models/
 │   ├── __init__.py
-│   ├── flow.py               # Flow（flow）
-│   ├── node.py               # FlowNode（flow_node）
-│   ├── edge.py               # FlowEdge（flow_edge）
-│   ├── run.py                # FlowRun（flow_run）
-│   ├── node_run.py           # FlowNodeRun（flow_node_run）
-│   └── run_log.py            # FlowRunLog（flow_run_log）
+│   ├── flow.py
+│   ├── node.py
+│   ├── edge.py
+│   ├── run.py
+│   ├── node_run.py
+│   └── run_log.py
 ├── services/
 │   ├── __init__.py
 │   ├── flows.py
@@ -731,54 +643,8 @@ src/apps/flows/
 │   └── urls.py
 ├── migrations/
 └── tests/
+    └── __init__.py
 ```
-
-## 模型（与 tech.md 数据表对齐）
-
-| 文件                 | 模型          | db_table        | 说明                                                     |
-| -------------------- | ------------- | --------------- | -------------------------------------------------------- |
-| `models/flow.py`     | `Flow`        | `flow`          | Flow 主表：name/desc/enabled/cron/timezone。             |
-| `models/node.py`     | `FlowNode`    | `flow_node`     | DAG 节点：type/config/position。                         |
-| `models/edge.py`     | `FlowEdge`    | `flow_edge`     | DAG 边：from/to；保存时需 DAG 校验（无环/无自环）。      |
-| `models/run.py`      | `FlowRun`     | `flow_run`      | 运行实例：trigger_type/status/started/finished/summary。 |
-| `models/node_run.py` | `FlowNodeRun` | `flow_node_run` | 节点运行：status/output/error。                          |
-| `models/run_log.py`  | `FlowRunLog`  | `flow_run_log`  | 运行日志：SCHEDULE_SKIP/ERROR 等。                       |
-
-## Services（用例层：写操作）
-
-- `services/flows.py`
-  - `list()` / `create()` / `get()` / `update()` / `delete()` / `tree()`
-- `services/graph.py`
-  - `get_graph()` / `save_graph()` / `validate_graph()`（DAG 校验、node_config 校验）
-- `services/schedule.py`
-  - `get()` / `update()`：cron/enabled/timezone/next_run_at
-- `services/runs.py`
-  - `trigger()` / `list_runs()` / `get_run()`
-  - `list_node_runs()` / `get_node_run()` / `list_run_logs()` / `list_flow_logs()`
-- 与租户停用联动：Tenant=SUSPENDED 时禁止触发新的 Run（scheduler_tick 层 + trigger 层双保险）。
-
-## API（接口清单与代码落点）
-
-| 方法   | 路径                                | 说明                              | View（views\_\*.py）                  | Serializer                    | Service（函数）                 | 权限        |
-| ------ | ----------------------------------- | --------------------------------- | ------------------------------------- | ----------------------------- | ------------------------------- | ----------- |
-| GET    | `/api/flow-node-runs/{node_run_id}` | NodeRun 详情                      | `views_flow_runs.NodeRunDetailView`   | `NodeRunDetailSerializer`     | `run_service.get_node_run()`    | FLOW:VIEW   |
-| GET    | `/api/flow-runs/{run_id}`           | FlowRun 详情                      | `views_flow_runs.FlowRunDetailView`   | `FlowRunDetailSerializer`     | `run_service.get_run()`         | FLOW:VIEW   |
-| GET    | `/api/flow-runs/{run_id}/logs`      | FlowRun 日志                      | `views_flow_runs.FlowRunLogListView`  | `FlowRunLogSerializer`        | `run_service.list_run_logs()`   | FLOW:VIEW   |
-| GET    | `/api/flow-runs/{run_id}/node-runs` | NodeRun 列表                      | `views_flow_runs.NodeRunListView`     | `NodeRunSerializer`           | `run_service.list_node_runs()`  | FLOW:VIEW   |
-| GET    | `/api/flows`                        | Flow 列表                         | `views_flows.FlowListView`            | `FlowSerializer`              | `flow_service.list()`           | FLOW:VIEW   |
-| POST   | `/api/flows`                        | 创建 Flow                         | `views_flows.FlowCreateView`          | `FlowCreateSerializer`        | `flow_service.create()`         | FLOW:EDIT   |
-| GET    | `/api/flows/tree`                   | Flow 树（资源树视图）             | `views_flows.FlowTreeView`            | `FlowTreeSerializer`          | `flow_service.tree()`           | FLOW:VIEW   |
-| DELETE | `/api/flows/{flow_id}`              | 删除 Flow                         | `views_flows.FlowDeleteView`          | `EmptySerializer`             | `flow_service.delete()`         | FLOW:MANAGE |
-| GET    | `/api/flows/{flow_id}`              | Flow 详情                         | `views_flows.FlowDetailView`          | `FlowDetailSerializer`        | `flow_service.get()`            | FLOW:VIEW   |
-| PATCH  | `/api/flows/{flow_id}`              | 编辑 Flow 基本信息                | `views_flows.FlowUpdateView`          | `FlowUpdateSerializer`        | `flow_service.update()`         | FLOW:EDIT   |
-| GET    | `/api/flows/{flow_id}/graph`        | 获取 DAG（nodes/edges）           | `views_flow_graph.GraphGetView`       | `FlowGraphSerializer`         | `flow_service.get_graph()`      | FLOW:VIEW   |
-| PUT    | `/api/flows/{flow_id}/graph`        | 保存 DAG（需 DAG 校验）           | `views_flow_graph.GraphPutView`       | `FlowGraphPutSerializer`      | `flow_service.save_graph()`     | FLOW:EDIT   |
-| GET    | `/api/flows/{flow_id}/logs`         | Flow 运行日志（近 N 条）          | `views_flow_runs.FlowLogsView`        | `FlowLogSerializer`           | `run_service.list_logs()`       | FLOW:VIEW   |
-| GET    | `/api/flows/{flow_id}/runs`         | FlowRun 列表                      | `views_flow_runs.FlowRunListView`     | `FlowRunSerializer`           | `run_service.list_runs()`       | FLOW:VIEW   |
-| POST   | `/api/flows/{flow_id}/runs`         | 手动触发一次 FlowRun              | `views_flow_runs.FlowRunTriggerView`  | `EmptySerializer`             | `run_service.trigger()`         | FLOW:EDIT   |
-| GET    | `/api/flows/{flow_id}/schedule`     | 读取调度信息（cron/next_run）     | `views_flow_schedule.ScheduleGetView` | `FlowScheduleSerializer`      | `schedule_service.get()`        | FLOW:VIEW   |
-| PUT    | `/api/flows/{flow_id}/schedule`     | 更新调度（cron/enabled/timezone） | `views_flow_schedule.SchedulePutView` | `FlowSchedulePutSerializer`   | `schedule_service.update()`     | FLOW:MANAGE |
-| POST   | `/api/flows/{flow_id}/validate`     | 校验 DAG 与 node_config           | `views_flow_graph.GraphValidateView`  | `FlowGraphValidateSerializer` | `flow_service.validate_graph()` | FLOW:EDIT   |
 
 ---
 
@@ -794,7 +660,7 @@ src/apps/notifications/
 ├── apps.py
 ├── models/
 │   ├── __init__.py
-│   └── notification.py       # Notification（notification，可按 tech 命名）
+│   └── notification.py
 ├── selectors.py
 ├── services.py
 ├── api/
@@ -804,28 +670,8 @@ src/apps/notifications/
 │   └── urls.py
 ├── migrations/
 └── tests/
+    └── __init__.py
 ```
-
-## 模型（与 tech.md 数据表对齐）
-
-| 文件                     | 模型           | db_table       | 说明                                                                        |
-| ------------------------ | -------------- | -------------- | --------------------------------------------------------------------------- |
-| `models/notification.py` | `Notification` | `notification` | 站内通知：entity_type/entity_id/title/body/read_at 等（按 tech 结构实现）。 |
-
-## Services（用例层：写操作）
-
-- `services.py`
-  - `list(unread_only, limit, offset)`
-  - `unread_count()`
-  - `mark_read(ids|all_before)`（支持批量）
-
-## API（接口清单与代码落点）
-
-| 方法 | 路径                              | 说明                         | View（views\_\*.py）                       | Serializer               | Service（函数）                | 权限   |
-| ---- | --------------------------------- | ---------------------------- | ------------------------------------------ | ------------------------ | ------------------------------ | ------ |
-| GET  | `/api/notifications`              | 通知列表（unread_only/分页） | `views_notifications.NotificationListView` | `NotificationSerializer` | `notif_service.list()`         | 登录态 |
-| POST | `/api/notifications/mark-read`    | 标记已读（批量）             | `views_notifications.MarkReadView`         | `MarkReadSerializer`     | `notif_service.mark_read()`    | 登录态 |
-| GET  | `/api/notifications/unread-count` | 未读数量                     | `views_notifications.UnreadCountView`      | `EmptySerializer`        | `notif_service.unread_count()` | 登录态 |
 
 ---
 
@@ -841,12 +687,12 @@ src/apps/audit_logs/
 ├── apps.py
 ├── models/
 │   ├── __init__.py
-│   └── audit_log.py          # AuditLog（audit_log）
+│   └── audit_log.py
 ├── selectors.py
 ├── services/
 │   ├── __init__.py
-│   ├── audit.py              # list/get（tenant）
-│   └── meta.py               # actions/target-types（tenant）
+│   ├── audit.py
+│   └── meta.py
 ├── api/
 │   ├── __init__.py
 │   ├── serializers.py
@@ -856,38 +702,14 @@ src/apps/audit_logs/
 │   └── urls.py
 ├── migrations/
 └── tests/
+    └── __init__.py
 ```
-
-## 模型（与 tech.md 数据表对齐）
-
-| 文件                  | 模型       | db_table    | 说明                                                                          |
-| --------------------- | ---------- | ----------- | ----------------------------------------------------------------------------- |
-| `models/audit_log.py` | `AuditLog` | `audit_log` | 审计日志：actor/tenant/action_type/target_type/target_id/diff/result/reason。 |
-
-## Services（用例层：写操作）
-
-- `services/audit.py`
-  - `list()`：按时间/actor/action/target 过滤
-  - `get()`：详情
-- `services/meta.py`
-  - `actions()`：操作类型枚举（前端筛选器用）
-  - `target_types()`：目标类型枚举
-- 写入统一走 `common.audit.emitter.emit()`（不要在此处散写）。
-
-## API（接口清单与代码落点）
-
-| 方法 | 路径                                | 说明                  | View（views\_\*.py）             | Serializer                 | Service（函数）                     | 权限             |
-| ---- | ----------------------------------- | --------------------- | -------------------------------- | -------------------------- | ----------------------------------- | ---------------- |
-| GET  | `/api/audit-logs`                   | 审计列表（tenant 内） | `views_audit.AuditLogListView`   | `AuditLogSerializer`       | `audit_service.list()`              | owner-only（V1） |
-| GET  | `/api/audit-logs/meta/actions`      | 操作类型枚举（分组）  | `views_meta.ActionsMetaView`     | `ActionMetaSerializer`     | `audit_meta_service.actions()`      | owner-only（V1） |
-| GET  | `/api/audit-logs/meta/target-types` | 目标类型枚举          | `views_meta.TargetTypesMetaView` | `TargetTypeMetaSerializer` | `audit_meta_service.target_types()` | owner-only（V1） |
-| GET  | `/api/audit-logs/{audit_id}`        | 审计详情              | `views_audit.AuditLogDetailView` | `AuditLogDetailSerializer` | `audit_service.get()`               | owner-only（V1） |
 
 ---
 
 # platform_admin ｜平台后台
 
-**模块定位**：平台管理员 API：GlobalUser/Tenant/TenantUser 管理（/admin/api/_）与平台审计（/api/platform/audit-logs_）。
+**模块定位**：平台管理员 API：GlobalUser/Tenant/TenantUser 管理（/admin/api/*）与平台审计（/api/platform/audit-logs*）。
 
 ## 目录结构
 
@@ -897,67 +719,25 @@ src/apps/platform_admin/
 ├── apps.py
 ├── services/
 │   ├── __init__.py
-│   ├── users.py              # GlobalUser 管理
-│   ├── tenants.py            # Tenant 管理 + 状态联动 Scheduler
-│   ├── tenant_users.py       # TenantUser 管理（批量添加/移除/设 owner/改角色）
-│   └── platform_audit.py     # /api/platform/audit-logs*
+│   ├── users.py
+│   ├── tenants.py
+│   ├── tenant_users.py
+│   └── platform_audit.py
 ├── api/
 │   ├── __init__.py
 │   ├── serializers_users.py
 │   ├── serializers_tenants.py
 │   ├── serializers_tenant_users.py
 │   ├── serializers_platform_audit.py
-│   ├── permissions.py        # IsPlatformAdmin（复用 accounts.api.permissions 可选）
+│   ├── permissions.py
 │   ├── views_users.py
 │   ├── views_tenants.py
 │   ├── views_tenant_users.py
 │   ├── views_platform_audit.py
 │   └── urls.py
 └── tests/
+    └── __init__.py
 ```
-
-## 模型（与 tech.md 数据表对齐）
-
-本模块不新增核心业务表：
-
-- 复用 `accounts.GlobalUser`、`tenants.Tenant`、`tenants.TenantUser`、`audit_logs.AuditLog`。
-
-## Services（用例层：写操作）
-
-- `services/users.py`
-  - `list_users()` / `create_user()` / `update_user()` / `enable()` / `disable()` / `reset_password()`
-- `services/tenants.py`
-  - `list_tenants()` / `create_tenant()` / `update_tenant(name/plan/status)` / `enable()` / `suspend()`
-  - `suspend()` 必须联动停止该租户调度触发（Flow）
-- `services/tenant_users.py`
-  - `list()` / `add_users(batch)` / `update(status/owner/roles)` / `remove()`
-- `services/platform_audit.py`
-  - `list()` / `get()`（跨租户审计查询）
-  - `meta.actions()` / `meta.target_types()`
-
-## API（接口清单与代码落点）
-
-| 方法   | 路径                                                 | 说明                                                           | View（views\_\*.py）                               | Serializer                        | Service（函数）                         | 权限            |
-| ------ | ---------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------- | --------------------------------- | --------------------------------------- | --------------- |
-| GET    | `/admin/api/tenants`                                 | Tenant 列表（搜索/筛选）                                       | `views_tenants.AdminTenantListView`                | `AdminTenantListSerializer`       | `admin_tenant_service.list_tenants()`   | IsPlatformAdmin |
-| POST   | `/admin/api/tenants`                                 | 创建 Tenant（code/name/plan/status）                           | `views_tenants.AdminTenantCreateView`              | `AdminTenantCreateSerializer`     | `admin_tenant_service.create_tenant()`  | IsPlatformAdmin |
-| PATCH  | `/admin/api/tenants/{id}`                            | 编辑 Tenant（必须支持改 name；plan/status；code 不可改）       | `views_tenants.AdminTenantUpdateView`              | `AdminTenantUpdateSerializer`     | `admin_tenant_service.update_tenant()`  | IsPlatformAdmin |
-| POST   | `/admin/api/tenants/{id}/enable`                     | 启用 Tenant                                                    | `views_tenants.AdminTenantEnableView`              | `EmptySerializer`                 | `admin_tenant_service.enable()`         | IsPlatformAdmin |
-| POST   | `/admin/api/tenants/{id}/suspend`                    | 停用 Tenant（需停止该租户 Flow 调度）                          | `views_tenants.AdminTenantSuspendView`             | `EmptySerializer`                 | `admin_tenant_service.suspend()`        | IsPlatformAdmin |
-| GET    | `/admin/api/tenants/{tenantId}/users`                | 租户成员列表（TenantUser）                                     | `views_tenant_users.AdminTenantUserListView`       | `AdminTenantUserSerializer`       | `admin_tenant_user_service.list()`      | IsPlatformAdmin |
-| POST   | `/admin/api/tenants/{tenantId}/users`                | 添加成员（从 GlobalUser 选择，可批量，可设 owner/初始角色）    | `views_tenant_users.AdminTenantUserCreateView`     | `AdminTenantUserCreateSerializer` | `admin_tenant_user_service.add_users()` | IsPlatformAdmin |
-| DELETE | `/admin/api/tenants/{tenantId}/users/{tenantUserId}` | 移除成员（删除 TenantUser）                                    | `views_tenant_users.AdminTenantUserDeleteView`     | `EmptySerializer`                 | `admin_tenant_user_service.remove()`    | IsPlatformAdmin |
-| PATCH  | `/admin/api/tenants/{tenantId}/users/{tenantUserId}` | 修改成员（status/owner/roles）                                 | `views_tenant_users.AdminTenantUserUpdateView`     | `AdminTenantUserUpdateSerializer` | `admin_tenant_user_service.update()`    | IsPlatformAdmin |
-| GET    | `/admin/api/users`                                   | GlobalUser 列表（搜索/筛选）                                   | `views_users.AdminUserListView`                    | `AdminUserListSerializer`         | `admin_user_service.list_users()`       | IsPlatformAdmin |
-| POST   | `/admin/api/users`                                   | 创建 GlobalUser（含初始密码策略）                              | `views_users.AdminUserCreateView`                  | `AdminUserCreateSerializer`       | `admin_user_service.create_user()`      | IsPlatformAdmin |
-| PATCH  | `/admin/api/users/{id}`                              | 编辑 GlobalUser（display_name/email/is_platform_admin/status） | `views_users.AdminUserUpdateView`                  | `AdminUserUpdateSerializer`       | `admin_user_service.update_user()`      | IsPlatformAdmin |
-| POST   | `/admin/api/users/{id}/disable`                      | 禁用 GlobalUser                                                | `views_users.AdminUserDisableView`                 | `EmptySerializer`                 | `admin_user_service.disable()`          | IsPlatformAdmin |
-| POST   | `/admin/api/users/{id}/enable`                       | 启用 GlobalUser                                                | `views_users.AdminUserEnableView`                  | `EmptySerializer`                 | `admin_user_service.enable()`           | IsPlatformAdmin |
-| POST   | `/admin/api/users/{id}/reset_password`               | 重置密码（可选）                                               | `views_users.AdminUserResetPasswordView`           | `AdminResetPasswordSerializer`    | `admin_user_service.reset_password()`   | IsPlatformAdmin |
-| GET    | `/api/platform/audit-logs`                           | 平台审计列表（跨租户）                                         | `views_platform_audit.PlatformAuditListView`       | `PlatformAuditListSerializer`     | `platform_audit_service.list()`         | IsPlatformAdmin |
-| GET    | `/api/platform/audit-logs/meta/actions`              | 平台审计 actions 枚举                                          | `views_platform_audit.PlatformActionsMetaView`     | `ActionMetaSerializer`            | `platform_audit_meta.actions()`         | IsPlatformAdmin |
-| GET    | `/api/platform/audit-logs/meta/target-types`         | 平台审计 target-types 枚举                                     | `views_platform_audit.PlatformTargetTypesMetaView` | `TargetTypeMetaSerializer`        | `platform_audit_meta.target_types()`    | IsPlatformAdmin |
-| GET    | `/api/platform/audit-logs/{audit_id}`                | 平台审计详情                                                   | `views_platform_audit.PlatformAuditDetailView`     | `PlatformAuditDetailSerializer`   | `platform_audit_service.get()`          | IsPlatformAdmin |
 
 ---
 
@@ -979,33 +759,19 @@ src/apps/assist/
     └── urls.py
 ```
 
-## 模型（与 tech.md 数据表对齐）
-
-本模块不落库或仅落轻量配置表（如需）。V1 以调用 LLM client 返回建议为主。
-
-## Services（用例层：写操作）
-
-- `services.py`
-  - `code_suggest()`：输入上下文（表/字段/DSL/命名）-> 返回建议（可失败降级：本地规则生成）
-
-## API（接口清单与代码落点）
-
-| 方法 | 路径                       | 说明              | View（views\_\*.py）           | Serializer              | Service（函数）                 | 权限           |
-| ---- | -------------------------- | ----------------- | ------------------------------ | ----------------------- | ------------------------------- | -------------- |
-| POST | `/api/assist/code-suggest` | LLM 编码/命名建议 | `views_assist.CodeSuggestView` | `CodeSuggestSerializer` | `assist_service.code_suggest()` | 登录态（可选） |
-
 ---
 
-## 4. 实施清单（给编程模型的“落地步骤”）
+## 4. 实施清单（落地步骤）
 
-1. 按上述目录创建包与空文件；确保 `config/settings/base.py` 正确装载 INSTALLED_APPS。
+1. 按上述目录创建包与空文件；确保 `config/settings/base.py` 正确装载 `INSTALLED_APPS`。
 2. 先实现 `accounts`（登录/刷新/退出 + TenantContext 注入）。
-3. 实现 `iam` 的 PermissionEngine 与 FilterDSL 编译（common.dsl → SQL）。
+3. 实现 `iam` 的 PermissionEngine 与 FilterDSL 编译（`common.dsl` → SQL）。
 4. 实现 `resource_tree`（scope 分树）与 `modeling`（表/字段 + DW DDL）。
-5. 实现 `query_engine`（validate/run/export）并在 modeling/reports 复用。
+5. 实现 `query_engine`（validate/run/export）并在 `modeling/reports` 复用。
 6. 实现 `execution`（TaskRunInstance + dispatcher + worker handler 注册）。
 7. 实现 `reports`（dataset_refresh_run + export_job + worker）。
 8. 实现 `flows`（graph 校验 + schedule + run/node_run/log）。
-9. 实现 `audit_logs` 与 `platform_admin`，并补齐平台侧接口组与审计 meta 接口。
+9. 实现 `audit_logs` 与 `platform_admin`，补齐平台侧接口组与审计 meta 接口。
+10. **测试落地**：模块内补齐单测（`apps/*/tests/`），顶层补齐集成冒烟（`src/tests/*`）。
 
 > 备注：如发现 tech.md 中新增/调整接口或表字段，应以 tech.md 为准更新本文件；禁止“实现少做”。

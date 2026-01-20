@@ -2,7 +2,7 @@
 
 ## 测试文件位置
 
-`src/tests/test_auth_context.py`
+`src/apps/accounts/tests/test_auth_context.py`
 
 ## 测试覆盖
 
@@ -62,15 +62,15 @@
 
 ```bash
 # 运行所有认证上下文测试
-python src/manage.py test tests.test_auth_context
+python src/manage.py test apps.accounts.tests.test_auth_context
 
 # 运行特定测试类
-python src/manage.py test tests.test_auth_context.TokenUtilsTests
-python src/manage.py test tests.test_auth_context.JWTAuthenticationTests
-python src/manage.py test tests.test_auth_context.AuthContextAPITests
+python src/manage.py test apps.accounts.tests.test_auth_context.TokenUtilsTests
+python src/manage.py test apps.accounts.tests.test_auth_context.JWTAuthenticationTests
+python src/manage.py test apps.accounts.tests.test_auth_context.AuthContextAPITests
 
 # 详细输出
-python src/manage.py test tests.test_auth_context --verbosity=2
+python src/manage.py test apps.accounts.tests.test_auth_context --verbosity=2
 ```
 
 ## 测试统计
@@ -89,13 +89,3 @@ python src/manage.py test tests.test_auth_context --verbosity=2
 - ✅ **符合统一返回壳与错误码**：所有 API 测试使用 `envelope_response`，错误码符合规范
 - ✅ **符合 TenantContext / 权限 / 审计 / 分页约束**：为后续权限判断提供 `user_id`、`is_platform_admin` 字段
 - ✅ **migrations 可运行**：本任务不涉及模型变更
-
-## 测试通过情况
-
-```
-Ran 28 tests in 0.012s
-OK
-```
-
-所有测试均通过 ✅
-

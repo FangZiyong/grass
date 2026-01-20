@@ -4,6 +4,8 @@ TenantContext 中间件测试
 根据 T0.5 验收标准：
 - ✅ 单测覆盖：至少 6 个分支（header/last_tenant；无成员；suspended；正常；未登录；错误 tenant_id）
 """
+import json
+
 from django.http import HttpResponse
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
@@ -93,7 +95,7 @@ class TenantContextMiddlewareTest(TestCase):
         response = middleware(request)
         
         self.assertEqual(response.status_code, 400)
-        data = response.data
+        data = json.loads(response.content)
         self.assertEqual(data["code"], "BAD_REQUEST")
         self.assertIn("X-Tenant-Id", data["message"])
     
@@ -109,7 +111,7 @@ class TenantContextMiddlewareTest(TestCase):
         response = middleware(request)
         
         self.assertEqual(response.status_code, 404)
-        data = response.data
+        data = json.loads(response.content)
         self.assertEqual(data["code"], "NOT_FOUND")
         self.assertIn("租户不存在", data["message"])
     
@@ -132,7 +134,7 @@ class TenantContextMiddlewareTest(TestCase):
         response = middleware(request)
         
         self.assertEqual(response.status_code, 403)
-        data = response.data
+        data = json.loads(response.content)
         self.assertEqual(data["code"], "PERMISSION_DENIED")
         self.assertIn("租户已停用", data["message"])
     
@@ -149,7 +151,7 @@ class TenantContextMiddlewareTest(TestCase):
         response = middleware(request)
         
         self.assertEqual(response.status_code, 403)
-        data = response.data
+        data = json.loads(response.content)
         self.assertEqual(data["code"], "PERMISSION_DENIED")
         self.assertIn("用户不属于该租户", data["message"])
     
@@ -165,7 +167,7 @@ class TenantContextMiddlewareTest(TestCase):
         response = middleware(request)
         
         self.assertEqual(response.status_code, 403)
-        data = response.data
+        data = json.loads(response.content)
         self.assertEqual(data["code"], "PERMISSION_DENIED")
         self.assertIn("用户在该租户中已被禁用", data["message"])
     
@@ -181,7 +183,7 @@ class TenantContextMiddlewareTest(TestCase):
         response = middleware(request)
         
         self.assertEqual(response.status_code, 401)
-        data = response.data
+        data = json.loads(response.content)
         self.assertEqual(data["code"], "UNAUTHENTICATED")
     
     def test_success_with_valid_tenant(self):
@@ -213,7 +215,7 @@ class TenantContextMiddlewareTest(TestCase):
         response = middleware(request)
         
         self.assertEqual(response.status_code, 400)
-        data = response.data
+        data = json.loads(response.content)
         self.assertEqual(data["code"], "BAD_REQUEST")
         self.assertIn("X-Tenant-Id", data["message"])
 
