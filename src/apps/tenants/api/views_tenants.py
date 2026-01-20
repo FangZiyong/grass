@@ -8,10 +8,19 @@ Tenant API Views
 注意：T0.5任务主要关注中间件，API接口的具体实现在T2.2和T2.3任务中完成。
 这里先创建基础结构。
 """
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 
+from apps.tenants.api.serializers import (
+    TenantBriefSerializer,
+    TenantListEnvelopeSerializer,
+    TenantSwitchEnvelopeSerializer,
+    TenantSwitchResponseSerializer,
+    TenantSwitchSerializer,
+)
 from apps.tenants.selectors import list_user_tenants
 from apps.tenants.services import switch_tenant
 from common.http.response import envelope_response
@@ -19,6 +28,37 @@ from common.http.response import envelope_response
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+@extend_schema(
+    responses={
+        200: TenantListEnvelopeSerializer,
+        401: OpenApiResponse(
+            response=inline_serializer(
+                name="TenantListError401",
+                fields={
+                    "code": serializers.CharField(),
+                    "message": serializers.CharField(),
+                    "data": serializers.JSONField(required=False),
+                    "request_id": serializers.CharField(),
+                },
+            ),
+            description="未认证",
+        ),
+        403: OpenApiResponse(
+            response=inline_serializer(
+                name="TenantListError403",
+                fields={
+                    "code": serializers.CharField(),
+                    "message": serializers.CharField(),
+                    "data": serializers.JSONField(required=False),
+                    "request_id": serializers.CharField(),
+                },
+            ),
+            description="无权限",
+        ),
+    },
+    tags=["Tenants"],
+    summary="获取可访问租户列表",
+)
 def tenant_list_view(request: Request):
     """
     获取当前用户可访问的租户列表
@@ -37,7 +77,6 @@ def tenant_list_view(request: Request):
     # TODO: 标记最近租户（T1.5任务实现）
     # TODO: 序列化返回（T2.2任务完善）
     
-    from apps.tenants.api.serializers import TenantBriefSerializer
     serializer = TenantBriefSerializer(tenants, many=True)
     
     return envelope_response(
@@ -48,6 +87,62 @@ def tenant_list_view(request: Request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@extend_schema(
+    request=TenantSwitchSerializer,
+    responses={
+        200: TenantSwitchEnvelopeSerializer,
+        400: OpenApiResponse(
+            response=inline_serializer(
+                name="TenantSwitchError400",
+                fields={
+                    "code": serializers.CharField(),
+                    "message": serializers.CharField(),
+                    "data": serializers.JSONField(required=False),
+                    "request_id": serializers.CharField(),
+                },
+            ),
+            description="参数校验失败",
+        ),
+        401: OpenApiResponse(
+            response=inline_serializer(
+                name="TenantSwitchError401",
+                fields={
+                    "code": serializers.CharField(),
+                    "message": serializers.CharField(),
+                    "data": serializers.JSONField(required=False),
+                    "request_id": serializers.CharField(),
+                },
+            ),
+            description="未认证",
+        ),
+        403: OpenApiResponse(
+            response=inline_serializer(
+                name="TenantSwitchError403",
+                fields={
+                    "code": serializers.CharField(),
+                    "message": serializers.CharField(),
+                    "data": serializers.JSONField(required=False),
+                    "request_id": serializers.CharField(),
+                },
+            ),
+            description="租户停用或无权限",
+        ),
+        404: OpenApiResponse(
+            response=inline_serializer(
+                name="TenantSwitchError404",
+                fields={
+                    "code": serializers.CharField(),
+                    "message": serializers.CharField(),
+                    "data": serializers.JSONField(required=False),
+                    "request_id": serializers.CharField(),
+                },
+            ),
+            description="租户不存在",
+        ),
+    },
+    tags=["Tenants"],
+    summary="切换租户",
+)
 def tenant_switch_view(request: Request):
     """
     切换租户上下文
@@ -59,8 +154,6 @@ def tenant_switch_view(request: Request):
     
     注意：完整实现在T2.3任务中完成，这里先提供基础实现。
     """
-    from apps.tenants.api.serializers import TenantSwitchSerializer, TenantSwitchResponseSerializer
-    
     serializer = TenantSwitchSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     

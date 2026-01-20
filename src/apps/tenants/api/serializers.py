@@ -38,3 +38,28 @@ class TenantSwitchResponseSerializer(serializers.Serializer):
     tenant_id = serializers.IntegerField(help_text="切换成功的租户ID")
     redirect_url = serializers.CharField(help_text="前端跳转地址")
 
+
+class TenantListDataSerializer(serializers.Serializer):
+    """租户列表响应 data"""
+
+    items = TenantBriefSerializer(many=True)
+    total = serializers.IntegerField()
+
+
+class TenantListEnvelopeSerializer(serializers.Serializer):
+    """租户列表响应统一壳"""
+
+    code = serializers.CharField()
+    message = serializers.CharField()
+    data = TenantListDataSerializer()
+    request_id = serializers.CharField()
+
+
+class TenantSwitchEnvelopeSerializer(serializers.Serializer):
+    """切换租户响应统一壳"""
+
+    code = serializers.CharField()
+    message = serializers.CharField()
+    data = TenantSwitchResponseSerializer()
+    request_id = serializers.CharField()
+

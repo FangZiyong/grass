@@ -4,6 +4,9 @@ JWT Access Token 签发与验签工具。
 根据 tech.md §4.3.1：
 - Access Token（JWT）：短期有效（例如 15 分钟），用于鉴权与携带 user_id/is_platform_admin 等声明。
 """
+import hashlib
+import hmac
+import secrets
 import time
 from datetime import datetime, timedelta
 from typing import Any, Optional
@@ -20,6 +23,8 @@ from common.errors.exceptions import GrassAPIException
 JWT_SECRET_KEY = getattr(settings, "JWT_SECRET_KEY", settings.SECRET_KEY)
 JWT_ALGORITHM = "HS256"
 JWT_ACCESS_TOKEN_TTL = 900  # 15 分钟（秒）
+REFRESH_TOKEN_BYTES = getattr(settings, "AUTH_REFRESH_TOKEN_BYTES", 32)
+REFRESH_TOKEN_SALT = getattr(settings, "AUTH_REFRESH_TOKEN_SALT", settings.SECRET_KEY)
 
 
 class TokenPayload:
@@ -152,4 +157,26 @@ def extract_token_from_header(authorization_header: Optional[str]) -> Optional[s
         return None
 
     return parts[1]
+
+
+def generate_refresh_token() -> str:
+    """
+    生成 refresh token。
+    """
+    return secrets.token_urlsafe(REFRESH_TOKEN_BYTES)
+
+
+def hash_refresh_token(refresh_token: str) -> str:
+    """
+    对 refresh token 做不可逆哈希存储。
+    """
+    key = str(REFRESH_TOKEN_SALT).encode("utf-8")
+    return hmac.new(key, refresh_token.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def verify_refresh_token_hash(refresh_token: str, token_hash: str) -> bool:
+    """
+    比较 refresh token 与 hash 是否匹配。
+    """
+    return hmac.compare_digest(hash_refresh_token(refresh_token), token_hash)
 
