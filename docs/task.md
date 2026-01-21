@@ -518,12 +518,12 @@
 - `src/apps/accounts/tests/test_me.py`
 
 ### 目标
-登录后调用 /api/me 返回 user 信息与 tenant 信息（若已解析）
+登录后调用 /api/me 返回 user 信息与 tenant 上下文（若已解析）
 
 ### 范围
 **包含**
-- 返回 user 基本信息
-- 若有 TenantContext，附带 tenant_id/name/role_summaries（按 tech）
+- 返回 user 基本信息（字段命名以 `*_id` 形式）
+- 若有 TenantContext，附带 tenant（上下文字段按 tech，使用 `tenant_id`）
 
 **不包含**
 - 不返回敏感字段（密码哈希/refresh token 等）
@@ -531,7 +531,7 @@
 ### 接口契约
 - URL：GET /api/me
 - 权限：已登录
-- 出参 data：{user:{...}, tenant?:{...}}
+- 出参 data：{user:{user_id,...}, tenant?:{tenant_id,code,name,plan}}
 - 错误码：UNAUTHENTICATED(401)
 
 ### 验收标准（DoD）
@@ -1004,7 +1004,7 @@
 
 ### 范围
 **包含**
-- ResourceNode（id/tenant_id/scope/type/name/parent_id/order/path 等）
+- ResourceNode（node_id/tenant_id/scope/type/name/parent_node_id/order/path 等）
 - 初始化 ROOT 节点（按 tech/PRD）
 
 **不包含**
@@ -1037,7 +1037,7 @@
 
 ### 范围
 **包含**
-- 按 parent_id 查询 children
+- 按 parent_node_id 查询 children
 - 按 order 返回
 - 必要时支持分页/搜索（按 tech）
 
@@ -1045,7 +1045,7 @@
 - 不返回跨 tenant 数据
 
 ### 接口契约
-- URL：GET /api/resource-trees/{scope}/children?parent_id=...
+- URL：GET /api/resource-trees/{scope}/children?parent_node_id=...
 - 权限：已登录 + scope 对应最小查看权限（由权限系统约束）
 - 错误码：RESOURCE_NODE_NOT_FOUND、PERMISSION_DENIED
 
@@ -1069,7 +1069,7 @@
 - `src/apps/resource_tree/tests/*`
 
 ### 目标
-在指定 parent 下创建 folder 节点，并返回新节点
+在指定 parent_node_id 下创建 folder 节点，并返回新节点
 
 ### 范围
 **包含**
@@ -1082,7 +1082,7 @@
 
 ### 接口契约
 - URL：POST /api/resource-trees/{scope}/folders
-- 入参：{parent_id,name}
+- 入参：{parent_node_id,name}
 - 权限：RESOURCE_MANAGE（由 scope 决定）
 - 错误码：RESOURCE_NODE_NOT_FOUND、NAME_CONFLICT(409)、PERMISSION_DENIED、VALIDATION_*
 
@@ -1148,7 +1148,7 @@
 **包含**
 - 校验 src/dst
 - 防循环（不能移入自身子树）
-- 更新 parent_id/order
+- 更新 parent_node_id/order
 - 审计：NODE_MOVE
 
 **不包含**
@@ -1156,7 +1156,7 @@
 
 ### 接口契约
 - URL：POST /api/resource-trees/{scope}/move
-- 入参：{node_id,to_parent_id,to_index?}
+- 入参：{node_id,to_parent_node_id,to_index?}
 - 权限：RESOURCE_MANAGE
 - 错误码：INVALID_MOVE(400)、RESOURCE_NODE_NOT_FOUND、PERMISSION_DENIED
 
@@ -1192,7 +1192,7 @@
 
 ### 接口契约
 - URL：POST /api/resource-trees/{scope}/reorder
-- 入参：{parent_id, ordered_node_ids:[...]}
+- 入参：{parent_node_id, ordered_node_ids:[...]}
 - 权限：RESOURCE_MANAGE
 - 错误码：VALIDATION_*、PERMISSION_DENIED
 

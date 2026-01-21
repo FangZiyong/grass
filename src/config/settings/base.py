@@ -139,6 +139,24 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API schema for Grass backend",
     "VERSION": "v1",
     "SERVE_INCLUDE_SCHEMA": True,
+    # Swagger UI 的 Authorize 按钮依赖 OpenAPI 的 components.securitySchemes 定义
+    # scheme 名称需与 SECURITY 中引用的名称一致
+    "SECURITY": [{"bearerAuth": []}],
+    "APPEND_COMPONENTS": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+            }
+        }
+    },
+    "SWAGGER_UI_SETTINGS": {
+        "persistAuthorization": True,
+        # 响应体里包含超长 token 时，swagger-ui 的高亮渲染在部分浏览器会卡顿/空白
+        # 关闭高亮能让 Response body 更稳定地展示
+        "syntaxHighlight": {"activated": False},
+    },
 }
 
 # LOGGING_CONFIG 使用 Django 默认 dictConfig

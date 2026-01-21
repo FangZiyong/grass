@@ -13,6 +13,7 @@ class TaskRunLog(models.Model):
     用于记录 worker 侧关键日志片段，避免跑满 audit_logs。
     """
     
+    task_run_log_id = models.BigAutoField(primary_key=True, help_text="任务运行日志ID")
     task_run = models.ForeignKey(
         "execution.TaskRunInstance",
         on_delete=models.CASCADE,
@@ -48,5 +49,8 @@ class TaskRunLog(models.Model):
         ordering = ["created_at"]
     
     def __str__(self):
-        return f"TaskRunLog(id={self.id}, task_run={self.task_run_id}, level={self.level})"
+        return (
+            f"TaskRunLog(task_run_log_id={self.task_run_log_id}, "
+            f"task_run={self.task_run_id}, level={self.level})"
+        )
 

@@ -23,7 +23,7 @@ class AccountsModelsTest(TestCase):
             password_hash="hashed-password",
         )
 
-        self.assertIsNotNone(user.id)
+        self.assertIsNotNone(user.user_id)
         self.assertEqual(user.status, GlobalUserStatus.ACTIVE)
         self.assertFalse(user.is_platform_admin)
         self.assertIsNone(user.last_login_at)
@@ -61,6 +61,6 @@ class AccountsModelsTest(TestCase):
             expires_at=timezone.now() + timedelta(days=7),
         )
 
-        self.assertIsNotNone(session.id)
-        self.assertEqual(session.user_id, user.id)
+        self.assertIsNotNone(session.auth_session_id)
+        self.assertEqual(session.user_id, user.user_id)
         self.assertEqual(session.status, AuthSessionStatus.ACTIVE)

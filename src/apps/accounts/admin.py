@@ -30,10 +30,17 @@ class GlobalUserAdminForm(forms.ModelForm):
 @admin.register(GlobalUser)
 class GlobalUserAdmin(admin.ModelAdmin):
     form = GlobalUserAdminForm
-    list_display = ("id", "login_name", "email", "status", "is_platform_admin", "last_login_at")
+    list_display = (
+        "user_id",
+        "login_name",
+        "email",
+        "status",
+        "is_platform_admin",
+        "last_login_at",
+    )
     search_fields = ("login_name", "email", "display_name")
     list_filter = ("status", "is_platform_admin")
-    ordering = ("-id",)
+    ordering = ("-user_id",)
     readonly_fields = ("last_login_at", "last_tenant_id", "created_at", "updated_at")
 
     def save_model(self, request, obj, form, change):
@@ -45,8 +52,15 @@ class GlobalUserAdmin(admin.ModelAdmin):
 
 @admin.register(AuthSession)
 class AuthSessionAdmin(admin.ModelAdmin):
-    list_display = ("id", "user_id", "status", "issued_at", "expires_at", "revoked_at")
+    list_display = (
+        "auth_session_id",
+        "user_id",
+        "status",
+        "issued_at",
+        "expires_at",
+        "revoked_at",
+    )
     search_fields = ("refresh_token_hash", "user__login_name", "user__email")
     list_filter = ("status",)
-    ordering = ("-id",)
+    ordering = ("-auth_session_id",)
     readonly_fields = ("created_at", "updated_at")

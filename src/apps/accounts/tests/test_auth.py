@@ -41,7 +41,7 @@ class LoginAPITest(TestCase):
         )
         TenantUser.objects.create(
             tenant=self.tenant,
-            user_id=self.user.id,
+            user_id=self.user.user_id,
             status=TenantUserStatus.ACTIVE,
         )
 
@@ -64,7 +64,7 @@ class LoginAPITest(TestCase):
         self.assertIsNotNone(cookie)
         self.assertTrue(cookie.get("httponly"))
 
-        session = AuthSession.objects.get(user_id=self.user.id)
+        session = AuthSession.objects.get(user_id=self.user.user_id)
         self.assertEqual(session.status, AuthSessionStatus.ACTIVE)
 
         self.user.refresh_from_db()
@@ -72,7 +72,7 @@ class LoginAPITest(TestCase):
 
         # 单租户时返回 tenant
         self.assertIn("tenant", data)
-        self.assertEqual(data["tenant"]["id"], self.tenant.id)
+        self.assertEqual(data["tenant"]["tenant_id"], self.tenant.tenant_id)
 
     def test_login_invalid_password(self):
         """密码错误"""
@@ -130,10 +130,10 @@ class LoginAPITest(TestCase):
         )
         TenantUser.objects.create(
             tenant=tenant_two,
-            user_id=self.user.id,
+            user_id=self.user.user_id,
             status=TenantUserStatus.ACTIVE,
         )
-        self.user.last_tenant_id = tenant_two.id
+        self.user.last_tenant_id = tenant_two.tenant_id
         self.user.save(update_fields=["last_tenant_id", "updated_at"])
 
         response = self.client.post(
@@ -145,7 +145,7 @@ class LoginAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
         self.assertIn("tenant", data)
-        self.assertEqual(data["tenant"]["id"], tenant_two.id)
+        self.assertEqual(data["tenant"]["tenant_id"], tenant_two.tenant_id)
 
     def test_login_rate_limited(self):
         """触发限流"""

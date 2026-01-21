@@ -21,14 +21,13 @@ class AuthContextUser:
     """
 
     def __init__(self, user_id: int, is_platform_admin: bool = False):
-        self.id = user_id
         self.user_id = user_id
         self.is_platform_admin = is_platform_admin
         self.is_authenticated = True
         self.is_active = True  # 由后续中间件/权限类校验用户状态
 
     def __str__(self):
-        return f"AuthContextUser(id={self.id}, is_platform_admin={self.is_platform_admin})"
+        return f"AuthContextUser(user_id={self.user_id}, is_platform_admin={self.is_platform_admin})"
 
 
 class JWTAuthentication(authentication.BaseAuthentication):

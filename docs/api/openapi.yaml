@@ -859,7 +859,7 @@ components:
         user:
           type: object
           additionalProperties: true
-          description: '`{id, login_name, display_name, email, is_platform_admin}`'
+          description: '`{user_id, login_name, display_name, email, is_platform_admin}`'
       additionalProperties: false
     RespEnvelope_post_api_auth_login:
       allOf:
@@ -892,7 +892,7 @@ components:
         user:
           type: object
           additionalProperties: true
-          description: '`{id, login_name, display_name, email, is_platform_admin}`'
+          description: '`{user_id, login_name, display_name, email, is_platform_admin}`'
       additionalProperties: false
     RespEnvelope_post_api_auth_refresh:
       allOf:
@@ -1569,7 +1569,7 @@ components:
           items:
             type: object
             properties:
-              id:
+              flow_log_id:
                 type: integer
                 format: int64
               level:
@@ -1675,13 +1675,10 @@ components:
       properties:
         user:
           $ref: '#/components/schemas/MeUserDTO'
-        tenants:
-          type: array
-          items:
-            $ref: '#/components/schemas/TenantSummaryDTO'
+        tenant:
+          $ref: '#/components/schemas/TenantSummaryDTO'
       required:
       - user
-      - tenants
       additionalProperties: false
     RespEnvelope_get_api_me:
       allOf:
@@ -1744,7 +1741,7 @@ components:
     RespData_post_api_modeling_tables:
       type: object
       properties:
-        id:
+        table_id:
           type: integer
           format: int64
           description: table_id
@@ -2723,7 +2720,7 @@ components:
           $ref: '#/components/schemas/ResourceTreeNodeType'
         name:
           type: string
-        parent_id:
+        parent_node_id:
           type: integer
           format: int64
           nullable: true
@@ -2731,7 +2728,7 @@ components:
           $ref: '#/components/schemas/ResourceScope'
           nullable: true
           description: 仅当 node_type=RESOURCE 时存在
-        ref_id:
+        ref_resource_id:
           type: integer
           format: int64
           nullable: true
@@ -3114,7 +3111,7 @@ components:
     MeUserDTO:
       type: object
       properties:
-        id:
+        user_id:
           type: integer
           format: int64
         login_name:
@@ -3135,7 +3132,7 @@ components:
           format: int64
           nullable: true
       required:
-      - id
+      - user_id
       - login_name
       - display_name
       - email
@@ -3205,7 +3202,7 @@ components:
     ResourceTreeCreateFolderRequest:
       type: object
       properties:
-        parent_id:
+        parent_node_id:
           type: integer
           format: int64
           nullable: true
@@ -3228,7 +3225,7 @@ components:
         node_id:
           type: integer
           format: int64
-        new_parent_id:
+        new_parent_node_id:
           type: integer
           format: int64
           nullable: true
@@ -3238,12 +3235,12 @@ components:
           nullable: true
       required:
       - node_id
-      - new_parent_id
+      - new_parent_node_id
       additionalProperties: false
     ResourceTreeReorderRequest:
       type: object
       properties:
-        parent_id:
+        parent_node_id:
           type: integer
           format: int64
           nullable: true

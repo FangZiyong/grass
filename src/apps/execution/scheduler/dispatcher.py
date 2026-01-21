@@ -32,7 +32,7 @@ class TaskDispatcher:
         """
         if task_run.status not in [TaskRunStatus.READY, TaskRunStatus.RUNNING]:
             logger.warning(
-                f"TaskRun {task_run.id} status is {task_run.status}, "
+                f"TaskRun {task_run.task_run_id} status is {task_run.status}, "
                 f"cannot dispatch (expected READY or RUNNING)"
             )
             return False
@@ -42,8 +42,8 @@ class TaskDispatcher:
                 from apps.execution.tasks import execute_task
                 
                 # 使用 Celery delay 异步执行
-                execute_task.delay(task_run.id)
-                logger.info(f"Dispatched TaskRun {task_run.id} to Celery queue")
+                execute_task.delay(task_run.task_run_id)
+                logger.info(f"Dispatched TaskRun {task_run.task_run_id} to Celery queue")
                 return True
             except (ImportError, AttributeError) as e:
                 logger.warning(f"Celery not available ({e}), falling back to direct call")
@@ -54,17 +54,17 @@ class TaskDispatcher:
             try:
                 from apps.execution.worker.base import execute_task_sync
                 
-                execute_task_sync(task_run.id)
-                logger.info(f"Executed TaskRun {task_run.id} synchronously")
+                execute_task_sync(task_run.task_run_id)
+                logger.info(f"Executed TaskRun {task_run.task_run_id} synchronously")
                 return True
             except Exception as e:
-                logger.error(f"Failed to execute TaskRun {task_run.id} synchronously: {e}")
+                logger.error(f"Failed to execute TaskRun {task_run.task_run_id} synchronously: {e}")
                 return False
         
         return False
     
     @staticmethod
-    def dispatch_ready_tasks(limit: int = 100) -> int:
+    def dispatch_ready_tasks(limit: int = 100, use_celery: bool = True) -> int:
         """
         扫描并派发所有 READY 状态的任务
         
@@ -80,7 +80,7 @@ class TaskDispatcher:
         
         dispatched = 0
         for task in ready_tasks:
-            if TaskDispatcher.dispatch(task):
+            if TaskDispatcher.dispatch(task, use_celery=use_celery):
                 dispatched += 1
         
         return dispatched
@@ -113,7 +113,7 @@ class TaskDispatcher:
                 elapsed = (now - task.started_at).total_seconds()
                 if elapsed > task.timeout_seconds:
                     logger.warning(
-                        f"TaskRun {task.id} timeout detected "
+                        f"TaskRun {task.task_run_id} timeout detected "
                         f"(elapsed={elapsed}s, timeout={task.timeout_seconds}s)"
                     )
                     task.mark_timeout()

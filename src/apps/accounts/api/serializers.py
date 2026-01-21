@@ -14,7 +14,7 @@ class LoginSerializer(serializers.Serializer):
 class LoginUserSerializer(serializers.Serializer):
     """登录响应中的用户信息"""
 
-    id = serializers.IntegerField()
+    user_id = serializers.IntegerField()
     login_name = serializers.CharField()
     display_name = serializers.CharField()
     email = serializers.EmailField()
@@ -25,7 +25,7 @@ class LoginUserSerializer(serializers.Serializer):
 class LoginTenantSerializer(serializers.Serializer):
     """登录响应中的租户信息"""
 
-    id = serializers.IntegerField()
+    tenant_id = serializers.IntegerField()
     code = serializers.CharField()
     name = serializers.CharField()
     plan = serializers.CharField()
@@ -78,4 +78,41 @@ class LogoutResponseEnvelopeSerializer(serializers.Serializer):
     code = serializers.CharField()
     message = serializers.CharField()
     data = LogoutResponseDataSerializer()
+    request_id = serializers.CharField()
+
+
+class MeUserSerializer(serializers.Serializer):
+    """我的信息中的用户字段"""
+
+    user_id = serializers.IntegerField()
+    login_name = serializers.CharField()
+    display_name = serializers.CharField()
+    email = serializers.EmailField()
+    is_platform_admin = serializers.BooleanField()
+    status = serializers.CharField()
+    last_tenant_id = serializers.IntegerField(required=False, allow_null=True)
+
+
+class MeTenantSerializer(serializers.Serializer):
+    """我的信息中的租户字段"""
+
+    tenant_id = serializers.IntegerField()
+    code = serializers.CharField()
+    name = serializers.CharField()
+    plan = serializers.CharField()
+
+
+class MeResponseDataSerializer(serializers.Serializer):
+    """我的信息响应 data"""
+
+    user = MeUserSerializer()
+    tenant = MeTenantSerializer(required=False)
+
+
+class MeResponseEnvelopeSerializer(serializers.Serializer):
+    """我的信息响应统一壳"""
+
+    code = serializers.CharField()
+    message = serializers.CharField()
+    data = MeResponseDataSerializer()
     request_id = serializers.CharField()

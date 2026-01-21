@@ -717,7 +717,7 @@
   - `scope`：TABLE / FLOW / DATASET / DASHBOARD；
   - `type`：FOLDER / RESOURCE（如 TABLE 等）；
   - `resource_id`：当 type 为资源时，指向目标资源表的主键；
-  - `parent_id`：父节点；
+  - `parent_node_id`：父节点；
   - `display_name`：显示名称；
   - `sort_order`：排序。
 
@@ -6383,6 +6383,8 @@ Schema：
 
 - **Path 参数一律使用业务语义名**：`{<resource>_id}`（snake_case），禁止使用通用 `id`。
   - 示例：`/api/flows/{flow_id}`、`/api/dashboards/{dashboard_id}`、`/admin/api/tenants/{tenant_id}`。
+- **请求/响应体中的 ID 字段也必须语义化**：统一使用 `<entity>_id`（snake_case），禁止使用通用 `id`。
+  - 示例：`user_id`、`tenant_id`、`dataset_id`、`role_id`。
 - **多 ID 场景需显式区分**：当一个 URL 中存在多个 ID 时，分别使用各自语义名。
   - 示例：`/api/modeling/tables/{table_id}/fields/{field_id}`、`/api/modeling/tables/{table_id}/records/{record_id}`。
 - **资源树统一以 node 抽象**：文件夹/表/数据集/仪表盘等均为 node 的不同 `node_type`，统一使用 `{node_id}`。

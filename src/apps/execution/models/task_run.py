@@ -36,6 +36,7 @@ class TaskRunInstance(models.Model):
     - 支持重试、超时、幂等、并发抢占
     """
     
+    task_run_id = models.BigAutoField(primary_key=True, help_text="任务运行ID")
     task_type = models.CharField(
         max_length=64,
         db_index=True,
@@ -149,7 +150,7 @@ class TaskRunInstance(models.Model):
     
     def __str__(self):
         return (
-            f"TaskRunInstance(id={self.id}, type={self.task_type}, "
+            f"TaskRunInstance(task_run_id={self.task_run_id}, type={self.task_type}, "
             f"task_id={self.task_id}, status={self.status})"
         )
     

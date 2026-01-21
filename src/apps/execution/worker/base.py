@@ -76,7 +76,7 @@ def execute_task_sync(task_run_id: int):
         task_run_id: 任务运行实例ID
     """
     try:
-        task_run = TaskRunInstance.objects.select_for_update().get(id=task_run_id)
+        task_run = TaskRunInstance.objects.select_for_update().get(task_run_id=task_run_id)
     except TaskRunInstance.DoesNotExist:
         logger.error(f"TaskRun {task_run_id} not found")
         return

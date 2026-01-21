@@ -28,6 +28,7 @@ class Tenant(models.Model):
     - plan: BASIC/PRO/ENTERPRISE
     """
     
+    tenant_id = models.BigAutoField(primary_key=True, help_text="租户ID")
     code = models.CharField(
         max_length=64,
         unique=True,
@@ -64,5 +65,8 @@ class Tenant(models.Model):
         ]
     
     def __str__(self):
-        return f"Tenant(id={self.id}, code={self.code}, name={self.name}, status={self.status})"
+        return (
+            f"Tenant(tenant_id={self.tenant_id}, code={self.code}, "
+            f"name={self.name}, status={self.status})"
+        )
 

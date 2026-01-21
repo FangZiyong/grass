@@ -17,13 +17,14 @@ class TenantUser(models.Model):
     租户成员模型
     
     根据 tech.md §4.2.3：
-    - tenant_id: 租户ID（FK → tenant.id）
-    - user_id: 平台用户ID（FK → global_user.id，这里用IntegerField，后续T1.1会创建GlobalUser）
+    - tenant_id: 租户ID（FK → tenant.tenant_id）
+    - user_id: 平台用户ID（FK → global_user.user_id）
     - status: ACTIVE/DISABLED（仅影响该租户内访问）
     - is_owner: 是否该租户Owner（至少存在1个）
     - last_login: 最近一次进入该租户时间
     """
     
+    tenant_user_id = models.BigAutoField(primary_key=True, help_text="租户成员ID")
     tenant = models.ForeignKey(
         Tenant,
         on_delete=models.CASCADE,
@@ -33,7 +34,7 @@ class TenantUser(models.Model):
     )
     user_id = models.BigIntegerField(
         db_index=True,
-        help_text="平台用户ID（FK → global_user.id）",
+        help_text="平台用户ID（FK → global_user.user_id）",
     )
     status = models.CharField(
         max_length=16,
@@ -64,5 +65,10 @@ class TenantUser(models.Model):
         ]
     
     def __str__(self):
-        return f"TenantUser(id={self.id}, tenant_id={self.tenant_id}, user_id={self.user_id}, status={self.status})"
+        return (
+            "TenantUser("
+            f"tenant_user_id={self.tenant_user_id}, "
+            f"tenant_id={self.tenant_id}, user_id={self.user_id}, status={self.status}"
+            ")"
+        )
 

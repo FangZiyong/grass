@@ -52,6 +52,10 @@ class TenantContextMiddleware:
         # 因为这些接口本身就是用来获取和切换租户的
         if self._is_tenant_management_path(request.path):
             return self.get_response(request)
+
+        # /api/me 不强制租户上下文，由视图层按需解析
+        if self._is_me_path(request.path):
+            return self.get_response(request)
         
         # 解析 tenant_id
         tenant_id = self._extract_tenant_id(request)
@@ -88,6 +92,11 @@ class TenantContextMiddleware:
         return any(path.startswith(p) for p in public_paths) or any(
             normalized_path.startswith(p) for p in public_paths
         )
+
+    def _is_me_path(self, path: str) -> bool:
+        """判断是否为 /api/me 请求路径"""
+        normalized_path = self._strip_api_prefix(path)
+        return path in ["/api/me", "/api/me/"] or normalized_path in ["/api/me", "/api/me/"]
     
     def _is_tenant_management_path(self, path: str) -> bool:
         """判断是否为租户管理路径（不需要租户上下文，因为这些接口本身就是用来获取和切换租户的）"""
@@ -138,6 +147,19 @@ class TenantContextMiddleware:
         # TODO: 如果用户已登录且没有提供 header，可以从 last_tenant_id 获取（T1.5）
         # 这里先返回 None，要求必须提供 header
         
+        return None
+
+    @staticmethod
+    def _get_tenant_header(request: HttpRequest) -> Optional[str]:
+        """
+        获取 X-Tenant-Id header 原始值。
+        """
+        if hasattr(request, "headers"):
+            header_value = request.headers.get(TENANT_ID_HEADER)
+            if header_value is not None:
+                return header_value
+        if hasattr(request, "META"):
+            return request.META.get(TENANT_ID_META_KEY)
         return None
     
     def _validate_and_attach_tenant(
@@ -217,7 +239,7 @@ class TenantContextMiddleware:
         """
         if hasattr(request, "user") and request.user is not None:
             if hasattr(request.user, "is_authenticated") and request.user.is_authenticated:
-                return getattr(request.user, "id", None) or getattr(request.user, "user_id", None)
+                return getattr(request.user, "user_id", None)
         return None
     
     def _create_error_response(

@@ -298,6 +298,8 @@ V1.0 不提供通知中心/消息中心（含 IM 推送）。运行结果请在 
 - 资源树（ResourceTree）统一以 `node` 抽象，文件夹/表/仪表盘等均为 node 的不同 `node_type`：
   - 示例：`/api/resource-trees/{scope}/nodes/{node_id}`。
 - `scope` 这类枚举型路径参数保持语义名（如 `{scope}`），并在接口文档中提供可选值枚举。
+- **Body/响应中的 ID 字段也必须语义化**：统一使用 `<entity>_id`（snake_case），禁止使用通用 `id`。
+  - 示例：`user_id`、`tenant_id`、`role_id`、`dataset_id`。
 
 说明：
 
@@ -439,7 +441,7 @@ RF --> FINAL
 
 ### 3.9.3 幂等与写接口语义
 
-- `POST`（创建）：返回创建后的资源对象（至少包含 `id` 与关键字段）。
+- `POST`（创建）：返回创建后的资源对象（至少包含对应的 `*_id` 与关键字段）。
 - `PUT`（全量保存/覆盖）：语义为“全量覆盖”，未提供的字段视为使用默认值或清空（以接口说明为准）；应尽量保证幂等。
 - `PATCH`（局部更新）：语义为“仅更新提供的字段”。
 - `DELETE`：遵循「3.7 删除策略规范」；删除失败需返回明确的业务错误码（例如 `CONFLICT` / 模块化错误码），避免仅返回 500。
@@ -474,14 +476,14 @@ RF --> FINAL
 
 | 字段名            |         类型 | 是否可空 |            默认值 | 枚举/约束          | 说明                                   |
 | ----------------- | -----------: | :------: | ----------------: | ------------------ | -------------------------------------- |
-| id                |       BIGINT |    否    |                 — | PK                 | 主键                                   |
+| user_id           |       BIGINT |    否    |                 — | PK                 | 主键                                   |
 | login_name        |  VARCHAR(64) |    否    |                 — | 全局唯一；不可修改 | 登录名                                 |
 | display_name      |  VARCHAR(64) |    否    |                 — | —                  | 显示名                                 |
 | email             | VARCHAR(128) |    否    |                 — | 格式校验           | 邮箱                                   |
 | password_hash     | VARCHAR(255) |    否    |                 — | —                  | 密码哈希（bcrypt/argon2）              |
 | is_platform_admin |   TINYINT(1) |    否    |                 0 | 0/1                | 平台管理员标识                         |
 | status            |  VARCHAR(16) |    否    |            ACTIVE | ACTIVE/DISABLED    | 禁用后无法登录任何租户                 |
-| last_tenant_id    |       BIGINT |    是    |              NULL | FK→tenant.id       | 最近一次进入的租户（用于下次登录跳转） |
+| last_tenant_id    |       BIGINT |    是    |              NULL | FK→tenant.tenant_id | 最近一次进入的租户（用于下次登录跳转） |
 | last_login_at     |     DATETIME |    是    |              NULL | —                  | 最近一次登录时间                       |
 | created_at        |     DATETIME |    否    | CURRENT_TIMESTAMP | —                  | 创建时间                               |
 | updated_at        |     DATETIME |    否    | CURRENT_TIMESTAMP | —                  | 更新时间                               |
@@ -499,7 +501,7 @@ RF --> FINAL
 
 | 字段名     |         类型 | 是否可空 |            默认值 | 枚举/约束            | 说明                          |
 | ---------- | -----------: | :------: | ----------------: | -------------------- | ----------------------------- |
-| id         |       BIGINT |    否    |                 — | PK                   | 主键                          |
+| tenant_id  |       BIGINT |    否    |                 — | PK                   | 主键                          |
 | code       |  VARCHAR(64) |    否    |                 — | 全局唯一；不可修改   | 租户编码                      |
 | name       | VARCHAR(128) |    否    |                 — | —                    | 租户名称（**允许编辑**）      |
 | status     |  VARCHAR(16) |    否    |            ACTIVE | ACTIVE/SUSPENDED     | SUSPENDED：前台 403、调度停止 |
@@ -520,9 +522,9 @@ RF --> FINAL
 
 | 字段名     |        类型 | 是否可空 |            默认值 | 枚举/约束         | 说明                        |
 | ---------- | ----------: | :------: | ----------------: | ----------------- | --------------------------- |
-| id         |      BIGINT |    否    |                 — | PK                | 主键                        |
-| tenant_id  |      BIGINT |    否    |                 — | FK→tenant.id      | 租户                        |
-| user_id    |      BIGINT |    否    |                 — | FK→global_user.id | 平台用户                    |
+| tenant_user_id |   BIGINT |    否    |                 — | PK                   | 主键                     |
+| tenant_id      |   BIGINT |    否    |                 — | FK→tenant.tenant_id | 租户                     |
+| user_id        |   BIGINT |    否    |                 — | FK→global_user.user_id | 平台用户              |
 | status     | VARCHAR(16) |    否    |            ACTIVE | ACTIVE/DISABLED   | 仅影响该租户内访问          |
 | is_owner   |  TINYINT(1) |    否    |                 0 | 0/1               | 租户 Owner（至少存在 1 个） |
 | last_login |    DATETIME |    是    |              NULL | —                 | 最近一次进入该租户时间      |
@@ -544,8 +546,8 @@ RF --> FINAL
 
 | 字段名             |         类型 | 是否可空 |            默认值 | 枚举/约束                 | 说明                   |
 | ------------------ | -----------: | :------: | ----------------: | ------------------------- | ---------------------- |
-| id                 |       BIGINT |    否    |                 — | PK                        | 主键                   |
-| user_id            |       BIGINT |    否    |                 — | FK→global_user.id         | 账号                   |
+| auth_session_id    |       BIGINT |    否    |                 — | PK                        | 主键                   |
+| user_id            |       BIGINT |    否    |                 — | FK→global_user.user_id    | 账号                   |
 | refresh_token_hash | VARCHAR(255) |    否    |                 — | 唯一（同一 token 不重复） | refresh token 哈希存储 |
 | status             |  VARCHAR(16) |    否    |            ACTIVE | ACTIVE/REVOKED/EXPIRED    | 会话状态               |
 | issued_at          |     DATETIME |    否    | CURRENT_TIMESTAMP | —                         | 签发时间               |
@@ -727,7 +729,7 @@ API -> Client : {tenant_id, redirect_url}
 1. `POST /api/auth/login`（登录）
 2. `POST /api/auth/logout`（退出登录）
 3. `POST /api/auth/refresh`（换发 access token）
-4. `GET /api/me`（获取当前用户信息、可访问租户列表、is_platform_admin）
+4. `GET /api/me`（获取当前用户信息、tenant 上下文、is_platform_admin）
 
 ### 4.6.2 租户选择与切换（Tenant Workspace Shell）
 
@@ -799,7 +801,7 @@ API -> Client : {tenant_id, redirect_url}
 | ------------ | ------ | :--: | ---------------------------------------------------------- |
 | access_token | string |  是  | JWT                                                        |
 | expires_in   | int    |  是  | 秒                                                         |
-| user         | object |  是  | `{id, login_name, display_name, email, is_platform_admin}` |
+| user         | object |  是  | `{user_id, login_name, display_name, email, is_platform_admin}` |
 
 **校验与异常分支**
 
@@ -850,12 +852,12 @@ AuthService.login(login_name, password, request_meta):
 
 **响应 data**
 
-| 字段    | 类型   | 必填 | 说明                                                                               |
-| ------- | ------ | :--: | ---------------------------------------------------------------------------------- |
-| user    | object |  是  | `{id, login_name, display_name, email, is_platform_admin, status, last_tenant_id}` |
-| tenants | array  |  是  | 用户可访问租户列表（仅 ACTIVE）                                                    |
+| 字段   | 类型   | 必填 | 说明                                                                                  |
+| ------ | ------ | :--: | ------------------------------------------------------------------------------------- |
+| user   | object |  是  | `{user_id, login_name, display_name, email, is_platform_admin, status, last_tenant_id}` |
+| tenant | object |  否  | 当前租户上下文（若已解析）                                                            |
 
-`tenants[]` 结构：
+`tenant` 结构：
 
 | 字段      | 类型   | 必填 | 说明                 |
 | --------- | ------ | :--: | -------------------- |
@@ -868,7 +870,7 @@ AuthService.login(login_name, password, request_meta):
 
 - token 无效/过期 → 401
 - GlobalUser 被禁用 → 403（并可主动撤销其所有会话）
-- 返回的 tenants 必须过滤 `tenant.status=ACTIVE`
+- tenant 仅在已解析 TenantContext 时返回（TenantContext 中已确保 `tenant.status=ACTIVE`）
 
 **错误码**
 
@@ -884,14 +886,12 @@ AuthService.login(login_name, password, request_meta):
 **伪代码**
 
 ```text
-UserService.me(user_id):
+UserService.me(user_id, tenant_context):
   user = GlobalUserRepo.get(user_id)
   if user.status != "ACTIVE": return error(AUTH_USER_DISABLED, 403)
 
-  tenant_users = TenantUserRepo.list_by_user(user_id, status="ACTIVE")
-  tenant_ids = [tu.tenant_id for tu in tenant_users]
-  tenants = TenantRepo.list_by_ids(tenant_ids, status="ACTIVE")  # 只返回 ACTIVE
-  return ok({user:PublicUser(user), tenants:MapTenants(tenants), last_tenant_id:user.last_tenant_id})
+  tenant = tenant_context.tenant if tenant_context else None
+  return ok({user:PublicUser(user), tenant:MapTenant(tenant)})
 ```
 
 ---
@@ -1128,7 +1128,7 @@ AdminTenantService.update(tenant_id, patch):
 
 | 字段             | 类型          | 必填 | 约束  | 说明                             |
 | ---------------- | ------------- | :--: | ----- | -------------------------------- |
-| user_ids         | array<number> |  是  | 1–200 | GlobalUser.id 列表               |
+| user_ids         | array<number> |  是  | 1–200 | GlobalUser.user_id 列表          |
 | set_owner        | bool          |  否  | —     | 是否将新增成员设为 Owner         |
 | initial_role_ids | array<number> |  否  | —     | 初始角色（角色表详见权限体系章） |
 
@@ -1568,7 +1568,7 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
   row_filters = []
   if not bypass_row:
     for role in roles:
-      dsl = RowPermissionRepo.getByRoleAndTable(tenant_id, role.id, table_id)
+      dsl = RowPermissionRepo.getByRoleAndTable(tenant_id, role.role_id, table_id)
       if dsl exists and dsl.status == ACTIVE:
         row_filters.append(dsl.filter_dsl)
 
@@ -1605,17 +1605,17 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 
 | 字段名      | 类型         | 是否可空 | 默认值            | 枚举/约束                    | 说明         |
 | ----------- | ------------ | -------: | ----------------- | ---------------------------- | ------------ |
-| id          | bigint       |       否 | —                 | PK                           | 角色 ID      |
-| tenant_id   | bigint       |       否 | —                 | FK(tenant.id)                | 租户隔离     |
+| role_id     | bigint       |       否 | —                 | PK                           | 角色 ID      |
+| tenant_id   | bigint       |       否 | —                 | FK(tenant.tenant_id)         | 租户隔离     |
 | code        | varchar(64)  |       否 | —                 | 租户内唯一；建议全大写下划线 | 角色编码     |
 | name        | varchar(64)  |       否 | —                 | —                            | 角色名称     |
 | description | varchar(255) |       是 | null              | —                            | 角色说明     |
 | is_builtin  | tinyint(1)   |       否 | 0                 | 0/1                          | 是否系统内置 |
 | status      | varchar(16)  |       否 | ACTIVE            | ACTIVE/DISABLED              | 状态         |
 | created_at  | datetime     |       否 | CURRENT_TIMESTAMP | —                            | 创建时间     |
-| created_by  | bigint       |       否 | —                 | FK(tenant_user.id)           | 创建人       |
+| created_by  | bigint       |       否 | —                 | FK(tenant_user.tenant_user_id) | 创建人     |
 | updated_at  | datetime     |       否 | CURRENT_TIMESTAMP | ON UPDATE                    | 更新时间     |
-| updated_by  | bigint       |       否 | —                 | FK(tenant_user.id)           | 更新人       |
+| updated_by  | bigint       |       否 | —                 | FK(tenant_user.tenant_user_id) | 更新人     |
 
 索引：
 
@@ -1626,12 +1626,12 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 
 | 字段名         | 类型     | 是否可空 | 默认值            | 枚举/约束          | 说明     |
 | -------------- | -------- | -------: | ----------------- | ------------------ | -------- |
-| id             | bigint   |       否 | —                 | PK                 | 记录 ID  |
-| tenant_id      | bigint   |       否 | —                 | FK(tenant.id)      | 租户隔离 |
-| tenant_user_id | bigint   |       否 | —                 | FK(tenant_user.id) | 成员 ID  |
-| role_id        | bigint   |       否 | —                 | FK(role.id)        | 角色 ID  |
+| tenant_user_role_id | bigint |     否 | —                 | PK                           | 记录 ID  |
+| tenant_id      | bigint   |       否 | —                 | FK(tenant.tenant_id) | 租户隔离 |
+| tenant_user_id | bigint   |       否 | —                 | FK(tenant_user.tenant_user_id) | 成员 ID |
+| role_id        | bigint   |       否 | —                 | FK(role.role_id)     | 角色 ID  |
 | created_at     | datetime |       否 | CURRENT_TIMESTAMP | —                  | 创建时间 |
-| created_by     | bigint   |       否 | —                 | FK(tenant_user.id) | 操作人   |
+| created_by     | bigint   |       否 | —                 | FK(tenant_user.tenant_user_id) | 操作人 |
 
 索引：
 
@@ -1642,16 +1642,16 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 
 | 字段名                | 类型        | 是否可空 | 默认值            | 枚举/约束                                      | 说明     |
 | --------------------- | ----------- | -------: | ----------------- | ---------------------------------------------- | -------- |
-| id                    | bigint      |       否 | —                 | PK                                             | 记录 ID  |
-| tenant_id             | bigint      |       否 | —                 | FK(tenant.id)                                  | 租户隔离 |
-| role_id               | bigint      |       否 | —                 | FK(role.id)                                    | 角色 ID  |
+| role_permission_id    | bigint      |       否 | —                 | PK                                             | 记录 ID  |
+| tenant_id             | bigint      |       否 | —                 | FK(tenant.tenant_id)                           | 租户隔离 |
+| role_id               | bigint      |       否 | —                 | FK(role.role_id)                               | 角色 ID  |
 | resource_type         | varchar(32) |       否 | —                 | TABLE_SCHEMA/TABLE_DATA/FLOW/DATASET/DASHBOARD | 资源类型 |
-| resource_tree_node_id | bigint      |       否 | —                 | FK(resource_tree_node.id)                      | 授权节点 |
+| resource_tree_node_id | bigint      |       否 | —                 | FK(resource_tree_node.node_id)                 | 授权节点 |
 | permission            | varchar(16) |       否 | NONE              | NONE/VIEW/EDIT/MANAGE                          | 权限等级 |
 | created_at            | datetime    |       否 | CURRENT_TIMESTAMP | —                                              | 创建时间 |
-| created_by            | bigint      |       否 | —                 | FK(tenant_user.id)                             | 创建人   |
+| created_by            | bigint      |       否 | —                 | FK(tenant_user.tenant_user_id)                 | 创建人   |
 | updated_at            | datetime    |       否 | CURRENT_TIMESTAMP | ON UPDATE                                      | 更新时间 |
-| updated_by            | bigint      |       否 | —                 | FK(tenant_user.id)                             | 更新人   |
+| updated_by            | bigint      |       否 | —                 | FK(tenant_user.tenant_user_id)                 | 更新人   |
 
 索引：
 
@@ -1663,17 +1663,17 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 
 | 字段名     | 类型        | 是否可空 | 默认值            | 枚举/约束            | 说明       |
 | ---------- | ----------- | -------: | ----------------- | -------------------- | ---------- |
-| id         | bigint      |       否 | —                 | PK                   | 规则 ID    |
-| tenant_id  | bigint      |       否 | —                 | FK(tenant.id)        | 租户隔离   |
-| role_id    | bigint      |       否 | —                 | FK(role.id)          | 角色 ID    |
-| table_id   | bigint      |       否 | —                 | FK(table.id)         | 表 ID      |
+| row_permission_id | bigint |     否 | —                 | PK                   | 规则 ID    |
+| tenant_id  | bigint      |       否 | —                 | FK(tenant.tenant_id) | 租户隔离   |
+| role_id    | bigint      |       否 | —                 | FK(role.role_id)     | 角色 ID    |
+| table_id   | bigint      |       否 | —                 | FK(table.table_id)   | 表 ID      |
 | name       | varchar(64) |       是 | null              | —                    | 规则名称   |
 | filter_dsl | json        |       否 | —                 | 必须为合法 FilterDSL | 行过滤条件 |
 | status     | varchar(16) |       否 | ACTIVE            | ACTIVE/DISABLED      | 状态       |
 | created_at | datetime    |       否 | CURRENT_TIMESTAMP | —                    | 创建时间   |
-| created_by | bigint      |       否 | —                 | FK(tenant_user.id)   | 创建人     |
+| created_by | bigint      |       否 | —                 | FK(tenant_user.tenant_user_id) | 创建人 |
 | updated_at | datetime    |       否 | CURRENT_TIMESTAMP | ON UPDATE            | 更新时间   |
-| updated_by | bigint      |       否 | —                 | FK(tenant_user.id)   | 更新人     |
+| updated_by | bigint      |       否 | —                 | FK(tenant_user.tenant_user_id) | 更新人 |
 
 `filter_dsl` JSON 结构定义（强制）：
 
@@ -1695,16 +1695,16 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 
 | 字段名       | 类型        | 是否可空 | 默认值            | 枚举/约束                 | 说明     |
 | ------------ | ----------- | -------: | ----------------- | ------------------------- | -------- |
-| id           | bigint      |       否 | —                 | PK                        | 记录 ID  |
-| tenant_id    | bigint      |       否 | —                 | FK(tenant.id)             | 租户隔离 |
-| role_id      | bigint      |       否 | —                 | FK(role.id)               | 角色 ID  |
-| table_id     | bigint      |       否 | —                 | FK(table.id)              | 表 ID    |
-| field_id     | bigint      |       否 | —                 | FK(field.id)              | 字段 ID  |
+| column_permission_id | bigint |     否 | —                 | PK                        | 记录 ID  |
+| tenant_id    | bigint      |       否 | —                 | FK(tenant.tenant_id)      | 租户隔离 |
+| role_id      | bigint      |       否 | —                 | FK(role.role_id)          | 角色 ID  |
+| table_id     | bigint      |       否 | —                 | FK(table.table_id)        | 表 ID    |
+| field_id     | bigint      |       否 | —                 | FK(field.field_id)        | 字段 ID  |
 | access_level | varchar(16) |       否 | READWRITE         | HIDDEN/READONLY/READWRITE | 列权限   |
 | created_at   | datetime    |       否 | CURRENT_TIMESTAMP | —                         | 创建时间 |
-| created_by   | bigint      |       否 | —                 | FK(tenant_user.id)        | 创建人   |
+| created_by   | bigint      |       否 | —                 | FK(tenant_user.tenant_user_id) | 创建人 |
 | updated_at   | datetime    |       否 | CURRENT_TIMESTAMP | ON UPDATE                 | 更新时间 |
-| updated_by   | bigint      |       否 | —                 | FK(tenant_user.id)        | 更新人   |
+| updated_by   | bigint      |       否 | —                 | FK(tenant_user.tenant_user_id) | 更新人 |
 
 索引：
 
@@ -2075,28 +2075,28 @@ ColumnPermissionItem：
 
 | 字段名     | 类型          | 是否可空 | 默认值            | 枚举/约束                      | 说明                           |
 | ---------- | ------------- | -------: | ----------------- | ------------------------------ | ------------------------------ |
-| id         | bigint        |       否 | —                 | PK                             | 节点 ID                        |
-| tenant_id  | bigint        |       否 | —                 | FK(tenant.id)                  | 租户隔离                       |
+| node_id    | bigint        |       否 | —                 | PK                             | 节点 ID                        |
+| tenant_id  | bigint        |       否 | —                 | FK(tenant.tenant_id)           | 租户隔离                       |
 | scope      | varchar(32)   |       否 | —                 | TABLE/FLOW/DATASET/DASHBOARD   | 资源树范围                     |
 | node_type  | varchar(16)   |       否 | —                 | FOLDER/RESOURCE                | 节点类型                       |
 | name       | varchar(128)  |       否 | —                 | 同父同 scope 同 node_type 唯一 | 展示名称                       |
-| parent_id  | bigint        |       是 | null              | FK(resource_tree_node.id)      | 父节点（根为 null）            |
+| parent_node_id | bigint     |       是 | null              | FK(resource_tree_node.node_id) | 父节点（根为 null）            |
 | ref_type   | varchar(32)   |       是 | null              | TABLE/FLOW/DATASET/DASHBOARD   | 资源节点类型（仅 RESOURCE）    |
-| ref_id     | bigint        |       是 | null              | —                              | 资源 ID（仅 RESOURCE）         |
+| ref_resource_id | bigint   |       是 | null              | —                              | 资源 ID（仅 RESOURCE）         |
 | sort_order | int           |       否 | 0                 | ≥0                             | 同级排序                       |
 | path       | varchar(1024) |       否 | "/"               | 必须以 `/` 开头结尾            | 物化路径（示例：`/12/45/78/`） |
 | depth      | int           |       否 | 0                 | 0..20                          | 层级深度                       |
 | is_deleted | tinyint(1)    |       否 | 0                 | 0/1                            | 软删除                         |
-| created_by | bigint        |       否 | —                 | FK(tenant_user.id)             | 创建人                         |
+| created_by | bigint        |       否 | —                 | FK(tenant_user.tenant_user_id) | 创建人                         |
 | created_at | datetime      |       否 | CURRENT_TIMESTAMP | —                              | 创建时间                       |
-| updated_by | bigint        |       否 | —                 | FK(tenant_user.id)             | 更新人                         |
+| updated_by | bigint        |       否 | —                 | FK(tenant_user.tenant_user_id) | 更新人                         |
 | updated_at | datetime      |       否 | CURRENT_TIMESTAMP | ON UPDATE                      | 更新时间                       |
 
 索引：
 
-- 唯一索引：`uk_tree_name (tenant_id, scope, parent_id, node_type, name)`
-- 普通索引：`idx_tree_parent (tenant_id, scope, parent_id, sort_order)`
-- 普通索引：`idx_tree_ref (tenant_id, scope, ref_type, ref_id)`
+- 唯一索引：`uk_tree_name (tenant_id, scope, parent_node_id, node_type, name)`
+- 普通索引：`idx_tree_parent (tenant_id, scope, parent_node_id, sort_order)`
+- 普通索引：`idx_tree_ref (tenant_id, scope, ref_type, ref_resource_id)`
 - 普通索引：`idx_tree_path (tenant_id, scope, path(255))`
 
 ### 6.2.3 核心流程图（PlantUML）
@@ -2112,10 +2112,10 @@ participant ResourceTreeAPI as API
 participant PermissionEngine as PE
 participant ResourceTreeRepo as RTR
 
-Client -> API : GET children(scope,parent_id)
-API -> PE : visibleNodes(user, scope, parent_id)
+Client -> API : GET children(scope,parent_node_id)
+API -> PE : visibleNodes(user, scope, parent_node_id)
 PE --> API : visible_node_ids
-API -> RTR : listChildren(tenant_id, scope, parent_id, visible_node_ids)
+API -> RTR : listChildren(tenant_id, scope, parent_node_id, visible_node_ids)
 RTR --> API : nodes
 API --> Client : nodes
 @enduml
@@ -2133,14 +2133,14 @@ participant PermissionEngine as PE
 participant ResourceTreeService as SVC
 participant ResourceTreeRepo as RTR
 
-Client -> API : POST move(node_id,new_parent_id,new_sort_order)
-API -> PE : assertManage(scope, old_parent_id)
+Client -> API : POST move(node_id,new_parent_node_id,new_sort_order)
+API -> PE : assertManage(scope, old_parent_node_id)
 PE --> API : ok
-API -> PE : assertManage(scope, new_parent_id)
+API -> PE : assertManage(scope, new_parent_node_id)
 PE --> API : ok
 API -> SVC : moveNode(...)
 SVC -> RTR : lock(node_id)
-SVC -> RTR : lock(new_parent_id)
+SVC -> RTR : lock(new_parent_node_id)
 SVC -> RTR : updateParentAndSort(...)
 SVC -> RTR : updatePathCascade(...)
 SVC --> API : ok
@@ -2164,7 +2164,7 @@ API --> Client : ok
 #### 6.2.5.1 GET /api/resource-trees/{scope}/children（查询子节点）
 
 - Query
-  - parent_id: int64（可选；不传/为 null=根）
+  - parent_node_id: int64（可选；不传/为 null=根）
   - include_resources: int（可选，0/1，默认 1；=0 仅返回 folder）
 - Response.data
   - items: ResourceTreeNodeDTO[]
@@ -2175,7 +2175,7 @@ ResourceTreeNodeDTO：
 | node_id | int64 | Y | 节点 ID |
 | scope | string | Y | TABLE/FLOW/DATASET/DASHBOARD |
 | node_type | string | Y | FOLDER/RESOURCE |
-| parent_id | int64\|null | Y | 父节点 |
+| parent_node_id | int64\|null | Y | 父节点 |
 | name | string | Y | 展示名 |
 | order_index | int | Y | 排序 |
 | resource_type | string\|null | N | TABLE/FLOW/DATASET/DASHBOARD |
@@ -2184,7 +2184,7 @@ ResourceTreeNodeDTO：
 #### 6.2.5.2 POST /api/resource-trees/{scope}/folders（创建文件夹）
 
 - Body（JSON）
-  - parent_id?: int64（可选；不传/为 null=根）
+  - parent_node_id?: int64（可选；不传/为 null=根）
   - name: string（必填，1~64）
 - Response.data
   - node: ResourceTreeNodeDTO
@@ -2200,7 +2200,7 @@ ResourceTreeNodeDTO：
 
 - Body（JSON）
   - node_id: int64（必填）
-  - target_parent_id: int64\|null（必填；允许移动到根）
+  - target_parent_node_id: int64\|null（必填；允许移动到根）
   - target_index?: int（可选；不传则追加到末尾）
 - Response.data
   - moved: bool
@@ -2208,7 +2208,7 @@ ResourceTreeNodeDTO：
 #### 6.2.5.5 POST /api/resource-trees/{scope}/reorder（同级排序）
 
 - Body（JSON）
-  - parent_id?: int64（可选；不传/为 null=根）
+  - parent_node_id?: int64（可选；不传/为 null=根）
   - ordered_node_ids: int64[]（必填；必须包含该 parent 下全部子节点）
 - Response.data
   - updated: int
@@ -2451,9 +2451,9 @@ SuggestionDTO：
 
 | 字段名           | 类型         | 是否可空 | 默认值 | 枚举/约束                            | 说明                                     |
 | ---------------- | ------------ | -------- | ------ | ------------------------------------ | ---------------------------------------- |
-| id               | bigint       | 否       |        | PK                                   | 表元数据主键                             |
-| tenant_id        | bigint       | 否       |        | FK(tenant)                           | 租户 ID                                  |
-| resource_node_id | bigint       | 否       |        | 唯一；FK(resource_tree_node)         | 资源树节点 ID（该表对应的 Node）         |
+| table_id         | bigint       | 否       |        | PK                                   | 表元数据主键                             |
+| tenant_id        | bigint       | 否       |        | FK(tenant.tenant_id)                 | 租户 ID                                  |
+| resource_node_id | bigint       | 否       |        | 唯一；FK(resource_tree_node.node_id) | 资源树节点 ID（该表对应的 Node）         |
 | display_name     | varchar(50)  | 否       |        | 长度 1–50                            | 表展示名                                 |
 | code             | varchar(50)  | 否       |        | 租户内唯一                           | 表编码（snake_case，只读）               |
 | table_type       | varchar(16)  | 否       | OTHER  | DIMENSION/FACT/CONFIG/OTHER          | 表类型                                   |
@@ -2462,9 +2462,9 @@ SuggestionDTO：
 | db_schema        | varchar(64)  | 否       |        |                                      | 物理库/Schema 名（由数据源决定）         |
 | db_table         | varchar(64)  | 否       |        | 唯一(tenant_id, db_schema, db_table) | 物理表名（由系统生成）                   |
 | status           | varchar(16)  | 否       | ACTIVE | ACTIVE/DELETING/DELETED              | 生命周期状态                             |
-| created_by       | bigint       | 否       |        |                                      | 创建人 TenantUser.id                     |
+| created_by       | bigint       | 否       |        |                                      | 创建人 TenantUser.tenant_user_id         |
 | created_at       | datetime     | 否       | now()  |                                      | 创建时间                                 |
-| updated_by       | bigint       | 否       |        |                                      | 最后更新人 TenantUser.id                 |
+| updated_by       | bigint       | 否       |        |                                      | 最后更新人 TenantUser.tenant_user_id     |
 | updated_at       | datetime     | 否       | now()  |                                      | 最后更新时间（并发控制）                 |
 
 **索引：**
@@ -2481,9 +2481,9 @@ SuggestionDTO：
 
 | 字段名               | 类型         | 是否可空 | 默认值 | 枚举/约束                                            | 说明                                                       |
 | -------------------- | ------------ | -------- | ------ | ---------------------------------------------------- | ---------------------------------------------------------- |
-| id                   | bigint       | 否       |        | PK                                                   | 字段元数据主键                                             |
-| tenant_id            | bigint       | 否       |        | FK(tenant)                                           | 租户 ID                                                    |
-| table_id             | bigint       | 否       |        | FK(modeling_table)                                   | 所属表                                                     |
+| field_id             | bigint       | 否       |        | PK                                                   | 字段元数据主键                                             |
+| tenant_id            | bigint       | 否       |        | FK(tenant.tenant_id)                                 | 租户 ID                                                    |
+| table_id             | bigint       | 否       |        | FK(modeling_table.table_id)                          | 所属表                                                     |
 | display_name         | varchar(50)  | 否       |        | 长度 1–50                                            | 字段展示名                                                 |
 | code                 | varchar(50)  | 否       |        | 表内唯一                                             | 字段编码（snake_case，只读）                               |
 | ui_type              | varchar(16)  | 否       |        | TEXT/INTEGER/DECIMAL/DATE/DATETIME/BOOLEAN/REFERENCE | UI 类型                                                    |
@@ -2498,9 +2498,9 @@ SuggestionDTO：
 | ref_field_id         | bigint       | 是       | null   | 仅 REFERENCE 可填                                    | 关联字段 ID（通常为目标表业务主键或系统 id）               |
 | ref_display_field_id | bigint       | 是       | null   | 仅 REFERENCE 可填                                    | 关联展示字段 ID                                            |
 | ref_input_mode       | varchar(16)  | 是       | null   | SELECT/SEARCH                                        | 关联输入模式                                               |
-| created_by           | bigint       | 否       |        |                                                      | 创建人 TenantUser.id                                       |
+| created_by           | bigint       | 否       |        |                                                      | 创建人 TenantUser.tenant_user_id                           |
 | created_at           | datetime     | 否       | now()  |                                                      | 创建时间                                                   |
-| updated_by           | bigint       | 否       |        |                                                      | 最后更新人 TenantUser.id                                   |
+| updated_by           | bigint       | 否       |        |                                                      | 最后更新人 TenantUser.tenant_user_id                       |
 | updated_at           | datetime     | 否       | now()  |                                                      | 最后更新时间（并发控制）                                   |
 
 **`default_value_json` JSON 结构定义：**
@@ -2542,13 +2542,13 @@ SuggestionDTO：
 
 | 字段 code  | ui_type  | db_type  | is_required | is_internal | 说明                            |
 | ---------- | -------- | -------- | ----------: | ----------: | ------------------------------- |
-| id         | INTEGER  | bigint   |           1 |           1 | 系统主键（写入时由后端生成 ID） |
+| record_id  | INTEGER  | bigint   |           1 |           1 | 系统主键（写入时由后端生成 ID） |
 | created_at | DATETIME | datetime |           1 |           1 | 创建时间                        |
 | updated_at | DATETIME | datetime |           1 |           1 | 最后更新时间                    |
-| created_by | INTEGER  | bigint   |           1 |           1 | 创建人 TenantUser.id            |
-| updated_by | INTEGER  | bigint   |           1 |           1 | 最后修改人 TenantUser.id        |
+| created_by | INTEGER  | bigint   |           1 |           1 | 创建人 TenantUser.tenant_user_id |
+| updated_by | INTEGER  | bigint   |           1 |           1 | 最后修改人 TenantUser.tenant_user_id |
 
-> 说明：V1 统一采用后端生成 `id`（雪花/ULID 转 bigint），避免依赖不同存储引擎的自增能力。
+> 说明：V1 统一采用后端生成 `record_id`（雪花/ULID 转 bigint），避免依赖不同存储引擎的自增能力。
 
 ### 7.4.3 UI 类型到 db_type 的映射（统一口径）
 
@@ -2654,8 +2654,8 @@ C -> User : {code,data}
 11. 事务提交成功后，调用 ResourceTreeService 创建 Node：
     - node.scope = TABLE
     - node.type = RESOURCE
-    - node.resource_id = modeling_table.id
-    - node.parent_id = parent_folder_node_id（或 root）
+    - node.resource_id = modeling_table.table_id
+    - node.parent_node_id = parent_folder_node_id（或 root）
 12. 若创建资源树节点失败：
     - 回滚策略：删除刚插入的 `modeling_table` 与 `modeling_field`（同租户），或将 `status` 标记为 `PENDING_CREATE_FAILED` 并记录错误原因；
     - 返回 `INTERNAL_ERROR` 或 `PRECONDITION_FAILED`（按失败原因）。
@@ -2810,7 +2810,7 @@ C -> User : {items, page, page_size, total, visible_fields}
 
 建模模块依赖资源树提供“表/文件夹”的目录结构，统一使用资源树标准接口（不允许把 query 写进 URL）：
 
-- `GET  /api/resource-trees/{scope}/children`（其中 scope 固定为 `TABLE`；Query：parent_id?, include_resources?）
+- `GET  /api/resource-trees/{scope}/children`（其中 scope 固定为 `TABLE`；Query：parent_node_id?, include_resources?）
 - `POST /api/resource-trees/{scope}/folders`（scope=TABLE）
 - `PATCH /api/resource-trees/{scope}/nodes/{node_id}`（scope=TABLE）
 - `POST /api/resource-trees/{scope}/move`（scope=TABLE）
@@ -2905,7 +2905,7 @@ C -> User : {items, page, page_size, total, visible_fields}
 
 | 字段             | 类型   | 说明                                                          |
 | ---------------- | ------ | ------------------------------------------------------------- |
-| id               | bigint | table_id                                                      |
+| table_id         | bigint | table_id                                                      |
 | resource_node_id | bigint | 资源树 node_id                                                |
 | display_name     | string | 表名                                                          |
 | code             | string | 表编码                                                        |
@@ -2980,7 +2980,7 @@ def list_tables(tenant_id, user_id, folder_node_id, include_desc, keyword, table
 
 | 字段             | 类型   | 说明                         |
 | ---------------- | ------ | ---------------------------- |
-| id               | bigint | table_id                     |
+| table_id         | bigint | table_id                     |
 | resource_node_id | bigint | node_id                      |
 | display_name     | string | 表名                         |
 | code             | string | 表编码                       |
@@ -3024,7 +3024,7 @@ def create_table(req, tenant_id, tenant_user_id):
     fields = system_fields(table_id, tenant_id, tenant_user_id) + validate_user_fields(req.fields or [], tenant_id)
     FR.batch_insert(fields)
 
-    node_id = rts.create_resource_node(scope="TABLE", parent_id=folder.id, resource_id=table_id)
+    node_id = rts.create_resource_node(scope="TABLE", parent_node_id=folder.node_id, resource_id=table_id)
 
     # out of transaction: DDL
     ddl_sql = ddl_builder.create_table_sql(db_schema=dw_config.schema, db_table=db_table, fields=fields)
@@ -3068,7 +3068,7 @@ def create_table(req, tenant_id, tenant_user_id):
 
 | 字段             | 类型   | 说明                 |
 | ---------------- | ------ | -------------------- |
-| id               | bigint | table_id             |
+| table_id         | bigint | table_id             |
 | resource_node_id | bigint | node_id              |
 | display_name     | string | 表名                 |
 | code             | string | 表编码               |
@@ -3711,19 +3711,19 @@ Flow 模块不负责：
 
 | 字段名            | 类型         | 是否可空 | 默认值            | 枚举/约束                       | 说明                                                |
 | ----------------- | ------------ | -------: | ----------------- | ------------------------------- | --------------------------------------------------- |
-| id                | BIGINT       |       否 |                   | PK                              | 主键                                                |
+| flow_id           | BIGINT       |       否 |                   | PK                              | 主键                                                |
 | tenant_id         | BIGINT       |       否 |                   | IDX                             | 租户 ID                                             |
 | resource_node_id  | BIGINT       |       否 |                   | UK(tenant_id, resource_node_id) | 资源树节点 ID（scope=FLOW，type=FLOW）              |
 | code              | VARCHAR(64)  |       否 |                   | UK(tenant_id, code)             | 任务流编码（英文蛇形/短横线均可，但需统一校验规则） |
 | display_name      | VARCHAR(50)  |       否 |                   | 1–50 字符                       | 任务流名称                                          |
 | description       | VARCHAR(500) |       是 | NULL              |                                 | 描述                                                |
-| owner_id          | BIGINT       |       否 |                   |                                 | 负责人（TenantUser.id）                             |
+| owner_tenant_user_id | BIGINT    |       否 |                   |                                 | 负责人（TenantUser.tenant_user_id）                 |
 | enabled           | TINYINT      |       否 | 1                 | 0/1                             | 是否启用（仅影响调度触发；手动运行不受影响）        |
 | schedule_cron     | VARCHAR(64)  |       是 | NULL              | 5 段 CRON                       | Cron 表达式；为空表示不调度                         |
 | schedule_timezone | VARCHAR(64)  |       否 | 'Asia/Tokyo'      | IANA TZ                         | 时区（默认租户时区）                                |
 | updated_graph_at  | DATETIME     |       是 | NULL              |                                 | 最近一次保存 DAG 的时间（用于列表展示/审计）        |
-| created_by        | BIGINT       |       否 |                   |                                 | 创建人 TenantUser.id                                |
-| updated_by        | BIGINT       |       否 |                   |                                 | 更新人 TenantUser.id                                |
+| created_by_tenant_user_id | BIGINT |    否 |                   |                                 | 创建人 TenantUser.tenant_user_id                    |
+| updated_by_tenant_user_id | BIGINT |    否 |                   |                                 | 更新人 TenantUser.tenant_user_id                    |
 | created_at        | DATETIME     |       否 | CURRENT_TIMESTAMP |                                 | 创建时间                                            |
 | updated_at        | DATETIME     |       否 | CURRENT_TIMESTAMP | ON UPDATE                       | 更新时间                                            |
 
@@ -3734,7 +3734,7 @@ Flow 模块不负责：
   - `(tenant_id, resource_node_id)`：保证 Flow 与资源树节点一一对应
 - 普通索引
   - `(tenant_id, enabled)`：列表过滤
-  - `(tenant_id, owner_id)`：负责人过滤
+  - `(tenant_id, owner_tenant_user_id)`：负责人过滤
 
 ---
 
@@ -3742,7 +3742,7 @@ Flow 模块不负责：
 
 | 字段名     | 类型        | 是否可空 | 默认值            | 枚举/约束 | 说明                       |
 | ---------- | ----------- | -------: | ----------------- | --------- | -------------------------- |
-| id         | BIGINT      |       否 |                   | PK        | 主键                       |
+| flow_node_id | BIGINT    |       否 |                   | PK        | 主键                       |
 | tenant_id  | BIGINT      |       否 |                   | IDX       | 冗余租户（便于查询与隔离） |
 | flow_id    | BIGINT      |       否 |                   | IDX       | 所属 Flow                  |
 | type       | VARCHAR(32) |       否 |                   | NodeType  | 节点类型                   |
@@ -3764,7 +3764,7 @@ Flow 模块不负责：
 
 | 字段名       | 类型     | 是否可空 | 默认值            | 枚举/约束 | 说明      |
 | ------------ | -------- | -------: | ----------------- | --------- | --------- |
-| id           | BIGINT   |       否 |                   | PK        | 主键      |
+| flow_edge_id | BIGINT   |       否 |                   | PK        | 主键      |
 | tenant_id    | BIGINT   |       否 |                   | IDX       | 冗余租户  |
 | flow_id      | BIGINT   |       否 |                   | IDX       | 所属 Flow |
 | from_node_id | BIGINT   |       否 |                   |           | 起点节点  |
@@ -3789,11 +3789,11 @@ Flow 模块不负责：
 
 | 字段名       | 类型        | 是否可空 | 默认值            | 枚举/约束          | 说明                                          |
 | ------------ | ----------- | -------: | ----------------- | ------------------ | --------------------------------------------- |
-| id           | BIGINT      |       否 |                   | PK                 | 主键                                          |
+| flow_run_id  | BIGINT      |       否 |                   | PK                 | 主键                                          |
 | tenant_id    | BIGINT      |       否 |                   | IDX                | 租户                                          |
 | flow_id      | BIGINT      |       否 |                   | IDX                | Flow                                          |
 | trigger_type | VARCHAR(16) |       否 |                   | FlowRunTriggerType | 触发方式                                      |
-| triggered_by | VARCHAR(64) |       否 |                   |                    | 触发人：手动为 TenantUser.id；调度为 'SYSTEM' |
+| triggered_by | VARCHAR(64) |       否 |                   |                    | 触发人：手动为 TenantUser.tenant_user_id；调度为 'SYSTEM' |
 | status       | VARCHAR(16) |       否 | 'PENDING'         | RunStatus          | 运行状态                                      |
 | started_at   | DATETIME    |       是 | NULL              |                    | 开始时间                                      |
 | finished_at  | DATETIME    |       是 | NULL              |                    | 结束时间                                      |
@@ -3813,10 +3813,10 @@ Flow 模块不负责：
 
 | 字段名           | 类型          | 是否可空 | 默认值            | 枚举/约束     | 说明                                      |
 | ---------------- | ------------- | -------: | ----------------- | ------------- | ----------------------------------------- |
-| id               | BIGINT        |       否 |                   | PK            | 主键                                      |
+| flow_node_run_id | BIGINT        |       否 |                   | PK            | 主键                                      |
 | tenant_id        | BIGINT        |       否 |                   | IDX           | 租户                                      |
 | flow_run_id      | BIGINT        |       否 |                   | IDX           | 所属 FlowRun                              |
-| node_id          | BIGINT        |       否 |                   | IDX           | 节点 ID                                   |
+| flow_node_id     | BIGINT        |       否 |                   | IDX           | 节点 ID                                   |
 | type             | VARCHAR(32)   |       否 |                   | NodeType      | 节点类型                                  |
 | status           | VARCHAR(16)   |       否 | 'PENDING'         | NodeRunStatus | 状态                                      |
 | started_at       | DATETIME      |       是 | NULL              |               | 开始时间                                  |
@@ -3844,7 +3844,7 @@ Flow 模块不负责：
 
 | 字段名      | 类型          | 是否可空 | 默认值            | 枚举/约束       | 说明                                        |
 | ----------- | ------------- | -------: | ----------------- | --------------- | ------------------------------------------- |
-| id          | BIGINT        |       否 |                   | PK              | 主键                                        |
+| flow_run_log_id | BIGINT     |       否 |                   | PK              | 主键                                        |
 | tenant_id   | BIGINT        |       否 |                   | IDX             | 租户                                        |
 | flow_id     | BIGINT        |       否 |                   | IDX             | Flow                                        |
 | flow_run_id | BIGINT        |       是 | NULL              |                 | 关联运行（调度跳过时可为空）                |
@@ -4601,7 +4601,7 @@ metrics_expr 示例：
 
 #### A. 资源树（scope=FLOW，复用资源树服务）
 
-- GET /api/resource-trees/{scope}/children（scope=FLOW；Query: parent_id?）
+- GET /api/resource-trees/{scope}/children（scope=FLOW；Query: parent_node_id?）
 - POST /api/resource-trees/{scope}/folders（创建 Folder）
 - PATCH /api/resource-trees/{scope}/nodes/{node_id}（重命名/移动）
 - DELETE /api/resource-trees/{scope}/nodes/{node_id}（删除 Folder/Flow 节点）
@@ -4776,7 +4776,7 @@ def list_flows(tenant_id, user, q):
 | code           | STRING |   是 | 1–64；租户内唯一；仅允许字母数字下划线/短横线 |
 | display_name   | STRING |   是 | 1–50                                          |
 | description    | STRING |   否 | ≤500                                          |
-| owner_id       | BIGINT |   是 | 负责人（TenantUser.id）                       |
+| owner_id       | BIGINT |   是 | 负责人（TenantUser.tenant_user_id）          |
 | enabled        | BOOL   |   否 | 默认 true                                     |
 
 **出参 data**
@@ -6377,19 +6377,19 @@ end
 
 | 枚举值        | 说明                       |           target_id 示例 |
 | ------------- | -------------------------- | -----------------------: |
-| ROLE          | 角色                       |                  role.id |
-| TENANT_USER   | 租户成员                   |           tenant_user.id |
-| RESOURCE_NODE | 资源树节点（folder/asset） |    resource_tree_node.id |
-| TABLE         | 建模表                     |        modeling_table.id |
-| FIELD         | 建模字段                   |        modeling_field.id |
-| FLOW          | 任务流                     |                  flow.id |
-| FLOW_RUN      | 运行实例                   |              flow_run.id |
-| DATASET       | 数据集                     |               dataset.id |
-| DASHBOARD     | 看板                       |                 board.id |
-| CHART         | 看板组件                   |          board_widget.id |
-| EXPORT_JOB    | 导出任务                   |     report_export_job.id |
-| QUERY_RUN     | 查询执行记录               | query_run.id（若已实现） |
-| TENANT        | 租户（平台后台使用）       |        tenant.id（可选） |
+| ROLE          | 角色                       |              role.role_id |
+| TENANT_USER   | 租户成员                   |   tenant_user.tenant_user_id |
+| RESOURCE_NODE | 资源树节点（folder/asset） |   resource_tree_node.node_id |
+| TABLE         | 建模表                     |      modeling_table.table_id |
+| FIELD         | 建模字段                   |      modeling_field.field_id |
+| FLOW          | 任务流                     |              flow.flow_id |
+| FLOW_RUN      | 运行实例                   |          flow_run.flow_run_id |
+| DATASET       | 数据集                     |          dataset.dataset_id |
+| DASHBOARD     | 看板                       |        dashboard.dashboard_id |
+| CHART         | 看板组件                   |    dashboard_item.dashboard_item_id |
+| EXPORT_JOB    | 导出任务                   |      export_job.export_job_id |
+| QUERY_RUN     | 查询执行记录               | query_run.query_run_id（若已实现） |
+| TENANT        | 租户（平台后台使用）       |      tenant.tenant_id（可选） |
 
 ### 10.2.3 操作类型枚举 ActionType（最小集合）
 
@@ -6450,7 +6450,7 @@ end
 
 | 字段名               | 类型          | 是否可空 | 默认值            | 枚举/约束      | 说明                                                          |
 | -------------------- | ------------- | -------: | ----------------- | -------------- | ------------------------------------------------------------- |
-| id                   | BIGINT        |       否 |                   | PK             | 主键                                                          |
+| audit_log_id         | BIGINT        |       否 |                   | PK             | 主键                                                          |
 | tenant_id            | BIGINT        |       否 |                   | IDX            | 租户 ID                                                       |
 | request_id           | VARCHAR(64)   |       否 |                   | IDX            | 请求链路 ID（贯穿请求/任务）                                  |
 | module               | VARCHAR(16)   |       否 |                   | AuditModule    | 所属模块                                                      |
@@ -6464,8 +6464,8 @@ end
 | result               | VARCHAR(16)   |       否 | 'SUCCESS'         | SUCCESS/FAILED | 操作结果                                                      |
 | error_code           | VARCHAR(64)   |       是 | NULL              |                | 失败错误码（FAILED 时必填）                                   |
 | error_message        | VARCHAR(2000) |       是 | NULL              |                | 失败原因摘要（FAILED 时必填）                                 |
-| actor_tenant_user_id | BIGINT        |       是 | NULL              | IDX            | 操作人（TenantUser.id；系统任务可为空）                       |
-| actor_global_user_id | BIGINT        |       是 | NULL              |                | 操作人（GlobalUser.id；若存在）                               |
+| actor_tenant_user_id | BIGINT        |       是 | NULL              | IDX            | 操作人（TenantUser.tenant_user_id；系统任务可为空）           |
+| actor_global_user_id | BIGINT        |       是 | NULL              |                | 操作人（GlobalUser.user_id；若存在）                           |
 | actor_display_name   | VARCHAR(100)  |       否 | ''                |                | 操作人展示名（快照，避免后续改名影响）                        |
 | created_at           | DATETIME      |       否 | CURRENT_TIMESTAMP | IDX            | 记录时间                                                      |
 

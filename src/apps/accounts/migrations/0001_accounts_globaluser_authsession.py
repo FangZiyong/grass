@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='GlobalUser',
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('user_id', models.BigAutoField(help_text='平台用户ID', primary_key=True, serialize=False)),
                 ('login_name', models.CharField(help_text='登录名（全局唯一，不可修改）', max_length=64, unique=True)),
                 ('display_name', models.CharField(help_text='显示名称', max_length=64)),
                 ('email', models.EmailField(help_text='邮箱（全局唯一）', max_length=128, unique=True)),
@@ -36,7 +36,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='AuthSession',
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('auth_session_id', models.BigAutoField(help_text='登录会话ID', primary_key=True, serialize=False)),
                 ('refresh_token_hash', models.CharField(help_text='refresh token 哈希存储（唯一）', max_length=255, unique=True)),
                 ('status', models.CharField(choices=[('ACTIVE', '活跃'), ('REVOKED', '已撤销'), ('EXPIRED', '已过期')], default='ACTIVE', help_text='会话状态：ACTIVE=活跃，REVOKED=已撤销，EXPIRED=已过期', max_length=16)),
                 ('issued_at', models.DateTimeField(default=django.utils.timezone.now, help_text='签发时间')),

@@ -26,6 +26,7 @@ class GlobalUser(models.Model):
     - last_login_at: 最近登录时间
     """
 
+    user_id = models.BigAutoField(primary_key=True, help_text="平台用户ID")
     login_name = models.CharField(
         max_length=64,
         unique=True,
@@ -79,7 +80,7 @@ class GlobalUser(models.Model):
     def __str__(self) -> str:
         return (
             "GlobalUser("
-            f"id={self.id}, login_name={self.login_name}, "
+            f"user_id={self.user_id}, login_name={self.login_name}, "
             f"email={self.email}, status={self.status}"
             ")"
         )

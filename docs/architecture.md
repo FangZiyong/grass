@@ -239,7 +239,7 @@ src/apps/accounts/
 | POST | `/api/auth/login`   | 登录（创建 auth_session，下发 refresh cookie） | `views_auth.LoginView`   | `LoginSerializer`   | `auth_service.login()`              | 公开（带限流） |
 | POST | `/api/auth/logout`  | 退出（撤销当前会话）                           | `views_auth.LogoutView`  | `LogoutSerializer`  | `auth_service.logout()`             | 登录态         |
 | POST | `/api/auth/refresh` | 刷新 access token（校验 refresh 会话）         | `views_auth.RefreshView` | `RefreshSerializer` | `auth_service.refresh()`            | refresh cookie |
-| GET  | `/api/me`           | 获取当前用户信息（含 tenant_user/role 概览）   | `views_me.MeView`        | `MeSerializer`      | `account_selector.get_me_payload()` | 登录态         |
+| GET  | `/api/me`           | 获取当前用户信息（含 tenant 上下文）          | `views_me.MeView`        | `MeSerializer`      | `account_selector.get_me_payload()` | 登录态         |
 
 ---
 
@@ -419,11 +419,11 @@ src/apps/resource_tree/
 ## Services（用例层：写操作）
 
 - `services.py`
-  - `list_children(scope, parent_id)`：按 scope 获取子节点（过滤 NONE 权限）
-  - `create_folder(scope, parent_id, name)`
+  - `list_children(scope, parent_node_id)`：按 scope 获取子节点（过滤 NONE 权限）
+  - `create_folder(scope, parent_node_id, name)`
   - `update_node(scope, node_id, name/parent/order)`
   - `move_nodes(scope, moves[])`
-  - `reorder(scope, parent_id, ordered_ids[])`
+  - `reorder(scope, parent_node_id, ordered_ids[])`
   - `delete_node(scope, node_id)`：空文件夹校验或递归删除策略（按产品决策）
 
 ## API（接口清单与代码落点）

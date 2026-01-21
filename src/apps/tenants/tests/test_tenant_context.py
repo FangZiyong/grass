@@ -120,7 +120,7 @@ class TenantContextMiddlewareTest(TestCase):
         middleware = self._create_middleware()
         request = self._create_request(
             path="/api/modeling/tables",
-            tenant_id=self.tenant_suspended.id,
+            tenant_id=self.tenant_suspended.tenant_id,
         )
         request.user = AuthContextUser(user_id=self.user_id)
         
@@ -143,7 +143,7 @@ class TenantContextMiddlewareTest(TestCase):
         middleware = self._create_middleware()
         request = self._create_request(
             path="/api/modeling/tables",
-            tenant_id=self.tenant_active.id,
+            tenant_id=self.tenant_active.tenant_id,
         )
         # 使用一个不属于该租户的用户
         request.user = AuthContextUser(user_id=999)
@@ -160,7 +160,7 @@ class TenantContextMiddlewareTest(TestCase):
         middleware = self._create_middleware()
         request = self._create_request(
             path="/api/modeling/tables",
-            tenant_id=self.tenant_active.id,
+            tenant_id=self.tenant_active.tenant_id,
         )
         request.user = AuthContextUser(user_id=self.other_user_id)
         
@@ -176,7 +176,7 @@ class TenantContextMiddlewareTest(TestCase):
         middleware = self._create_middleware()
         request = self._create_request(
             path="/api/modeling/tables",
-            tenant_id=self.tenant_active.id,
+            tenant_id=self.tenant_active.tenant_id,
         )
         # 不设置 request.user
         
@@ -191,7 +191,7 @@ class TenantContextMiddlewareTest(TestCase):
         middleware = self._create_middleware()
         request = self._create_request(
             path="/api/modeling/tables",
-            tenant_id=self.tenant_active.id,
+            tenant_id=self.tenant_active.tenant_id,
         )
         request.user = AuthContextUser(user_id=self.user_id)
         
@@ -199,11 +199,11 @@ class TenantContextMiddlewareTest(TestCase):
         
         self.assertEqual(response.status_code, 200)
         self.assertTrue(hasattr(request, "tenant"))
-        self.assertEqual(request.tenant.id, self.tenant_active.id)
+        self.assertEqual(request.tenant.tenant_id, self.tenant_active.tenant_id)
         self.assertTrue(hasattr(request, "tenant_id"))
-        self.assertEqual(request.tenant_id, self.tenant_active.id)
+        self.assertEqual(request.tenant_id, self.tenant_active.tenant_id)
         self.assertTrue(hasattr(request, "tenant_user"))
-        self.assertEqual(request.tenant_user.id, self.tenant_user_active.id)
+        self.assertEqual(request.tenant_user.tenant_user_id, self.tenant_user_active.tenant_user_id)
     
     def test_invalid_tenant_id_format(self):
         """测试 tenant_id 格式错误（非数字）"""

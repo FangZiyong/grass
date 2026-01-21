@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='TaskRunInstance',
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('task_run_id', models.BigAutoField(help_text='任务运行ID', primary_key=True, serialize=False)),
                 ('task_type', models.CharField(db_index=True, help_text='任务类型（由 ExecutionRegistry 注册）', max_length=64)),
                 ('task_id', models.BigIntegerField(db_index=True, help_text='业务任务ID（如 dataset_id/export_job_id/flow_run_id）')),
                 ('tenant_id', models.BigIntegerField(db_index=True, help_text='租户ID（多租户隔离）')),
@@ -44,7 +44,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='TaskRunLog',
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('task_run_log_id', models.BigAutoField(help_text='任务运行日志ID', primary_key=True, serialize=False)),
                 ('level', models.CharField(choices=[('DEBUG', 'DEBUG'), ('INFO', 'INFO'), ('WARNING', 'WARNING'), ('ERROR', 'ERROR')], default='INFO', help_text='日志级别', max_length=16)),
                 ('message', models.TextField(help_text='日志消息')),
                 ('created_at', models.DateTimeField(auto_now_add=True, db_index=True, help_text='日志时间')),

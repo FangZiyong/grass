@@ -12,7 +12,7 @@
 import time
 from unittest.mock import Mock, patch
 
-from django.db import IntegrityError, connection
+from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
 from django.utils import timezone
 
@@ -61,7 +61,7 @@ class ExecutionSmokeTest(TestCase):
         task = TaskRunInstance.objects.create(
             task_type="TEST_TASK",
             task_id=1,
-            tenant_id=self.tenant.id,
+            tenant_id=self.tenant.tenant_id,
             status=TaskRunStatus.PENDING,
         )
 
@@ -84,7 +84,7 @@ class ExecutionSmokeTest(TestCase):
         task = TaskRunInstance.objects.create(
             task_type="TEST_TASK",
             task_id=2,
-            tenant_id=self.tenant.id,
+            tenant_id=self.tenant.tenant_id,
             status=TaskRunStatus.READY,
             max_retries=3,
         )
@@ -106,12 +106,12 @@ class ExecutionSmokeTest(TestCase):
         task = TaskRunInstance.objects.create(
             task_type="TEST_TASK",
             task_id=3,
-            tenant_id=self.tenant.id,
+            tenant_id=self.tenant.tenant_id,
             status=TaskRunStatus.READY,
         )
 
         # 执行任务
-        execute_task_sync(task.id)
+        execute_task_sync(task.task_run_id)
 
         # 刷新任务状态
         task.refresh_from_db()
@@ -131,13 +131,13 @@ class ExecutionSmokeTest(TestCase):
         task = TaskRunInstance.objects.create(
             task_type="FAILING_TASK",
             task_id=4,
-            tenant_id=self.tenant.id,
+            tenant_id=self.tenant.tenant_id,
             status=TaskRunStatus.READY,
             max_retries=0,  # 不重试
         )
 
         # 执行任务
-        execute_task_sync(task.id)
+        execute_task_sync(task.task_run_id)
 
         # 刷新任务状态
         task.refresh_from_db()
@@ -149,7 +149,7 @@ class ExecutionSmokeTest(TestCase):
         task = TaskRunInstance.objects.create(
             task_type="TEST_TASK",
             task_id=5,
-            tenant_id=self.tenant.id,
+            tenant_id=self.tenant.tenant_id,
             status=TaskRunStatus.RUNNING,
             started_at=timezone.now() - timezone.timedelta(seconds=100),
             timeout_seconds=60,
@@ -168,25 +168,26 @@ class ExecutionSmokeTest(TestCase):
         task1 = TaskRunInstance.objects.create(
             task_type="TEST_TASK",
             task_id=6,
-            tenant_id=self.tenant.id,
+            tenant_id=self.tenant.tenant_id,
             status=TaskRunStatus.RUNNING,
         )
 
         # 尝试创建第二个相同任务（应该违反唯一约束）
-        with self.assertRaises(IntegrityError):
-            TaskRunInstance.objects.create(
-                task_type="TEST_TASK",
-                task_id=6,
-                tenant_id=self.tenant.id,
-                status=TaskRunStatus.READY,
-            )
+        with transaction.atomic():
+            with self.assertRaises(IntegrityError):
+                TaskRunInstance.objects.create(
+                    task_type="TEST_TASK",
+                    task_id=6,
+                    tenant_id=self.tenant.tenant_id,
+                    status=TaskRunStatus.READY,
+                )
 
         # 第一个任务完成后，可以创建新任务
         task1.mark_success({})
         task2 = TaskRunInstance.objects.create(
             task_type="TEST_TASK",
             task_id=6,
-            tenant_id=self.tenant.id,
+            tenant_id=self.tenant.tenant_id,
             status=TaskRunStatus.READY,
         )
         self.assertIsNotNone(task2)
@@ -196,12 +197,12 @@ class ExecutionSmokeTest(TestCase):
         task = TaskRunInstance.objects.create(
             task_type="TEST_TASK",
             task_id=7,
-            tenant_id=self.tenant.id,
+            tenant_id=self.tenant.tenant_id,
             status=TaskRunStatus.READY,
         )
 
         # 使用 select_for_update 锁定任务
-        locked_task = TaskRunInstance.objects.select_for_update().get(id=task.id)
+        locked_task = TaskRunInstance.objects.select_for_update().get(task_run_id=task.task_run_id)
         locked_task.mark_running(worker_id="worker1")
 
         # 再次尝试获取（应该获取到已更新的状态）
@@ -214,12 +215,12 @@ class ExecutionSmokeTest(TestCase):
         task = TaskRunInstance.objects.create(
             task_type="UNREGISTERED_TASK",
             task_id=8,
-            tenant_id=self.tenant.id,
+            tenant_id=self.tenant.tenant_id,
             status=TaskRunStatus.READY,
         )
 
         # 执行任务（应该失败，因为 handler 未注册）
-        execute_task_sync(task.id)
+        execute_task_sync(task.task_run_id)
 
         # 刷新任务状态
         task.refresh_from_db()
@@ -234,13 +235,13 @@ class ExecutionSmokeTest(TestCase):
             task = TaskRunInstance.objects.create(
                 task_type="TEST_TASK",
                 task_id=10 + i,
-                tenant_id=self.tenant.id,
+                tenant_id=self.tenant.tenant_id,
                 status=TaskRunStatus.READY,
             )
             tasks.append(task)
 
         # 派发任务（不使用 Celery，直接调用）
-        dispatched = TaskDispatcher.dispatch_ready_tasks(limit=10)
+        dispatched = TaskDispatcher.dispatch_ready_tasks(limit=10, use_celery=False)
         self.assertEqual(dispatched, 3)
 
         # 检查任务状态（应该都被执行）

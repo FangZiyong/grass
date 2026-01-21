@@ -13,11 +13,19 @@ from apps.tenants.models.tenant_user import TenantUser, TenantUserStatus
 
 class TenantBriefSerializer(serializers.ModelSerializer):
     """租户简要信息序列化器（用于列表）"""
-    
+
+    is_recent = serializers.SerializerMethodField()
+
     class Meta:
         model = Tenant
-        fields = ["id", "code", "name", "plan", "status"]
-        read_only_fields = ["id", "code", "name", "plan", "status"]
+        fields = ["tenant_id", "code", "name", "status", "is_recent"]
+        read_only_fields = ["tenant_id", "code", "name", "status", "is_recent"]
+
+    def get_is_recent(self, obj) -> bool:
+        recent_tenant_id = self.context.get("recent_tenant_id")
+        if not recent_tenant_id:
+            return False
+        return obj.tenant_id == recent_tenant_id
 
 
 class TenantSwitchSerializer(serializers.Serializer):
@@ -43,6 +51,8 @@ class TenantListDataSerializer(serializers.Serializer):
     """租户列表响应 data"""
 
     items = TenantBriefSerializer(many=True)
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
     total = serializers.IntegerField()
 
 

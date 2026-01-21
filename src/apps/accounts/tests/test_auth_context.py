@@ -302,7 +302,7 @@ class AuthContextUserTests(APISimpleTestCase):
     def test_auth_context_user_creation(self):
         """测试创建 AuthContextUser"""
         user = AuthContextUser(user_id=1, is_platform_admin=False)
-        self.assertEqual(user.id, 1)
+        self.assertEqual(user.user_id, 1)
         self.assertEqual(user.user_id, 1)
         self.assertFalse(user.is_platform_admin)
         self.assertTrue(user.is_authenticated)

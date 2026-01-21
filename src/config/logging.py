@@ -15,20 +15,20 @@ class RequestContextFilter(logging.Filter):
             if not request_id and hasattr(request, "META"):
                 request_id = request.META.get("HTTP_X_REQUEST_ID")
 
-        # tenant_id 允许从 request.tenant_id 或 request.tenant.id 获取
+        # tenant_id 允许从 request.tenant_id 或 request.tenant.tenant_id 获取
         tenant_id = None
         if request is not None:
             tenant_id = getattr(request, "tenant_id", None)
             if tenant_id is None:
                 tenant = getattr(request, "tenant", None)
-                tenant_id = getattr(tenant, "id", None) if tenant is not None else None
+                tenant_id = getattr(tenant, "tenant_id", None) if tenant is not None else None
 
         # user_id 优先取认证用户，否则尝试 request.user_id
         user_id = None
         if request is not None:
             user = getattr(request, "user", None)
             if user is not None and getattr(user, "is_authenticated", False):
-                user_id = getattr(user, "id", None) or getattr(user, "pk", None)
+                user_id = getattr(user, "user_id", None) or getattr(user, "pk", None)
             if user_id is None:
                 user_id = getattr(request, "user_id", None)
 

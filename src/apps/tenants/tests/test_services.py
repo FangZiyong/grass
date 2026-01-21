@@ -34,9 +34,9 @@ class TenantServicesTest(TestCase):
     
     def test_switch_tenant_success(self):
         """测试成功切换租户"""
-        result = switch_tenant(self.user_id, self.tenant_active.id)
+        result = switch_tenant(self.user_id, self.tenant_active.tenant_id)
         
-        self.assertEqual(result["tenant_id"], self.tenant_active.id)
+        self.assertEqual(result["tenant_id"], self.tenant_active.tenant_id)
         self.assertIn("redirect_url", result)
     
     def test_switch_tenant_not_found(self):
@@ -56,7 +56,7 @@ class TenantServicesTest(TestCase):
         )
         
         with self.assertRaises(GrassAPIException) as cm:
-            switch_tenant(self.user_id, self.tenant_suspended.id)
+            switch_tenant(self.user_id, self.tenant_suspended.tenant_id)
         
         self.assertEqual(cm.exception.status_code, 403)
         self.assertEqual(str(cm.exception.error_code), "PERMISSION_DENIED")
@@ -64,7 +64,7 @@ class TenantServicesTest(TestCase):
     def test_switch_tenant_user_not_in_tenant(self):
         """测试用户不属于该租户"""
         with self.assertRaises(GrassAPIException) as cm:
-            switch_tenant(999, self.tenant_active.id)
+            switch_tenant(999, self.tenant_active.tenant_id)
         
         self.assertEqual(cm.exception.status_code, 403)
         self.assertEqual(str(cm.exception.error_code), "PERMISSION_DENIED")
@@ -79,7 +79,7 @@ class TenantServicesTest(TestCase):
         )
         
         with self.assertRaises(GrassAPIException) as cm:
-            switch_tenant(disabled_user_id, self.tenant_active.id)
+            switch_tenant(disabled_user_id, self.tenant_active.tenant_id)
         
         self.assertEqual(cm.exception.status_code, 403)
         self.assertEqual(str(cm.exception.error_code), "PERMISSION_DENIED")

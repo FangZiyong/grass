@@ -85,7 +85,7 @@ def login(login_name: str, password: str, request=None) -> LoginResult:
         )
 
     access_token, expires_in = issue_access_token(
-        user_id=user.id,
+        user_id=user.user_id,
         is_platform_admin=user.is_platform_admin,
     )
     # refresh token 仅保存哈希，明文只下发给客户端：
@@ -111,7 +111,7 @@ def login(login_name: str, password: str, request=None) -> LoginResult:
                 expires_at=refresh_expires_at,
                 device_info=device_info,
             )
-            GlobalUser.objects.filter(id=user.id).update(last_login_at=now)
+            GlobalUser.objects.filter(user_id=user.user_id).update(last_login_at=now)
     except Exception as exc:  # pragma: no cover - defensive
         raise GrassAPIException(
             detail=str(exc) or "Failed to create session.",
@@ -256,7 +256,7 @@ def refresh(request=None) -> RefreshResult:
         )
 
     access_token, expires_in = issue_access_token(
-        user_id=user.id,
+        user_id=user.user_id,
         is_platform_admin=user.is_platform_admin,
     )
 
@@ -301,7 +301,7 @@ def record_failed_login(login_name: str, client_ip: str) -> None:
 
 def _build_user_payload(user: GlobalUser) -> dict[str, Any]:
     payload = {
-        "id": user.id,
+        "user_id": user.user_id,
         "login_name": user.login_name,
         "display_name": user.display_name,
         "email": user.email,
@@ -313,21 +313,21 @@ def _build_user_payload(user: GlobalUser) -> dict[str, Any]:
 
 
 def _resolve_login_tenant(user: GlobalUser) -> Optional[dict[str, Any]]:
-    tenants = list(list_user_tenants(user.id, status="ACTIVE"))
+    tenants = list(list_user_tenants(user.user_id, status="ACTIVE"))
     if not tenants:
         return None
     if len(tenants) == 1:
         return _build_tenant_payload(tenants[0])
     if user.last_tenant_id:
         for tenant in tenants:
-            if tenant.id == user.last_tenant_id:
+            if tenant.tenant_id == user.last_tenant_id:
                 return _build_tenant_payload(tenant)
     return None
 
 
 def _build_tenant_payload(tenant) -> dict[str, Any]:
     return {
-        "id": tenant.id,
+        "tenant_id": tenant.tenant_id,
         "code": tenant.code,
         "name": tenant.name,
         "plan": tenant.plan,

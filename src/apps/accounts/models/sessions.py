@@ -29,6 +29,7 @@ class AuthSession(models.Model):
     - device_info: 设备信息（ua/ip/device_id）
     """
 
+    auth_session_id = models.BigAutoField(primary_key=True, help_text="登录会话ID")
     user = models.ForeignKey(
         GlobalUser,
         on_delete=models.CASCADE,
@@ -77,6 +78,6 @@ class AuthSession(models.Model):
     def __str__(self) -> str:
         return (
             "AuthSession("
-            f"id={self.id}, user_id={self.user_id}, status={self.status}"
+            f"auth_session_id={self.auth_session_id}, user_id={self.user_id}, status={self.status}"
             ")"
         )

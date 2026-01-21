@@ -14,6 +14,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 
+from apps.accounts.selectors import get_user_by_id
 from apps.tenants.api.serializers import (
     TenantBriefSerializer,
     TenantListEnvelopeSerializer,
@@ -21,13 +22,14 @@ from apps.tenants.api.serializers import (
     TenantSwitchResponseSerializer,
     TenantSwitchSerializer,
 )
+from apps.tenants.models.tenant import TenantStatus
 from apps.tenants.selectors import list_user_tenants
 from apps.tenants.services import switch_tenant
+from common.errors.exceptions import GrassAPIException
+from common.http.pagination import DefaultPageNumberPagination
 from common.http.response import envelope_response
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
 @extend_schema(
     responses={
         200: TenantListEnvelopeSerializer,
@@ -59,34 +61,48 @@ from common.http.response import envelope_response
     tags=["Tenants"],
     summary="获取可访问租户列表",
 )
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def tenant_list_view(request: Request):
     """
     获取当前用户可访问的租户列表
     
-    根据 tech.md §4.7.2 和 T2.2任务：
+    根据 tech.md §4.6.2 和 T2.2任务：
     - 返回用户所属的 ACTIVE 租户列表
-    - 包含最近租户标识（T1.5任务实现）
-    
-    注意：完整实现在T2.2任务中完成，这里先提供占位实现。
+    - 支持 q 搜索（租户 code/name）
+    - 返回最近租户标识（基于 user.last_tenant_id）
     """
-    user_id = request.user.id if hasattr(request.user, "id") else request.user.user_id
+    user_id = request.user.user_id if hasattr(request.user, "user_id") else request.user.pk
+
+    user = get_user_by_id(user_id)
+    if user is None:
+        raise GrassAPIException(
+            detail="User not found.",
+            status_code=500,
+            code="DATA_INTEGRITY_ERROR",
+        )
     
-    # 获取用户所属的 ACTIVE 租户
-    tenants = list_user_tenants(user_id, status="ACTIVE")
-    
-    # TODO: 标记最近租户（T1.5任务实现）
-    # TODO: 序列化返回（T2.2任务完善）
-    
-    serializer = TenantBriefSerializer(tenants, many=True)
-    
-    return envelope_response(
-        data={"items": serializer.data, "total": len(serializer.data)},
-        request=request,
+    search = request.query_params.get("q")
+    if search is not None:
+        search = search.strip()
+    if not search:
+        search = None
+
+    tenants = list_user_tenants(user_id, status=TenantStatus.ACTIVE, search=search)
+
+    paginator = DefaultPageNumberPagination()
+    paginator.page_size = 50
+    page = paginator.paginate_queryset(tenants, request)
+
+    serializer = TenantBriefSerializer(
+        page,
+        many=True,
+        context={"recent_tenant_id": user.last_tenant_id},
     )
 
+    return paginator.get_paginated_response(serializer.data)
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
+
 @extend_schema(
     request=TenantSwitchSerializer,
     responses={
@@ -143,6 +159,8 @@ def tenant_list_view(request: Request):
     tags=["Tenants"],
     summary="切换租户",
 )
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def tenant_switch_view(request: Request):
     """
     切换租户上下文
@@ -157,7 +175,7 @@ def tenant_switch_view(request: Request):
     serializer = TenantSwitchSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     
-    user_id = request.user.id if hasattr(request.user, "id") else request.user.user_id
+    user_id = request.user.user_id if hasattr(request.user, "user_id") else request.user.pk
     tenant_id = serializer.validated_data["tenant_id"]
     
     # 调用服务层切换租户

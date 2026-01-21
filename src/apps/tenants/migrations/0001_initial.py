@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Tenant',
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('tenant_id', models.BigAutoField(help_text='租户ID', primary_key=True, serialize=False)),
                 ('code', models.CharField(db_index=True, help_text='租户编码（全局唯一，不可修改）', max_length=64, unique=True)),
                 ('name', models.CharField(help_text='租户名称（允许编辑）', max_length=128)),
                 ('status', models.CharField(choices=[('ACTIVE', '活跃'), ('SUSPENDED', '已停用')], db_index=True, default='ACTIVE', help_text='租户状态：ACTIVE=活跃，SUSPENDED=已停用', max_length=16)),
@@ -31,8 +31,8 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='TenantUser',
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('user_id', models.BigIntegerField(db_index=True, help_text='平台用户ID（FK → global_user.id）')),
+                ('tenant_user_id', models.BigAutoField(help_text='租户成员ID', primary_key=True, serialize=False)),
+                ('user_id', models.BigIntegerField(db_index=True, help_text='平台用户ID（FK → global_user.user_id）')),
                 ('status', models.CharField(choices=[('ACTIVE', '活跃'), ('DISABLED', '已禁用')], default='ACTIVE', help_text='租户用户状态：ACTIVE=活跃，DISABLED=已禁用', max_length=16)),
                 ('is_owner', models.BooleanField(default=False, help_text='是否该租户Owner（至少存在1个）')),
                 ('last_login', models.DateTimeField(blank=True, help_text='最近一次进入该租户时间', null=True)),
