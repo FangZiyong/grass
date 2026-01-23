@@ -13,7 +13,7 @@ from apps.accounts.models.users import GlobalUserStatus
 from apps.accounts.selectors import get_user_by_id
 from apps.tenants.models.tenant import TenantStatus
 from apps.tenants.models.tenant_user import TenantUserStatus
-from apps.tenants.selectors import get_tenant_by_id, get_tenant_user
+from apps.tenants.selectors import get_tenant_by_id, get_tenant_user, list_user_tenants
 from common.errors.codes import ErrorCode
 from common.errors.exceptions import GrassAPIException
 from common.http.response import envelope_response
@@ -132,6 +132,19 @@ class MeView(APIView):
                         status_code=status.HTTP_403_FORBIDDEN,
                         code=ErrorCode.PERMISSION_DENIED,
                     )
+            elif user.last_tenant_id:
+                # 兼容前端未携带 X-Tenant-Id 的场景：若用户已记录最近租户，则尝试解析租户上下文。
+                # 校验失败时不报错，仅不返回 tenant 字段（避免 /api/me 因租户异常而不可用）。
+                tenant_candidate = get_tenant_by_id(user.last_tenant_id)
+                if tenant_candidate is not None and tenant_candidate.status == TenantStatus.ACTIVE:
+                    tenant_user = get_tenant_user(tenant_candidate.tenant_id, user_id)
+                    if tenant_user is not None and tenant_user.status == TenantUserStatus.ACTIVE:
+                        tenant = tenant_candidate
+            else:
+                # 若用户只属于一个可用租户，则可在未传 header 时自动返回该租户上下文。
+                active_tenants = list(list_user_tenants(user_id, status=TenantStatus.ACTIVE))
+                if len(active_tenants) == 1:
+                    tenant = active_tenants[0]
         if tenant is not None:
             payload["tenant"] = {
                 "tenant_id": tenant.tenant_id,

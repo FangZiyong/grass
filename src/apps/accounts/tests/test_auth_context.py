@@ -117,7 +117,7 @@ class TokenUtilsTests(APISimpleTestCase):
         """测试签发 access token"""
         token, expires_in = issue_access_token(user_id=1, is_platform_admin=False)
         self.assertIsInstance(token, str)
-        self.assertEqual(expires_in, 900)  # 15 分钟
+        self.assertEqual(expires_in, 86400)  # 24 小时
 
         # 验证 token 可以解析
         payload = verify_access_token(token)
@@ -147,7 +147,7 @@ class TokenUtilsTests(APISimpleTestCase):
             "user_id": 1,
             "is_platform_admin": False,
             "iat": int(expired_time.timestamp()),
-            "exp": int((expired_time + timedelta(seconds=900)).timestamp()),
+            "exp": int((expired_time - timedelta(seconds=10)).timestamp()),
             "type": "access",
         }
         token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
@@ -164,7 +164,7 @@ class TokenUtilsTests(APISimpleTestCase):
             "user_id": 1,
             "is_platform_admin": False,
             "iat": int(time.time()),
-            "exp": int(time.time()) + 900,
+            "exp": int(time.time()) + 86400,
             "type": "access",
         }
         token = jwt.encode(payload, "wrong-secret-key", algorithm="HS256")
@@ -178,7 +178,7 @@ class TokenUtilsTests(APISimpleTestCase):
         payload = {
             "is_platform_admin": False,
             "iat": int(time.time()),
-            "exp": int(time.time()) + 900,
+            "exp": int(time.time()) + 86400,
             "type": "access",
         }
         token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
@@ -194,7 +194,7 @@ class TokenUtilsTests(APISimpleTestCase):
             "user_id": 1,
             "is_platform_admin": False,
             "iat": int(time.time()),
-            "exp": int(time.time()) + 900,
+            "exp": int(time.time()) + 86400,
             "type": "refresh",  # 错误类型
         }
         token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
@@ -250,7 +250,7 @@ class JWTAuthenticationTests(APISimpleTestCase):
             "user_id": 1,
             "is_platform_admin": False,
             "iat": int(expired_time.timestamp()),
-            "exp": int((expired_time + timedelta(seconds=900)).timestamp()),
+            "exp": int((expired_time - timedelta(seconds=10)).timestamp()),
             "type": "access",
         }
         token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
@@ -266,7 +266,7 @@ class JWTAuthenticationTests(APISimpleTestCase):
             "user_id": 1,
             "is_platform_admin": False,
             "iat": int(time.time()),
-            "exp": int(time.time()) + 900,
+            "exp": int(time.time()) + 86400,
             "type": "access",
         }
         token = jwt.encode(payload, "wrong-secret-key", algorithm="HS256")
@@ -370,7 +370,7 @@ class AuthContextAPITests(APISimpleTestCase):
             "user_id": 1,
             "is_platform_admin": False,
             "iat": int(expired_time.timestamp()),
-            "exp": int((expired_time + timedelta(seconds=900)).timestamp()),
+            "exp": int((expired_time - timedelta(seconds=10)).timestamp()),
             "type": "access",
         }
         token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
@@ -388,7 +388,7 @@ class AuthContextAPITests(APISimpleTestCase):
             "user_id": 1,
             "is_platform_admin": False,
             "iat": int(time.time()),
-            "exp": int(time.time()) + 900,
+            "exp": int(time.time()) + 86400,
             "type": "access",
         }
         token = jwt.encode(payload, "wrong-secret-key", algorithm="HS256")

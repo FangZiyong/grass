@@ -18,11 +18,13 @@ from typing import Optional
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 
+from apps.accounts.services.tokens import TokenError, extract_token_from_header, verify_access_token
 from apps.tenants.models.tenant import Tenant, TenantStatus
 from apps.tenants.models.tenant_user import TenantUser, TenantUserStatus
 from apps.tenants.selectors import get_tenant_by_id, get_tenant_user
 from common.errors.codes import ErrorCode
 from common.http.response import resolve_request_id
+from common.middleware.auth_context import AuthContextUser
 
 
 TENANT_ID_HEADER = "X-Tenant-Id"
@@ -240,6 +242,24 @@ class TenantContextMiddleware:
         if hasattr(request, "user") and request.user is not None:
             if hasattr(request.user, "is_authenticated") and request.user.is_authenticated:
                 return getattr(request.user, "user_id", None)
+        # 尝试从 Authorization header 解析 token（DRF 认证尚未执行）
+        authorization_header = None
+        if hasattr(request, "headers"):
+            authorization_header = request.headers.get("Authorization")
+        if not authorization_header and hasattr(request, "META"):
+            authorization_header = request.META.get("HTTP_AUTHORIZATION")
+        token = extract_token_from_header(authorization_header)
+        if not token:
+            return None
+        try:
+            payload = verify_access_token(token)
+        except TokenError:
+            return None
+        request.user = AuthContextUser(
+            user_id=payload.user_id,
+            is_platform_admin=payload.is_platform_admin,
+        )
+        return payload.user_id
         return None
     
     def _create_error_response(

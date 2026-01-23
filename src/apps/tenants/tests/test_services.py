@@ -3,6 +3,7 @@ Tenant services 测试
 """
 from django.test import TestCase
 
+from apps.accounts.models.users import GlobalUser
 from apps.tenants.models.tenant import Tenant, TenantStatus
 from apps.tenants.models.tenant_user import TenantUser, TenantUserStatus
 from apps.tenants.services import switch_tenant
@@ -25,7 +26,13 @@ class TenantServicesTest(TestCase):
             status=TenantStatus.SUSPENDED,
         )
         
-        self.user_id = 1
+        self.user = GlobalUser.objects.create(
+            login_name="tenant-service-user",
+            display_name="Tenant Service User",
+            email="tenant_service_user@example.com",
+            password_hash="hashed-password",
+        )
+        self.user_id = self.user.user_id
         self.tenant_user = TenantUser.objects.create(
             tenant=self.tenant_active,
             user_id=self.user_id,
@@ -38,6 +45,9 @@ class TenantServicesTest(TestCase):
         
         self.assertEqual(result["tenant_id"], self.tenant_active.tenant_id)
         self.assertIn("redirect_url", result)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.last_tenant_id, self.tenant_active.tenant_id)
     
     def test_switch_tenant_not_found(self):
         """测试租户不存在"""

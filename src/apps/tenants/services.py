@@ -6,6 +6,7 @@ from typing import Optional
 from django.db import transaction
 from django.utils import timezone
 
+from apps.accounts.models.users import GlobalUser
 from apps.tenants.models.tenant import Tenant, TenantStatus
 from apps.tenants.models.tenant_user import TenantUser, TenantUserStatus
 from apps.tenants.selectors import get_tenant_by_id, get_tenant_user
@@ -67,8 +68,11 @@ def switch_tenant(user_id: int, tenant_id: int) -> dict:
     with transaction.atomic():
         tenant_user.last_login = timezone.now()
         tenant_user.save(update_fields=["last_login", "updated_at"])
-    
-    # TODO: 更新global_user.last_tenant_id（T1.5任务）
+
+        GlobalUser.objects.filter(user_id=user_id).update(
+            last_tenant_id=tenant_id,
+            updated_at=timezone.now(),
+        )
     
     return {
         "tenant_id": tenant_id,

@@ -183,24 +183,24 @@ paths:
     $ref: ./paths/iam.yaml#/p__api__permissions__grants__grant_id
   /api/permissions/resources/{resource_node_id}:
     $ref: ./paths/iam.yaml#/p__api__permissions__resources__resource_node_id
-  /api/tenants/{tenant_id}/roles:
-    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__roles
-  /api/tenants/{tenant_id}/roles/{role_id}:
-    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__roles__role_id
-  /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions:
-    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__roles__role_id__resource-permissions
-  /api/tenants/{tenant_id}/tables/{table_id}/column-permissions:
-    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__tables__table_id__column-permissions
-  /api/tenants/{tenant_id}/tables/{table_id}/row-permissions:
-    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__tables__table_id__row-permissions
-  /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}:
-    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__tables__table_id__row-permissions__row_perm_id
-  /api/tenants/{tenant_id}/users/{tenant_user_id}/owner:
-    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__users__tenant_user_id__owner
-  /api/tenants/{tenant_id}/users/{tenant_user_id}/roles:
-    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__users__tenant_user_id__roles
-  /api/tenants/{tenant_id}/users/{tenant_user_id}/roles/{role_id}:
-    $ref: ./paths/iam.yaml#/p__api__tenants__tenant_id__users__tenant_user_id__roles__role_id
+  /api/roles:
+    $ref: ./paths/iam.yaml#/p__api__roles
+  /api/roles/{role_id}:
+    $ref: ./paths/iam.yaml#/p__api__roles__role_id
+  /api/roles/{role_id}/resource-permissions:
+    $ref: ./paths/iam.yaml#/p__api__roles__role_id__resource-permissions
+  /api/tables/{table_id}/column-permissions:
+    $ref: ./paths/iam.yaml#/p__api__tables__table_id__column-permissions
+  /api/tables/{table_id}/row-permissions:
+    $ref: ./paths/iam.yaml#/p__api__tables__table_id__row-permissions
+  /api/tables/{table_id}/row-permissions/{row_perm_id}:
+    $ref: ./paths/iam.yaml#/p__api__tables__table_id__row-permissions__row_perm_id
+  /api/users/{tenant_user_id}/owner:
+    $ref: ./paths/iam.yaml#/p__api__users__tenant_user_id__owner
+  /api/users/{tenant_user_id}/roles:
+    $ref: ./paths/iam.yaml#/p__api__users__tenant_user_id__roles
+  /api/users/{tenant_user_id}/roles/{role_id}:
+    $ref: ./paths/iam.yaml#/p__api__users__tenant_user_id__roles__role_id
   /api/platform/audit-logs:
     $ref: ./paths/platform.yaml#/p__api__platform__audit-logs
   /api/platform/audit-logs/{audit_id}:
@@ -2408,7 +2408,7 @@ components:
         properties:
           data:
             $ref: '#/components/schemas/RespData_post_api_tenants_switch'
-    RespData_get_api_tenants_tenant_id_roles:
+    RespData_get_api_roles:
       type: object
       properties:
         items:
@@ -2431,14 +2431,14 @@ components:
       - page_size
       - total
       additionalProperties: false
-    RespEnvelope_get_api_tenants_tenant_id_roles:
+    RespEnvelope_get_api_roles:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_get_api_tenants_tenant_id_roles'
-    RespData_post_api_tenants_tenant_id_roles:
+            $ref: '#/components/schemas/RespData_get_api_roles'
+    RespData_post_api_roles:
       type: object
       properties:
         role:
@@ -2446,27 +2446,27 @@ components:
       required:
       - role
       additionalProperties: false
-    RespEnvelope_post_api_tenants_tenant_id_roles:
+    RespEnvelope_post_api_roles:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_post_api_tenants_tenant_id_roles'
-    RespData_delete_api_tenants_tenant_id_roles_role_id:
+            $ref: '#/components/schemas/RespData_post_api_roles'
+    RespData_delete_api_roles_role_id:
       type: object
       properties:
         deleted:
           type: boolean
       additionalProperties: false
-    RespEnvelope_delete_api_tenants_tenant_id_roles_role_id:
+    RespEnvelope_delete_api_roles_role_id:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_delete_api_tenants_tenant_id_roles_role_id'
-    RespData_patch_api_tenants_tenant_id_roles_role_id:
+            $ref: '#/components/schemas/RespData_delete_api_roles_role_id'
+    RespData_patch_api_roles_role_id:
       type: object
       properties:
         role:
@@ -2474,14 +2474,14 @@ components:
       required:
       - role
       additionalProperties: false
-    RespEnvelope_patch_api_tenants_tenant_id_roles_role_id:
+    RespEnvelope_patch_api_roles_role_id:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_patch_api_tenants_tenant_id_roles_role_id'
-    RespData_get_api_tenants_tenant_id_roles_role_id_resource_permissions:
+            $ref: '#/components/schemas/RespData_patch_api_roles_role_id'
+    RespData_get_api_roles_role_id_resource_permissions:
       type: object
       properties:
         items:
@@ -2491,14 +2491,14 @@ components:
       required:
       - items
       additionalProperties: false
-    RespEnvelope_get_api_tenants_tenant_id_roles_role_id_resource_permissions:
+    RespEnvelope_get_api_roles_role_id_resource_permissions:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_get_api_tenants_tenant_id_roles_role_id_resource_permissions'
-    RespData_put_api_tenants_tenant_id_roles_role_id_resource_permissions:
+            $ref: '#/components/schemas/RespData_get_api_roles_role_id_resource_permissions'
+    RespData_put_api_roles_role_id_resource_permissions:
       type: object
       properties:
         updated:
@@ -2507,14 +2507,14 @@ components:
       required:
       - updated
       additionalProperties: false
-    RespEnvelope_put_api_tenants_tenant_id_roles_role_id_resource_permissions:
+    RespEnvelope_put_api_roles_role_id_resource_permissions:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_put_api_tenants_tenant_id_roles_role_id_resource_permissions'
-    RespData_get_api_tenants_tenant_id_tables_table_id_column_permissions:
+            $ref: '#/components/schemas/RespData_put_api_roles_role_id_resource_permissions'
+    RespData_get_api_tables_table_id_column_permissions:
       type: object
       properties:
         items:
@@ -2524,14 +2524,14 @@ components:
       required:
       - items
       additionalProperties: false
-    RespEnvelope_get_api_tenants_tenant_id_tables_table_id_column_permissions:
+    RespEnvelope_get_api_tables_table_id_column_permissions:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_get_api_tenants_tenant_id_tables_table_id_column_permissions'
-    RespData_put_api_tenants_tenant_id_tables_table_id_column_permissions:
+            $ref: '#/components/schemas/RespData_get_api_tables_table_id_column_permissions'
+    RespData_put_api_tables_table_id_column_permissions:
       type: object
       properties:
         updated:
@@ -2540,14 +2540,14 @@ components:
       required:
       - updated
       additionalProperties: false
-    RespEnvelope_put_api_tenants_tenant_id_tables_table_id_column_permissions:
+    RespEnvelope_put_api_tables_table_id_column_permissions:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_put_api_tenants_tenant_id_tables_table_id_column_permissions'
-    RespData_get_api_tenants_tenant_id_tables_table_id_row_permissions:
+            $ref: '#/components/schemas/RespData_put_api_tables_table_id_column_permissions'
+    RespData_get_api_tables_table_id_row_permissions:
       type: object
       properties:
         items:
@@ -2557,14 +2557,14 @@ components:
       required:
       - items
       additionalProperties: false
-    RespEnvelope_get_api_tenants_tenant_id_tables_table_id_row_permissions:
+    RespEnvelope_get_api_tables_table_id_row_permissions:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_get_api_tenants_tenant_id_tables_table_id_row_permissions'
-    RespData_post_api_tenants_tenant_id_tables_table_id_row_permissions:
+            $ref: '#/components/schemas/RespData_get_api_tables_table_id_row_permissions'
+    RespData_post_api_tables_table_id_row_permissions:
       type: object
       properties:
         row_permission:
@@ -2572,27 +2572,27 @@ components:
       required:
       - row_permission
       additionalProperties: false
-    RespEnvelope_post_api_tenants_tenant_id_tables_table_id_row_permissions:
+    RespEnvelope_post_api_tables_table_id_row_permissions:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_post_api_tenants_tenant_id_tables_table_id_row_permissions'
-    RespData_delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+            $ref: '#/components/schemas/RespData_post_api_tables_table_id_row_permissions'
+    RespData_delete_api_tables_table_id_row_permissions_row_perm_id:
       type: object
       properties:
         deleted:
           type: boolean
       additionalProperties: false
-    RespEnvelope_delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+    RespEnvelope_delete_api_tables_table_id_row_permissions_row_perm_id:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id'
-    RespData_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+            $ref: '#/components/schemas/RespData_delete_api_tables_table_id_row_permissions_row_perm_id'
+    RespData_patch_api_tables_table_id_row_permissions_row_perm_id:
       type: object
       properties:
         row_permission:
@@ -2600,42 +2600,42 @@ components:
       required:
       - row_permission
       additionalProperties: false
-    RespEnvelope_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+    RespEnvelope_patch_api_tables_table_id_row_permissions_row_perm_id:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id'
-    RespData_delete_api_tenants_tenant_id_users_tenant_user_id_owner:
+            $ref: '#/components/schemas/RespData_patch_api_tables_table_id_row_permissions_row_perm_id'
+    RespData_delete_api_users_tenant_user_id_owner:
       type: object
       properties:
         is_owner:
           type: boolean
           description: 'false'
       additionalProperties: false
-    RespEnvelope_delete_api_tenants_tenant_id_users_tenant_user_id_owner:
+    RespEnvelope_delete_api_users_tenant_user_id_owner:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_delete_api_tenants_tenant_id_users_tenant_user_id_owner'
-    RespData_post_api_tenants_tenant_id_users_tenant_user_id_owner:
+            $ref: '#/components/schemas/RespData_delete_api_users_tenant_user_id_owner'
+    RespData_post_api_users_tenant_user_id_owner:
       type: object
       properties:
         is_owner:
           type: boolean
           description: 'true'
       additionalProperties: false
-    RespEnvelope_post_api_tenants_tenant_id_users_tenant_user_id_owner:
+    RespEnvelope_post_api_users_tenant_user_id_owner:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_post_api_tenants_tenant_id_users_tenant_user_id_owner'
-    RespData_post_api_tenants_tenant_id_users_tenant_user_id_roles:
+            $ref: '#/components/schemas/RespData_post_api_users_tenant_user_id_owner'
+    RespData_post_api_users_tenant_user_id_roles:
       type: object
       properties:
         role_ids:
@@ -2646,26 +2646,26 @@ components:
       required:
       - role_ids
       additionalProperties: false
-    RespEnvelope_post_api_tenants_tenant_id_users_tenant_user_id_roles:
+    RespEnvelope_post_api_users_tenant_user_id_roles:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_post_api_tenants_tenant_id_users_tenant_user_id_roles'
-    RespData_delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id:
+            $ref: '#/components/schemas/RespData_post_api_users_tenant_user_id_roles'
+    RespData_delete_api_users_tenant_user_id_roles_role_id:
       type: object
       properties:
         deleted:
           type: boolean
       additionalProperties: false
-    RespEnvelope_delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id:
+    RespEnvelope_delete_api_users_tenant_user_id_roles_role_id:
       allOf:
       - $ref: '#/components/schemas/ApiEnvelope'
       - type: object
         properties:
           data:
-            $ref: '#/components/schemas/RespData_delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id'
+            $ref: '#/components/schemas/RespData_delete_api_users_tenant_user_id_roles_role_id'
     ResourceScope:
       type: string
       enum:
@@ -3406,17 +3406,17 @@ components:
       $ref: '#/components/schemas/ModelingFieldCreateRequest'
     Req_post_api_permissions_grants:
       $ref: '#/components/schemas/PermissionGrantCreateRequest'
-    Req_post_api_tenants_tenant_id_roles:
+    Req_post_api_roles:
       $ref: '#/components/schemas/CreateRoleRequest'
-    Req_patch_api_tenants_tenant_id_roles_role_id:
+    Req_patch_api_roles_role_id:
       $ref: '#/components/schemas/UpdateRoleRequest'
-    Req_put_api_tenants_tenant_id_roles_role_id_resource_permissions:
+    Req_put_api_roles_role_id_resource_permissions:
       $ref: '#/components/schemas/SaveRoleResourcePermissionsRequest'
-    Req_put_api_tenants_tenant_id_tables_table_id_column_permissions:
+    Req_put_api_tables_table_id_column_permissions:
       $ref: '#/components/schemas/SaveColumnPermissionsRequest'
-    Req_post_api_tenants_tenant_id_tables_table_id_row_permissions:
+    Req_post_api_tables_table_id_row_permissions:
       $ref: '#/components/schemas/CreateRowPermissionRequest'
-    Req_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id:
+    Req_patch_api_tables_table_id_row_permissions_row_perm_id:
       $ref: '#/components/schemas/UpdateRowPermissionRequest'
     FlowSummary:
       type: object

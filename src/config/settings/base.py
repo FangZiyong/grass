@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     # 业务应用
     "apps.accounts",
     "apps.tenants",
+    "apps.iam",
     "apps.execution",
 ]
 

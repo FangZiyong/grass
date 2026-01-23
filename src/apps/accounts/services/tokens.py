@@ -22,7 +22,7 @@ from common.errors.exceptions import GrassAPIException
 # JWT 配置
 JWT_SECRET_KEY = getattr(settings, "JWT_SECRET_KEY", settings.SECRET_KEY)
 JWT_ALGORITHM = "HS256"
-JWT_ACCESS_TOKEN_TTL = 900  # 15 分钟（秒）
+JWT_ACCESS_TOKEN_TTL = 86400  # 24 小时（秒）
 REFRESH_TOKEN_BYTES = getattr(settings, "AUTH_REFRESH_TOKEN_BYTES", 32)
 REFRESH_TOKEN_SALT = getattr(settings, "AUTH_REFRESH_TOKEN_SALT", settings.SECRET_KEY)
 

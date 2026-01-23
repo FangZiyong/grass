@@ -428,7 +428,8 @@ RF --> FINAL
 ### 3.9.1 TenantContext 传递与校验
 
 - **租户侧接口（`/api/*`）**：请求必须携带 Header `X-Tenant-Id`（int64）。
-  - 若该接口路径中也包含 `{tenant_id}`（如 Settings 管理类接口），服务端必须校验 **Header 与 Path 的 tenant_id 一致**；不一致返回 `BAD_REQUEST`。
+  - **新规则（冻结）**：租户侧接口 **Path 中不得包含** `{tenant_id}`；租户上下文仅允许通过 `X-Tenant-Id` 传递。
+  - 若发现租户侧请求路径仍包含 `{tenant_id}`（历史/误用/实现偏差），视为契约错误：服务端应返回 `BAD_REQUEST`。
 - **平台后台接口（`/admin/api/*`）**：不依赖 `X-Tenant-Id`；如需定位租户，使用路径参数 `{tenant_id}`。
 
 ### 3.9.2 分页规范
@@ -849,6 +850,7 @@ AuthService.login(login_name, password, request_meta):
 **请求 Header**
 
 - `Authorization: Bearer <access_token>`
+- `X-Tenant-Id`（可选；若未传则回退到最近租户上下文）
 
 **响应 data**
 
@@ -870,7 +872,8 @@ AuthService.login(login_name, password, request_meta):
 
 - token 无效/过期 → 401
 - GlobalUser 被禁用 → 403（并可主动撤销其所有会话）
-- tenant 仅在已解析 TenantContext 时返回（TenantContext 中已确保 `tenant.status=ACTIVE`）
+- 若传 `X-Tenant-Id`：必须是 ACTIVE 且用户为 ACTIVE 成员，否则返回 403/404
+- 未传 `X-Tenant-Id`：若最近租户是 ACTIVE 且用户为 ACTIVE 成员，则返回 tenant；否则不返回 tenant
 
 **错误码**
 
@@ -886,11 +889,13 @@ AuthService.login(login_name, password, request_meta):
 **伪代码**
 
 ```text
-UserService.me(user_id, tenant_context):
+UserService.me(user_id, tenant_context, last_tenant_id):
   user = GlobalUserRepo.get(user_id)
   if user.status != "ACTIVE": return error(AUTH_USER_DISABLED, 403)
 
   tenant = tenant_context.tenant if tenant_context else None
+  if tenant is None and last_tenant_id:
+      tenant = TenantRepo.try_get_active_member_tenant(user_id, last_tenant_id)
   return ok({user:PublicUser(user), tenant:MapTenant(tenant)})
 ```
 
@@ -1764,10 +1769,9 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 
 ### 5.11.3 角色管理（Role）
 
-#### 5.11.3.1 GET /api/tenants/{tenant_id}/roles（角色列表）
+#### 5.11.3.1 GET /api/roles（角色列表）
 
 - Path
-  - tenant_id: int64（必填）
 - Query
   - q: string（可选，按 code/name 模糊匹配）
   - status: string（可选，`ACTIVE|DISABLED`）
@@ -1779,7 +1783,7 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
   - page_size: int
   - total: int64
 
-#### 5.11.3.2 POST /api/tenants/{tenant_id}/roles（创建角色）
+#### 5.11.3.2 POST /api/roles（创建角色）
 
 - Body（JSON）
   - code: string（必填，租户内唯一）
@@ -1792,7 +1796,7 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
   - `VALIDATION_ERROR`（400）
   - `PERMISSION_DENIED`（403）
 
-#### 5.11.3.3 PATCH /api/tenants/{tenant_id}/roles/{role_id}（更新角色）
+#### 5.11.3.3 PATCH /api/roles/{role_id}（更新角色）
 
 - 约束：`is_builtin=true` 的角色禁止修改 `code`；可修改 `name/description/status`
 - Body（JSON，至少 1 个字段）
@@ -1802,7 +1806,7 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 - Response.data
   - role: RoleDTO
 
-#### 5.11.3.4 DELETE /api/tenants/{tenant_id}/roles/{role_id}（删除角色）
+#### 5.11.3.4 DELETE /api/roles/{role_id}（删除角色）
 
 - 约束：
   - `is_builtin=true`：`ROLE_BUILTIN_CANNOT_DELETE`
@@ -1812,7 +1816,7 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 
 ### 5.11.4 成员角色绑定（TenantUser ↔ Role）
 
-#### 5.11.4.1 POST /api/tenants/{tenant_id}/users/{tenant_user_id}/roles（绑定角色）
+#### 5.11.4.1 POST /api/users/{tenant_user_id}/roles（绑定角色）
 
 - 语义：幂等追加（重复绑定不报错）
 - Body（JSON）
@@ -1820,19 +1824,19 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 - Response.data
   - role_ids: int64[]
 
-#### 5.11.4.2 DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/roles/{role_id}（解绑角色）
+#### 5.11.4.2 DELETE /api/users/{tenant_user_id}/roles/{role_id}（解绑角色）
 
 - Response.data
   - deleted: bool
 
 ### 5.11.5 Owner 管理
 
-#### 5.11.5.1 POST /api/tenants/{tenant_id}/users/{tenant_user_id}/owner（设为 Owner）
+#### 5.11.5.1 POST /api/users/{tenant_user_id}/owner（设为 Owner）
 
 - Response.data
   - is_owner: bool（true）
 
-#### 5.11.5.2 DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/owner（取消 Owner）
+#### 5.11.5.2 DELETE /api/users/{tenant_user_id}/owner（取消 Owner）
 
 - 约束：租户至少保留 1 名 Owner，否则返回 `OWNER_REQUIRED`
 - Response.data
@@ -1842,7 +1846,7 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 
 > 授权对象是“资源树节点”（resource_tree_node_id），可对文件夹授权（继承）或对资源节点授权（仅该资源）。
 
-#### 5.11.6.1 GET /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions（查询角色资源授权）
+#### 5.11.6.1 GET /api/roles/{role_id}/resource-permissions（查询角色资源授权）
 
 - Query
   - scope: string（必填，`TABLE|FLOW|DATASET|DASHBOARD`）
@@ -1859,7 +1863,7 @@ RolePermissionItem：
 | permission_level | string | Y | NONE/VIEW/EDIT/RUN/MANAGE |
 | is_inherited | bool | Y | 是否继承（true 表示来自祖先 folder 授权） |
 
-#### 5.11.6.2 PUT /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions（保存角色资源授权）
+#### 5.11.6.2 PUT /api/roles/{role_id}/resource-permissions（保存角色资源授权）
 
 - 语义：**全量覆盖**（同 scope+resource_type 的授权集整体替换）
 - Body（JSON）
@@ -1899,7 +1903,7 @@ RolePermissionItem：
 
 ### 5.11.7 列权限（Column Permission）
 
-#### 5.11.7.1 GET /api/tenants/{tenant_id}/tables/{table_id}/column-permissions（字段权限查询）
+#### 5.11.7.1 GET /api/tables/{table_id}/column-permissions（字段权限查询）
 
 - Query
   - role_id: int64（必填）
@@ -1913,7 +1917,7 @@ ColumnPermissionItem：
 | field_id | int64 | Y | 字段 ID |
 | access_level | string | Y | HIDDEN/READONLY/WRITE |
 
-#### 5.11.7.2 PUT /api/tenants/{tenant_id}/tables/{table_id}/column-permissions（字段权限保存）
+#### 5.11.7.2 PUT /api/tables/{table_id}/column-permissions（字段权限保存）
 
 - 语义：全量覆盖（同 role_id 的 column permissions 整体替换）
 - Body（JSON）
@@ -1937,14 +1941,14 @@ ColumnPermissionItem：
 | created_at        | datetime |    Y | 创建时间                       |
 | updated_at        | datetime |    Y | 更新时间                       |
 
-#### 5.11.8.2 GET /api/tenants/{tenant_id}/tables/{table_id}/row-permissions（行权限查询）
+#### 5.11.8.2 GET /api/tables/{table_id}/row-permissions（行权限查询）
 
 - Query
   - role_id: int64（必填）
 - Response.data
   - items: RowPermissionDTO[]
 
-#### 5.11.8.3 POST /api/tenants/{tenant_id}/tables/{table_id}/row-permissions（创建行权限）
+#### 5.11.8.3 POST /api/tables/{table_id}/row-permissions（创建行权限）
 
 - Body（JSON）
   - role_id: int64（必填）
@@ -1954,7 +1958,7 @@ ColumnPermissionItem：
 - Response.data
   - row_permission: RowPermissionDTO
 
-#### 5.11.8.4 PATCH /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}（更新行权限）
+#### 5.11.8.4 PATCH /api/tables/{table_id}/row-permissions/{row_perm_id}（更新行权限）
 
 - Body（JSON）
   - name?: string
@@ -1963,7 +1967,7 @@ ColumnPermissionItem：
 - Response.data
   - row_permission: RowPermissionDTO
 
-#### 5.11.8.5 DELETE /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}（删除行权限）
+#### 5.11.8.5 DELETE /api/tables/{table_id}/row-permissions/{row_perm_id}（删除行权限）
 
 - Response.data
   - deleted: bool

@@ -36,14 +36,14 @@
 - **T2.2**：租户列表：GET /api/tenants（当前用户可访问的租户）
 - **T2.3**：租户切换：POST /api/tenants/switch（更新最近租户）
 - **T3.1**：iam 域模型与迁移：Role/RolePermission/RowPermission/ColumnPermission/Grant 等
-- **T3.2**：角色管理：/api/tenants/{tenant_id}/roles（GET/POST/PATCH/DELETE）
-- **T3.3**：成员绑定角色：POST/DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/roles
-- **T3.4**：Owner 设定：POST/DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/owner
-- **T3.5**：角色资源授权：GET/PUT /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions
+- **T3.2**：角色管理：/api/roles（GET/POST）+ /api/roles/{role_id}（PATCH/DELETE）
+- **T3.3**：成员绑定角色：POST /api/users/{tenant_user_id}/roles；DELETE /api/users/{tenant_user_id}/roles/{role_id}
+- **T3.4**：Owner 设定：POST/DELETE /api/users/{tenant_user_id}/owner
+- **T3.5**：角色资源授权：GET/PUT /api/roles/{role_id}/resource-permissions
 - **T3.6**：权限面板数据：GET /api/permissions/resources/{resource_node_id}
 - **T3.7**：创建/更新授权：POST /api/permissions/grants + 撤销授权 DELETE /api/permissions/grants/{grant_id}
-- **T3.8**：列级权限：GET/PUT /api/tenants/{tenant_id}/tables/{table_id}/column-permissions
-- **T3.9**：行级权限：/api/tenants/{tenant_id}/tables/{table_id}/row-permissions（GET/POST/PATCH/DELETE）
+- **T3.8**：列级权限：GET/PUT /api/tables/{table_id}/column-permissions
+- **T3.9**：行级权限：/api/tables/{table_id}/row-permissions（GET/POST/PATCH/DELETE）
 - **T4.1**：resource_tree 域模型与迁移：ResourceNode + 根节点初始化（按 scope）
 - **T4.2**：资源树子节点查询：GET /api/resource-trees/{scope}/children
 - **T4.3**：创建文件夹：POST /api/resource-trees/{scope}/folders
@@ -690,11 +690,11 @@
 - ✅ 符合 TenantContext / 权限 / 审计 / 分页约束（tech.md §3.9）
 - ✅ migrations 可运行（如涉及模型/字段变更）
 
-## T3.2 角色管理：/api/tenants/{tenant_id}/roles（GET/POST/PATCH/DELETE）
+## T3.2 角色管理：/api/roles（GET/POST）+ /api/roles/{role_id}（PATCH/DELETE）
 
 ### 对照章节
 - tech.md §5.11.3 角色管理
-- tech.md §5.11.3.1 GET /api/tenants/{tenant_id}/roles（角色列表）
+- tech.md §5.11.3.1 GET /api/roles（角色列表）
 - prd.md §7 租户设置模块（角色管理）
 
 
@@ -719,7 +719,7 @@
 - 不实现导入导出
 
 ### 接口契约
-- URL：GET/POST /api/tenants/{tenant_id}/roles；PATCH/DELETE /api/tenants/{tenant_id}/roles/{role_id}
+- URL：GET/POST /api/roles；PATCH/DELETE /api/roles/{role_id}
 - 权限：Tenant Owner 或 ROLE_MANAGE（按 tech/PRD）
 - 分页：GET list 走统一分页（tech.md §3.9）
 - 错误码：ROLE_NOT_FOUND(404)、ROLE_NAME_CONFLICT(409)、PERMISSION_DENIED(403)、VALIDATION_*(400)
@@ -730,11 +730,11 @@
 - ✅ 符合 TenantContext / 权限 / 审计 / 分页约束（tech.md §3.9）
 - ✅ migrations 可运行（如涉及模型/字段变更）
 
-## T3.3 成员绑定角色：POST/DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/roles
+## T3.3 成员绑定角色：POST/DELETE /api/users/{tenant_user_id}/roles
 
 ### 对照章节
 - tech.md §5.11.4 成员-角色绑定
-- tech.md §5.11.4.1 POST /api/tenants/{tenant_id}/users/{tenant_user_id}/roles（绑定角色）
+- tech.md §5.11.4.1 POST /api/users/{tenant_user_id}/roles（绑定角色）
 - prd.md §7 租户设置模块（成员与角色）
 
 
@@ -757,7 +757,7 @@
 - 不做批量绑定（若未要求）
 
 ### 接口契约
-- URL：POST /api/tenants/{tenant_id}/users/{tenant_user_id}/roles；DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/roles/{role_id}
+- URL：POST /api/users/{tenant_user_id}/roles；DELETE /api/users/{tenant_user_id}/roles/{role_id}
 - 权限：Owner 或 USER_ROLE_MANAGE
 - 错误码：TENANT_USER_NOT_FOUND、ROLE_NOT_FOUND、PERMISSION_DENIED、VALIDATION_*
 
@@ -767,11 +767,11 @@
 - ✅ 符合 TenantContext / 权限 / 审计 / 分页约束（tech.md §3.9）
 - ✅ migrations 可运行（如涉及模型/字段变更）
 
-## T3.4 Owner 设定：POST/DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/owner
+## T3.4 Owner 设定：POST/DELETE /api/users/{tenant_user_id}/owner
 
 ### 对照章节
 - tech.md §5.11.5 Owner 管理
-- tech.md §5.11.5.1 POST /api/tenants/{tenant_id}/users/{tenant_user_id}/owner（设为 Owner）
+- tech.md §5.11.5.1 POST /api/users/{tenant_user_id}/owner（设为 Owner）
 - prd.md §2 系统角色与访问边界（Owner 定义）
 
 
@@ -794,7 +794,7 @@
 - 不支持跨租户操作
 
 ### 接口契约
-- URL：POST/DELETE /api/tenants/{tenant_id}/users/{tenant_user_id}/owner
+- URL：POST/DELETE /api/users/{tenant_user_id}/owner
 - 权限：仅 Owner
 - 错误码：PERMISSION_DENIED、TENANT_USER_NOT_FOUND、OWNER_MIN_ONE_VIOLATION(409)
 
@@ -804,11 +804,11 @@
 - ✅ 符合 TenantContext / 权限 / 审计 / 分页约束（tech.md §3.9）
 - ✅ migrations 可运行（如涉及模型/字段变更）
 
-## T3.5 角色资源授权：GET/PUT /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions
+## T3.5 角色资源授权：GET/PUT /api/roles/{role_id}/resource-permissions
 
 ### 对照章节
 - tech.md §5.11.6 资源授权（基于资源树节点）
-- tech.md §5.11.6.1 GET /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions（查询角色资源授权）
+- tech.md §5.11.6.1 GET /api/roles/{role_id}/resource-permissions（查询角色资源授权）
 - prd.md §4.4 资源级权限模型（RolePermission）
 
 
@@ -832,7 +832,7 @@
 - 不做复杂差异合并（若 tech 明确覆盖式则覆盖式）
 
 ### 接口契约
-- URL：GET/PUT /api/tenants/{tenant_id}/roles/{role_id}/resource-permissions
+- URL：GET/PUT /api/roles/{role_id}/resource-permissions
 - 权限：Owner 或 ROLE_GRANT_MANAGE
 - 入参（PUT）：[{resource_node_id, permission}]（按 tech 定义）
 - 错误码：ROLE_NOT_FOUND、RESOURCE_NODE_NOT_FOUND、PERMISSION_DENIED、VALIDATION_*
@@ -914,11 +914,11 @@
 - ✅ 符合 TenantContext / 权限 / 审计 / 分页约束（tech.md §3.9）
 - ✅ migrations 可运行（如涉及模型/字段变更）
 
-## T3.8 列级权限：GET/PUT /api/tenants/{tenant_id}/tables/{table_id}/column-permissions
+## T3.8 列级权限：GET/PUT /api/tables/{table_id}/column-permissions
 
 ### 对照章节
 - tech.md §5.11.7 列级权限
-- tech.md §5.11.7.1 GET /api/tenants/{tenant_id}/tables/{table_id}/column-permissions（字段权限查询）
+- tech.md §5.11.7.1 GET /api/tables/{table_id}/column-permissions（字段权限查询）
 - prd.md §4.3 列级权限模型（ColumnPermission）
 
 
@@ -941,7 +941,7 @@
 - 不实现列权限对查询的实际应用（在 QueryEngine 集成任务中实现）
 
 ### 接口契约
-- URL：GET/PUT /api/tenants/{tenant_id}/tables/{table_id}/column-permissions
+- URL：GET/PUT /api/tables/{table_id}/column-permissions
 - 权限：Owner 或 TABLE_PERMISSION_MANAGE
 - 错误码：TABLE_NOT_FOUND、PERMISSION_DENIED、VALIDATION_*
 
@@ -951,11 +951,11 @@
 - ✅ 符合 TenantContext / 权限 / 审计 / 分页约束（tech.md §3.9）
 - ✅ migrations 可运行（如涉及模型/字段变更）
 
-## T3.9 行级权限：/api/tenants/{tenant_id}/tables/{table_id}/row-permissions（GET/POST/PATCH/DELETE）
+## T3.9 行级权限：/api/tables/{table_id}/row-permissions（GET/POST/PATCH/DELETE）
 
 ### 对照章节
 - tech.md §5.11.8 行级权限
-- tech.md §5.11.8.2 GET /api/tenants/{tenant_id}/tables/{table_id}/row-permissions（行权限查询）
+- tech.md §5.11.8.2 GET /api/tables/{table_id}/row-permissions（行权限查询）
 - prd.md §4.2 行级权限模型（RowPermission）
 
 
@@ -977,7 +977,7 @@
 - 不在此任务把 row perm 应用到查询（在 QueryEngine 集成任务中实现）
 
 ### 接口契约
-- URL：GET/POST /api/tenants/{tenant_id}/tables/{table_id}/row-permissions；PATCH/DELETE /api/tenants/{tenant_id}/tables/{table_id}/row-permissions/{row_perm_id}
+- URL：GET/POST /api/tables/{table_id}/row-permissions；PATCH/DELETE /api/tables/{table_id}/row-permissions/{row_perm_id}
 - 权限：Owner 或 TABLE_PERMISSION_MANAGE
 - 错误码：TABLE_NOT_FOUND、ROW_PERMISSION_NOT_FOUND、PERMISSION_DENIED、VALIDATION_*
 

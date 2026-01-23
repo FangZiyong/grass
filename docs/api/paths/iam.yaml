@@ -100,21 +100,15 @@ p__api__permissions__resources__resource_node_id:
         $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
         $ref: ../openapi.yaml#/components/responses/InternalError
-p__api__tenants__tenant_id__roles:
+p__api__roles:
   get:
     tags:
     - IAM
     summary: 角色列表
-    operationId: get_api_tenants_tenant_id_roles
+    operationId: get_api_roles
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - $ref: ../openapi.yaml#/components/parameters/PageParam
     - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
     - $ref: ../openapi.yaml#/components/parameters/SortByParam
@@ -125,7 +119,7 @@ p__api__tenants__tenant_id__roles:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_tenants_tenant_id_roles
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_roles
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -142,23 +136,17 @@ p__api__tenants__tenant_id__roles:
     tags:
     - IAM
     summary: 创建角色
-    operationId: post_api_tenants_tenant_id_roles
+    operationId: post_api_roles
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     responses:
       '200':
         description: OK
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_tenants_tenant_id_roles
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_roles
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -176,22 +164,16 @@ p__api__tenants__tenant_id__roles:
       content:
         application/json:
           schema:
-            $ref: '../openapi.yaml#/components/schemas/Req_post_api_tenants_tenant_id_roles'
-p__api__tenants__tenant_id__roles__role_id:
+            $ref: '../openapi.yaml#/components/schemas/Req_post_api_roles'
+p__api__roles__role_id:
   delete:
     tags:
     - IAM
     summary: 删除角色
-    operationId: delete_api_tenants_tenant_id_roles_role_id
+    operationId: delete_api_roles_role_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: role_id
       in: path
       required: true
@@ -204,7 +186,7 @@ p__api__tenants__tenant_id__roles__role_id:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_tenants_tenant_id_roles_role_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_roles_role_id
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -221,16 +203,10 @@ p__api__tenants__tenant_id__roles__role_id:
     tags:
     - IAM
     summary: 更新角色
-    operationId: patch_api_tenants_tenant_id_roles_role_id
+    operationId: patch_api_roles_role_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: role_id
       in: path
       required: true
@@ -243,7 +219,7 @@ p__api__tenants__tenant_id__roles__role_id:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_tenants_tenant_id_roles_role_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_roles_role_id
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -261,22 +237,16 @@ p__api__tenants__tenant_id__roles__role_id:
       content:
         application/json:
           schema:
-            $ref: '../openapi.yaml#/components/schemas/Req_patch_api_tenants_tenant_id_roles_role_id'
-p__api__tenants__tenant_id__roles__role_id__resource-permissions:
+            $ref: '../openapi.yaml#/components/schemas/Req_patch_api_roles_role_id'
+p__api__roles__role_id__resource-permissions:
   get:
     tags:
     - IAM
     summary: 查询角色资源授权
-    operationId: get_api_tenants_tenant_id_roles_role_id_resource_permissions
+    operationId: get_api_roles_role_id_resource_permissions
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: role_id
       in: path
       required: true
@@ -289,7 +259,7 @@ p__api__tenants__tenant_id__roles__role_id__resource-permissions:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_tenants_tenant_id_roles_role_id_resource_permissions
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_roles_role_id_resource_permissions
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -306,16 +276,10 @@ p__api__tenants__tenant_id__roles__role_id__resource-permissions:
     tags:
     - IAM
     summary: 保存角色资源授权
-    operationId: put_api_tenants_tenant_id_roles_role_id_resource_permissions
+    operationId: put_api_roles_role_id_resource_permissions
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: role_id
       in: path
       required: true
@@ -328,7 +292,7 @@ p__api__tenants__tenant_id__roles__role_id__resource-permissions:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_put_api_tenants_tenant_id_roles_role_id_resource_permissions
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_put_api_roles_role_id_resource_permissions
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -346,22 +310,16 @@ p__api__tenants__tenant_id__roles__role_id__resource-permissions:
       content:
         application/json:
           schema:
-            $ref: '../openapi.yaml#/components/schemas/Req_put_api_tenants_tenant_id_roles_role_id_resource_permissions'
-p__api__tenants__tenant_id__tables__table_id__column-permissions:
+            $ref: '../openapi.yaml#/components/schemas/Req_put_api_roles_role_id_resource_permissions'
+p__api__tables__table_id__column-permissions:
   get:
     tags:
     - IAM
     summary: 字段权限查询
-    operationId: get_api_tenants_tenant_id_tables_table_id_column_permissions
+    operationId: get_api_tables_table_id_column_permissions
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: table_id
       in: path
       required: true
@@ -374,7 +332,7 @@ p__api__tenants__tenant_id__tables__table_id__column-permissions:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_tenants_tenant_id_tables_table_id_column_permissions
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_tables_table_id_column_permissions
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -391,16 +349,10 @@ p__api__tenants__tenant_id__tables__table_id__column-permissions:
     tags:
     - IAM
     summary: 字段权限保存
-    operationId: put_api_tenants_tenant_id_tables_table_id_column_permissions
+    operationId: put_api_tables_table_id_column_permissions
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: table_id
       in: path
       required: true
@@ -413,7 +365,7 @@ p__api__tenants__tenant_id__tables__table_id__column-permissions:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_put_api_tenants_tenant_id_tables_table_id_column_permissions
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_put_api_tables_table_id_column_permissions
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -431,22 +383,16 @@ p__api__tenants__tenant_id__tables__table_id__column-permissions:
       content:
         application/json:
           schema:
-            $ref: '../openapi.yaml#/components/schemas/Req_put_api_tenants_tenant_id_tables_table_id_column_permissions'
-p__api__tenants__tenant_id__tables__table_id__row-permissions:
+            $ref: '../openapi.yaml#/components/schemas/Req_put_api_tables_table_id_column_permissions'
+p__api__tables__table_id__row-permissions:
   get:
     tags:
     - IAM
     summary: 行权限查询
-    operationId: get_api_tenants_tenant_id_tables_table_id_row_permissions
+    operationId: get_api_tables_table_id_row_permissions
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: table_id
       in: path
       required: true
@@ -459,7 +405,7 @@ p__api__tenants__tenant_id__tables__table_id__row-permissions:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_tenants_tenant_id_tables_table_id_row_permissions
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_tables_table_id_row_permissions
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -476,16 +422,10 @@ p__api__tenants__tenant_id__tables__table_id__row-permissions:
     tags:
     - IAM
     summary: 创建行权限
-    operationId: post_api_tenants_tenant_id_tables_table_id_row_permissions
+    operationId: post_api_tables_table_id_row_permissions
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: table_id
       in: path
       required: true
@@ -498,7 +438,7 @@ p__api__tenants__tenant_id__tables__table_id__row-permissions:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_tenants_tenant_id_tables_table_id_row_permissions
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_tables_table_id_row_permissions
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -516,22 +456,16 @@ p__api__tenants__tenant_id__tables__table_id__row-permissions:
       content:
         application/json:
           schema:
-            $ref: '../openapi.yaml#/components/schemas/Req_post_api_tenants_tenant_id_tables_table_id_row_permissions'
-p__api__tenants__tenant_id__tables__table_id__row-permissions__row_perm_id:
+            $ref: '../openapi.yaml#/components/schemas/Req_post_api_tables_table_id_row_permissions'
+p__api__tables__table_id__row-permissions__row_perm_id:
   delete:
     tags:
     - IAM
     summary: 删除行权限
-    operationId: delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+    operationId: delete_api_tables_table_id_row_permissions_row_perm_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: table_id
       in: path
       required: true
@@ -550,7 +484,7 @@ p__api__tenants__tenant_id__tables__table_id__row-permissions__row_perm_id:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_tables_table_id_row_permissions_row_perm_id
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -567,16 +501,10 @@ p__api__tenants__tenant_id__tables__table_id__row-permissions__row_perm_id:
     tags:
     - IAM
     summary: 更新行权限
-    operationId: patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+    operationId: patch_api_tables_table_id_row_permissions_row_perm_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: table_id
       in: path
       required: true
@@ -595,7 +523,7 @@ p__api__tenants__tenant_id__tables__table_id__row-permissions__row_perm_id:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_patch_api_tables_table_id_row_permissions_row_perm_id
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -613,22 +541,16 @@ p__api__tenants__tenant_id__tables__table_id__row-permissions__row_perm_id:
       content:
         application/json:
           schema:
-            $ref: '../openapi.yaml#/components/schemas/Req_patch_api_tenants_tenant_id_tables_table_id_row_permissions_row_perm_id'
-p__api__tenants__tenant_id__users__tenant_user_id__owner:
+            $ref: '../openapi.yaml#/components/schemas/Req_patch_api_tables_table_id_row_permissions_row_perm_id'
+p__api__users__tenant_user_id__owner:
   delete:
     tags:
     - IAM
     summary: 取消 Owner
-    operationId: delete_api_tenants_tenant_id_users_tenant_user_id_owner
+    operationId: delete_api_users_tenant_user_id_owner
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: tenant_user_id
       in: path
       required: true
@@ -641,7 +563,7 @@ p__api__tenants__tenant_id__users__tenant_user_id__owner:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_tenants_tenant_id_users_tenant_user_id_owner
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_users_tenant_user_id_owner
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -658,16 +580,10 @@ p__api__tenants__tenant_id__users__tenant_user_id__owner:
     tags:
     - IAM
     summary: 设为 Owner
-    operationId: post_api_tenants_tenant_id_users_tenant_user_id_owner
+    operationId: post_api_users_tenant_user_id_owner
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: tenant_user_id
       in: path
       required: true
@@ -680,7 +596,7 @@ p__api__tenants__tenant_id__users__tenant_user_id__owner:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_tenants_tenant_id_users_tenant_user_id_owner
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_users_tenant_user_id_owner
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -693,21 +609,15 @@ p__api__tenants__tenant_id__users__tenant_user_id__owner:
         $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
         $ref: ../openapi.yaml#/components/responses/InternalError
-p__api__tenants__tenant_id__users__tenant_user_id__roles:
+p__api__users__tenant_user_id__roles:
   post:
     tags:
     - IAM
     summary: 绑定角色
-    operationId: post_api_tenants_tenant_id_users_tenant_user_id_roles
+    operationId: post_api_users_tenant_user_id_roles
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: tenant_user_id
       in: path
       required: true
@@ -720,7 +630,7 @@ p__api__tenants__tenant_id__users__tenant_user_id__roles:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_tenants_tenant_id_users_tenant_user_id_roles
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_post_api_users_tenant_user_id_roles
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':
@@ -733,21 +643,15 @@ p__api__tenants__tenant_id__users__tenant_user_id__roles:
         $ref: ../openapi.yaml#/components/responses/Conflict
       '500':
         $ref: ../openapi.yaml#/components/responses/InternalError
-p__api__tenants__tenant_id__users__tenant_user_id__roles__role_id:
+p__api__users__tenant_user_id__roles__role_id:
   delete:
     tags:
     - IAM
     summary: 解绑角色
-    operationId: delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id
+    operationId: delete_api_users_tenant_user_id_roles_role_id
     parameters:
     - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
     - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
-    - name: tenant_id
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
     - name: tenant_user_id
       in: path
       required: true
@@ -766,7 +670,7 @@ p__api__tenants__tenant_id__users__tenant_user_id__roles__role_id:
         content:
           application/json:
             schema:
-              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_tenants_tenant_id_users_tenant_user_id_roles_role_id
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_delete_api_users_tenant_user_id_roles_role_id
       '400':
         $ref: ../openapi.yaml#/components/responses/BadRequest
       '401':

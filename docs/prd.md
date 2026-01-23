@@ -1677,6 +1677,7 @@ ColumnPermission 控制：
 #### 5.1.2 访问控制规则
 
 - 登录后，前端通过 `/api/me` 等接口获取当前用户信息，其中包含 `is_platform_admin`；
+- `/api/me` 在未传 `X-Tenant-Id` 时，优先返回用户最近一次使用的租户上下文（若可用且用户仍为该租户成员）；
 - 若 `is_platform_admin = true`：
 
   - 显示“平台后台”入口；
