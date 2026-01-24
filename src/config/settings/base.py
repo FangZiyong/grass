@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "apps.tenants",
     "apps.iam",
     "apps.execution",
+    "apps.resource_tree",
 ]
 
 MIDDLEWARE = [

@@ -51,6 +51,10 @@
   - `scope=DATASET`：数据集资源树；
   - `scope=DASHBOARD`：仪表盘资源树。
 
+- **scope / resource_type 区分**：
+  - `scope` 用于资源树分组与节点归属（表/流程/数据集/看板）。
+  - `resource_type` 用于权限项口径：TABLE 需要拆分 `TABLE_SCHEMA`/`TABLE_DATA` 双权限项；其他 scope 直接对应单一权限项（FLOW/DATASET/DASHBOARD）。
+
 - **RolePermission / 角色资源权限**：某角色对某资源（或目录）的权限配置。
 - **RowPermission / 行权限**：基于统一 DSL 定义的某角色在某表上的行级访问过滤规则。
 - **ColumnPermission / 列权限**：某角色在某表各字段的列级权限（隐藏/只读/可写）。
@@ -722,6 +726,8 @@
   - `display_name`：显示名称；
   - `sort_order`：排序。
 
+> 补充：`scope` 是资源树维度；权限授权时使用 `resource_type` 作为权限项口径，其中 TABLE 对应 `TABLE_SCHEMA` 与 `TABLE_DATA` 两类权限项。
+
 > 说明：
 >
 > - 前端展示时，用户只看到自己有权限的资源节点及其父目录；
@@ -746,7 +752,7 @@
   - `id`；
   - `tenant_id`；
   - `role_id`；
-  - `resource_type`：TABLE_SCHEMA / TABLE_DATA / FLOW / DATASET / DASHBOARD；
+  - `resource_type`：TABLE_SCHEMA / TABLE_DATA / FLOW / DATASET / DASHBOARD（与 scope 区分，见上文说明）；
   - `resource_id`：可以是资源本身 ID，也可以是 FOLDER 节点 ID；
   - `permission`：NONE / VIEW / EDIT / MANAGE。
 

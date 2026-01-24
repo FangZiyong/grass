@@ -6,10 +6,17 @@ from django.db import migrations, models
 
 def create_resource_tree_roots(apps, schema_editor):
     Tenant = apps.get_model("tenants", "Tenant")
+    TenantUser = apps.get_model("tenants", "TenantUser")
     ResourceTreeNode = apps.get_model("resource_tree", "ResourceTreeNode")
 
     scopes = ["TABLE", "FLOW", "DATASET", "DASHBOARD"]
     for tenant in Tenant.objects.all():
+        actor = (
+            TenantUser.objects.filter(tenant=tenant, is_owner=True).first()
+            or TenantUser.objects.filter(tenant=tenant).first()
+        )
+        if actor is None:
+            raise RuntimeError(f"tenant={tenant.tenant_id} lacks tenant_user for root init")
         for scope in scopes:
             node, _ = ResourceTreeNode.objects.get_or_create(
                 tenant=tenant,
@@ -22,7 +29,9 @@ def create_resource_tree_roots(apps, schema_editor):
                     "name": "ROOT",
                     "sort_order": 0,
                     "depth": 0,
-                    "path": "",
+                    "path": "/",
+                    "created_by": actor,
+                    "updated_by": actor,
                 },
             )
             if not node.path:
@@ -30,7 +39,18 @@ def create_resource_tree_roots(apps, schema_editor):
                 node.depth = 0
                 node.sort_order = 0
                 node.name = "ROOT"
-                node.save(update_fields=["path", "depth", "sort_order", "name"])
+                node.created_by = actor
+                node.updated_by = actor
+                node.save(
+                    update_fields=[
+                        "path",
+                        "depth",
+                        "sort_order",
+                        "name",
+                        "created_by",
+                        "updated_by",
+                    ]
+                )
 
 
 class Migration(migrations.Migration):
@@ -49,24 +69,34 @@ class Migration(migrations.Migration):
                 ("scope", models.CharField(choices=[("TABLE", "表"), ("FLOW", "流程"), ("DATASET", "数据集"), ("DASHBOARD", "仪表盘")], db_index=True, help_text="资源域（scope）", max_length=16)),
                 ("node_type", models.CharField(choices=[("FOLDER", "文件夹"), ("RESOURCE", "资源")], default="FOLDER", help_text="节点类型：FOLDER/RESOURCE", max_length=16)),
                 ("name", models.CharField(help_text="节点名称", max_length=128)),
-                ("ref_type", models.CharField(blank=True, choices=[("TABLE", "表"), ("FLOW", "流程"), ("DATASET", "数据集"), ("DASHBOARD", "仪表盘")], help_text="资源类型（仅 node_type=RESOURCE 时存在）", max_length=16, null=True)),
+                ("ref_type", models.CharField(blank=True, choices=[("TABLE", "表"), ("FLOW", "流程"), ("DATASET", "数据集"), ("DASHBOARD", "仪表盘")], help_text="资源类型（仅 node_type=RESOURCE 时存在）", max_length=32, null=True)),
                 ("ref_resource_id", models.BigIntegerField(blank=True, help_text="资源引用ID（仅 node_type=RESOURCE 时存在）", null=True)),
                 ("sort_order", models.IntegerField(default=0, help_text="同级排序")),
-                ("path", models.CharField(blank=True, default="", help_text="节点路径缓存", max_length=512)),
+                ("path", models.CharField(blank=True, default="/", help_text="节点路径缓存（必须以 / 开头结尾）", max_length=1024)),
                 ("depth", models.IntegerField(default=0, help_text="层级深度")),
+                ("is_deleted", models.BooleanField(default=False, help_text="软删除标记")),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("created_by", models.ForeignKey(db_column="created_by", help_text="创建人（tenant_user_id）", on_delete=django.db.models.deletion.PROTECT, related_name="created_resource_tree_nodes", to="tenants.tenantuser")),
                 ("updated_at", models.DateTimeField(auto_now=True)),
+                ("updated_by", models.ForeignKey(db_column="updated_by", help_text="更新人（tenant_user_id）", on_delete=django.db.models.deletion.PROTECT, related_name="updated_resource_tree_nodes", to="tenants.tenantuser")),
                 ("parent_node", models.ForeignKey(blank=True, db_column="parent_node_id", help_text="父节点", null=True, on_delete=django.db.models.deletion.CASCADE, related_name="children", to="resource_tree.resourcetreenode")),
                 ("tenant", models.ForeignKey(db_column="tenant_id", help_text="租户", on_delete=django.db.models.deletion.CASCADE, related_name="resource_tree_nodes", to="tenants.tenant")),
             ],
             options={
                 "db_table": "resource_tree_node",
+                "unique_together": {("tenant", "scope", "parent_node", "node_type", "name")},
                 "indexes": [
-                    models.Index(fields=["tenant", "scope", "parent_node"], name="idx_rt_parent"),
-                    models.Index(fields=["tenant", "scope"], name="idx_rt_scope"),
-                    models.Index(fields=["tenant", "ref_type", "ref_resource_id"], name="idx_rt_ref"),
+                    models.Index(fields=["tenant", "scope", "parent_node", "sort_order"], name="idx_tree_parent"),
+                    models.Index(fields=["tenant", "scope", "ref_type", "ref_resource_id"], name="idx_tree_ref"),
                 ],
             },
+        ),
+        migrations.RunSQL(
+            sql=(
+                "CREATE INDEX idx_tree_path "
+                "ON resource_tree_node (tenant_id, scope, path(255));"
+            ),
+            reverse_sql="DROP INDEX idx_tree_path ON resource_tree_node;",
         ),
         migrations.RunPython(create_resource_tree_roots, reverse_code=migrations.RunPython.noop),
     ]

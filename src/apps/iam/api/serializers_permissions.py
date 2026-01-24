@@ -4,18 +4,14 @@ IAM 权限相关序列化器（角色资源授权 / 权限面板）
 from rest_framework import serializers
 
 from apps.iam.models.grants import PermissionLevel, ResourceType
+from apps.resource_tree.models.resource_node import ResourceScope
 
-_RESOURCE_SCOPES = (
-    ("TABLE", "表"),
-    ("FLOW", "流程"),
-    ("DATASET", "数据集"),
-    ("DASHBOARD", "看板"),
-)
+_RESOURCE_SCOPES = ResourceScope.choices
 
 _SCOPE_RESOURCE_TYPE = {
-    "FLOW": ResourceType.FLOW,
-    "DATASET": ResourceType.DATASET,
-    "DASHBOARD": ResourceType.DASHBOARD,
+    ResourceScope.FLOW: ResourceType.FLOW,
+    ResourceScope.DATASET: ResourceType.DATASET,
+    ResourceScope.DASHBOARD: ResourceType.DASHBOARD,
 }
 
 
@@ -75,7 +71,7 @@ class PermissionPanelQuerySerializer(serializers.Serializer):
     def validate(self, attrs):
         scope = attrs.get("scope")
         resource_type = attrs.get("resource_type")
-        if scope == "TABLE":
+        if scope == ResourceScope.TABLE:
             if not resource_type:
                 raise serializers.ValidationError("TABLE scope 必须提供 resource_type")
             if resource_type not in (ResourceType.TABLE_SCHEMA, ResourceType.TABLE_DATA):
@@ -106,42 +102,5 @@ class PermissionPanelEnvelopeSerializer(serializers.Serializer):
     code = serializers.CharField()
     message = serializers.CharField()
     data = PermissionPanelDataSerializer()
-    request_id = serializers.CharField()
-
-
-class PermissionsPanelQuerySerializer(serializers.Serializer):
-    scope = serializers.ChoiceField(choices=("TABLE", "FLOW", "DATASET", "DASHBOARD"))
-    resource_type = serializers.ChoiceField(
-        choices=ResourceType.choices,
-        required=False,
-        allow_null=True,
-    )
-
-    def validate(self, attrs):
-        scope = attrs.get("scope")
-        resource_type = attrs.get("resource_type")
-        if scope == "TABLE" and not resource_type:
-            raise serializers.ValidationError("scope=TABLE 时必须传 resource_type")
-        return attrs
-
-
-class RoleGrantItemSerializer(serializers.Serializer):
-    grant_id = serializers.IntegerField()
-    role_id = serializers.IntegerField()
-    role_name = serializers.CharField()
-    permission_level = serializers.ChoiceField(choices=PermissionLevel.choices)
-
-
-class PermissionsPanelDataSerializer(serializers.Serializer):
-    resource_node_id = serializers.IntegerField()
-    role_grants = RoleGrantItemSerializer(many=True)
-    my_effective_permission = serializers.ChoiceField(choices=PermissionLevel.choices)
-    can_manage = serializers.BooleanField()
-
-
-class PermissionsPanelEnvelopeSerializer(serializers.Serializer):
-    code = serializers.CharField()
-    message = serializers.CharField()
-    data = PermissionsPanelDataSerializer()
     request_id = serializers.CharField()
 

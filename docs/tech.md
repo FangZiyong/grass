@@ -1320,6 +1320,8 @@ Field --> Table : belongs
 | DATASET             | DATASET           | `DATASET`                                      |
 | DASHBOARD           | DASHBOARD         | `DASHBOARD`                                    |
 
+> 说明：`scope` 用于资源树分组；`resource_type` 是权限项口径。除 TABLE 外，二者一一对应；TABLE 需要拆分为 `TABLE_SCHEMA` 与 `TABLE_DATA` 两类权限项。
+
 > 表资源节点在授权时必须同时处理 `TABLE_SCHEMA` 与 `TABLE_DATA` 两类权限项（见 5.6）。
 
 ### 5.4.3 Folder 默认权限与继承覆盖

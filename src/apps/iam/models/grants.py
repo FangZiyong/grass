@@ -4,6 +4,7 @@ RolePermission 模型：资源级授权记录
 from django.db import models
 
 from apps.iam.models.roles import Role
+from apps.resource_tree.models.resource_node import ResourceTreeNode
 from apps.tenants.models.tenant import Tenant
 from apps.tenants.models.tenant_user import TenantUser
 
@@ -55,8 +56,12 @@ class RolePermission(models.Model):
         choices=ResourceType.choices,
         help_text="资源类型",
     )
-    resource_tree_node_id = models.BigIntegerField(
-        help_text="资源树节点ID（FK → resource_tree_node.node_id）",
+    resource_tree_node = models.ForeignKey(
+        ResourceTreeNode,
+        on_delete=models.CASCADE,
+        related_name="role_permissions",
+        db_column="resource_tree_node_id",
+        help_text="资源树节点",
     )
     permission = models.CharField(
         max_length=16,
@@ -83,14 +88,14 @@ class RolePermission(models.Model):
 
     class Meta:
         db_table = "role_permission"
-        unique_together = [["tenant", "role", "resource_type", "resource_tree_node_id"]]
+        unique_together = [["tenant", "role", "resource_type", "resource_tree_node"]]
         indexes = [
             models.Index(
-                fields=["tenant", "role", "resource_type", "resource_tree_node_id"],
+                fields=["tenant", "role", "resource_type", "resource_tree_node"],
                 name="uk_role_perm",
             ),
             models.Index(
-                fields=["tenant", "resource_tree_node_id"],
+                fields=["tenant", "resource_tree_node"],
                 name="idx_perm_node",
             ),
             models.Index(fields=["tenant", "role"], name="idx_perm_role"),

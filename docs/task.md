@@ -871,6 +871,9 @@
 ### 接口契约
 - URL：GET /api/permissions/resources/{resource_node_id}
 - 权限：Owner 或 GRANT_VIEW
+- Query：
+  - scope: TABLE / FLOW / DATASET / DASHBOARD
+  - resource_type: TABLE_SCHEMA / TABLE_DATA（仅当 scope=TABLE 必填；其他 scope 由后端映射）
 - 错误码：RESOURCE_NODE_NOT_FOUND、PERMISSION_DENIED
 
 ### 验收标准（DoD）
