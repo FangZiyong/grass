@@ -8,9 +8,6 @@ from rest_framework import serializers
 from apps.iam.models.roles import Role, RoleStatus
 
 
-ROLE_CODE_PATTERN = re.compile(r"^[A-Z0-9_]{2,32}$")
-
-
 class RoleSerializer(serializers.ModelSerializer):
     """角色 DTO"""
 
@@ -39,14 +36,8 @@ class RoleListQuerySerializer(serializers.Serializer):
 
 
 class RoleCreateSerializer(serializers.Serializer):
-    code = serializers.CharField(max_length=64)
     name = serializers.CharField(max_length=64)
     description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-
-    def validate_code(self, value: str) -> str:
-        if not ROLE_CODE_PATTERN.match(value):
-            raise serializers.ValidationError("角色编码格式不合法")
-        return value
 
     def validate_name(self, value: str) -> str:
         if len(value.strip()) < 2:

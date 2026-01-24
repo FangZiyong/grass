@@ -311,6 +311,42 @@ p__api__roles__role_id__resource-permissions:
         application/json:
           schema:
             $ref: '../openapi.yaml#/components/schemas/Req_put_api_roles_role_id_resource_permissions'
+p__api__roles__role_id__users:
+  get:
+    tags:
+    - IAM
+    summary: 查询角色成员
+    operationId: get_api_roles_role_id_users
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/PageParam
+    - $ref: ../openapi.yaml#/components/parameters/PageSizeParam
+    - name: role_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_roles_role_id_users
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
 p__api__tables__table_id__column-permissions:
   get:
     tags:
@@ -610,6 +646,39 @@ p__api__users__tenant_user_id__owner:
       '500':
         $ref: ../openapi.yaml#/components/responses/InternalError
 p__api__users__tenant_user_id__roles:
+  get:
+    tags:
+    - IAM
+    summary: 查询成员角色
+    operationId: get_api_users_tenant_user_id_roles
+    parameters:
+    - $ref: ../openapi.yaml#/components/parameters/TenantIdHeader
+    - $ref: ../openapi.yaml#/components/parameters/RequestIdHeader
+    - name: tenant_user_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              $ref: ../openapi.yaml#/components/schemas/RespEnvelope_get_api_users_tenant_user_id_roles
+      '400':
+        $ref: ../openapi.yaml#/components/responses/BadRequest
+      '401':
+        $ref: ../openapi.yaml#/components/responses/Unauthorized
+      '403':
+        $ref: ../openapi.yaml#/components/responses/Forbidden
+      '404':
+        $ref: ../openapi.yaml#/components/responses/NotFound
+      '409':
+        $ref: ../openapi.yaml#/components/responses/Conflict
+      '500':
+        $ref: ../openapi.yaml#/components/responses/InternalError
   post:
     tags:
     - IAM

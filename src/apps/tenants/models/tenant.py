@@ -1,7 +1,12 @@
 """
 Tenant 模型：租户实体
 """
+import re
+
+from django.db import IntegrityError
 from django.db import models
+from django.db.models import IntegerField, Max
+from django.db.models.functions import Cast, Substr
 
 
 class TenantStatus(models.TextChoices):
@@ -69,4 +74,39 @@ class Tenant(models.Model):
             f"Tenant(tenant_id={self.tenant_id}, code={self.code}, "
             f"name={self.name}, status={self.status})"
         )
+
+    _AUTO_CODE_PREFIX = "TENANT_"
+    _AUTO_CODE_START = 1000
+    _AUTO_CODE_RE = re.compile(r"^TENANT_(\d+)$")
+
+    @classmethod
+    def _next_auto_code(cls) -> str:
+        base = cls._AUTO_CODE_START - 1
+
+        agg = (
+            cls.objects.filter(code__startswith=cls._AUTO_CODE_PREFIX)
+            .annotate(n=Cast(Substr("code", len(cls._AUTO_CODE_PREFIX) + 1), IntegerField()))
+            .aggregate(max_n=Max("n"))
+        )
+        max_n = agg.get("max_n")
+        max_n = int(max_n) if max_n is not None else base
+        return f"{cls._AUTO_CODE_PREFIX}{max_n + 1}"
+
+    def save(self, *args, **kwargs):
+        """
+        tenant_code / code 后端自动生成（全局递增）：TENANT_1000 起。
+
+        并发下依赖唯一约束 (code) + 重试保证不冲突。
+        """
+        if not self.code:
+            last_err: Exception | None = None
+            for _ in range(6):
+                self.code = self.__class__._next_auto_code()
+                try:
+                    return super().save(*args, **kwargs)
+                except IntegrityError as e:
+                    last_err = e
+                    continue
+            raise IntegrityError("生成 tenant code 失败") from last_err
+        return super().save(*args, **kwargs)
 

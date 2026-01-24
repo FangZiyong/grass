@@ -5,6 +5,8 @@ from typing import Optional
 
 from django.db.models import Q, QuerySet
 
+from apps.iam.models.grants import RolePermission
+from apps.iam.models.membership import TenantUserRole
 from apps.iam.models.roles import Role
 
 
@@ -36,6 +38,48 @@ def list_roles(
         queryset = queryset.filter(Q(code__icontains=search) | Q(name__icontains=search))
 
     return queryset.order_by("-created_at", "-role_id")
+
+
+def list_role_permissions(tenant_id: int, role_id: int) -> QuerySet[RolePermission]:
+    """
+    获取指定角色的资源授权列表。
+    """
+    return (
+        RolePermission.objects.filter(tenant_id=tenant_id, role_id=role_id)
+        .order_by("resource_type", "resource_tree_node_id", "role_permission_id")
+    )
+
+
+def list_role_grants_by_node(
+    *,
+    tenant_id: int,
+    resource_tree_node_id: int,
+    resource_type: str,
+) -> QuerySet[RolePermission]:
+    """
+    获取资源节点的角色授权列表。
+    """
+    return (
+        RolePermission.objects.filter(
+            tenant_id=tenant_id,
+            resource_tree_node_id=resource_tree_node_id,
+            resource_type=resource_type,
+        )
+        .select_related("role")
+        .order_by("role_id", "role_permission_id")
+    )
+
+
+def list_user_role_ids(*, tenant_id: int, tenant_user_id: int) -> list[int]:
+    """
+    获取成员绑定的角色 ID 列表。
+    """
+    return list(
+        TenantUserRole.objects.filter(
+            tenant_id=tenant_id,
+            tenant_user_id=tenant_user_id,
+        ).values_list("role_id", flat=True)
+    )
 
 
 def role_code_exists(tenant_id: int, code: str, *, exclude_role_id: Optional[int] = None) -> bool:

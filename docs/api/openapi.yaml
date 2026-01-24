@@ -189,6 +189,8 @@ paths:
     $ref: ./paths/iam.yaml#/p__api__roles__role_id
   /api/roles/{role_id}/resource-permissions:
     $ref: ./paths/iam.yaml#/p__api__roles__role_id__resource-permissions
+  /api/roles/{role_id}/users:
+    $ref: ./paths/iam.yaml#/p__api__roles__role_id__users
   /api/tables/{table_id}/column-permissions:
     $ref: ./paths/iam.yaml#/p__api__tables__table_id__column-permissions
   /api/tables/{table_id}/row-permissions:
@@ -2514,6 +2516,53 @@ components:
         properties:
           data:
             $ref: '#/components/schemas/RespData_put_api_roles_role_id_resource_permissions'
+    RespData_get_api_roles_role_id_users:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantUserSummary'
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      additionalProperties: false
+    RespEnvelope_get_api_roles_role_id_users:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_roles_role_id_users'
+    RespData_get_api_users_tenant_user_id_roles:
+      type: object
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleSummary'
+      required:
+      - roles
+      additionalProperties: false
+    RespEnvelope_get_api_users_tenant_user_id_roles:
+      allOf:
+      - $ref: '#/components/schemas/ApiEnvelope'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RespData_get_api_users_tenant_user_id_roles'
     RespData_get_api_tables_table_id_column_permissions:
       type: object
       properties:

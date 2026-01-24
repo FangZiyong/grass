@@ -77,7 +77,7 @@ class RoleAPITest(TestCase):
     def test_create_role_success(self):
         """创建角色"""
         self._auth(self.owner.user_id)
-        payload = {"code": "DATA_ENGINEER", "name": "数据工程师", "description": "可管理建模"}
+        payload = {"name": "数据工程师", "description": "可管理建模"}
         response = self.client.post(
             "/api/roles",
             data=payload,
@@ -87,12 +87,12 @@ class RoleAPITest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["code"], "OK")
-        self.assertEqual(response.data["data"]["role"]["code"], "DATA_ENGINEER")
+        self.assertEqual(response.data["data"]["role"]["code"], "ROLE_1000")
 
-    def test_create_role_code_conflict(self):
-        """角色编码冲突返回 409"""
+    def test_create_role_name_conflict(self):
+        """角色名称冲突返回 409"""
         self._auth(self.owner.user_id)
-        payload = {"code": "ANALYST", "name": "分析师2"}
+        payload = {"name": "分析师"}
         response = self.client.post(
             "/api/roles",
             data=payload,
@@ -101,7 +101,29 @@ class RoleAPITest(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
-        self.assertEqual(response.data["code"], "ROLE_CODE_DUPLICATE")
+        self.assertEqual(response.data["code"], "ROLE_NAME_CONFLICT")
+
+    def test_create_role_auto_increment(self):
+        """自动生成的角色编码在租户内递增"""
+        self._auth(self.owner.user_id)
+
+        r1 = self.client.post(
+            "/api/roles",
+            data={"name": "数据工程师"},
+            format="json",
+            **self._tenant_header(),
+        )
+        self.assertEqual(r1.status_code, status.HTTP_200_OK)
+        self.assertEqual(r1.data["data"]["role"]["code"], "ROLE_1000")
+
+        r2 = self.client.post(
+            "/api/roles",
+            data={"name": "报表查看者"},
+            format="json",
+            **self._tenant_header(),
+        )
+        self.assertEqual(r2.status_code, status.HTTP_200_OK)
+        self.assertEqual(r2.data["data"]["role"]["code"], "ROLE_1001")
 
     def test_update_role_success(self):
         """更新角色名称"""

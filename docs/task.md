@@ -722,6 +722,7 @@
 - URL：GET/POST /api/roles；PATCH/DELETE /api/roles/{role_id}
 - 权限：Tenant Owner 或 ROLE_MANAGE（按 tech/PRD）
 - 分页：GET list 走统一分页（tech.md §3.9）
+- 约定：创建角色时**不需要传 `role_code`/`code`**，由后端自动生成（租户内递增，如 `ROLE_1000`）
 - 错误码：ROLE_NOT_FOUND(404)、ROLE_NAME_CONFLICT(409)、PERMISSION_DENIED(403)、VALIDATION_*(400)
 
 ### 验收标准（DoD）
@@ -2648,6 +2649,7 @@ modeling 创建/删除/变更字段时可调用 DDL 层完成物理表同步
 - URL：POST /admin/api/tenants
 - 权限：is_platform_admin
 - 入参：{name, owner_user_ids? 或 emails?（按 tech）}
+- 约定：创建租户时**不需要传 `tenant_code`/`code`**，由后端自动生成（全局递增，如 `TENANT_1000`）
 - 错误码：TENANT_NAME_CONFLICT、PERMISSION_DENIED、VALIDATION_*
 
 ### 验收标准（DoD）

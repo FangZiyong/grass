@@ -503,7 +503,7 @@ RF --> FINAL
 | 字段名     |         类型 | 是否可空 |            默认值 | 枚举/约束            | 说明                          |
 | ---------- | -----------: | :------: | ----------------: | -------------------- | ----------------------------- |
 | tenant_id  |       BIGINT |    否    |                 — | PK                   | 主键                          |
-| code       |  VARCHAR(64) |    否    |                 — | 全局唯一；不可修改   | 租户编码                      |
+| code       |  VARCHAR(64) |    否    |                 — | 全局唯一；不可修改   | 租户编码（后端自动生成，例如 `TENANT_1000`） |
 | name       | VARCHAR(128) |    否    |                 — | —                    | 租户名称（**允许编辑**）      |
 | status     |  VARCHAR(16) |    否    |            ACTIVE | ACTIVE/SUSPENDED     | SUSPENDED：前台 403、调度停止 |
 | plan       |  VARCHAR(16) |    否    |             BASIC | BASIC/PRO/ENTERPRISE | 套餐                          |
@@ -1612,7 +1612,7 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 | ----------- | ------------ | -------: | ----------------- | ---------------------------- | ------------ |
 | role_id     | bigint       |       否 | —                 | PK                           | 角色 ID      |
 | tenant_id   | bigint       |       否 | —                 | FK(tenant.tenant_id)         | 租户隔离     |
-| code        | varchar(64)  |       否 | —                 | 租户内唯一；建议全大写下划线 | 角色编码     |
+| code        | varchar(64)  |       否 | —                 | 租户内唯一 | 角色编码（后端自动生成：租户内递增，例如 `ROLE_1000`） |
 | name        | varchar(64)  |       否 | —                 | —                            | 角色名称     |
 | description | varchar(255) |       是 | null              | —                            | 角色说明     |
 | is_builtin  | tinyint(1)   |       否 | 0                 | 0/1                          | 是否系统内置 |
@@ -1828,6 +1828,33 @@ function getTableConstraints(tenant_id, tenant_user_id, table_node_id, table_id)
 
 - Response.data
   - deleted: bool
+
+#### 5.11.4.3 GET /api/roles/{role_id}/users（查询角色成员）
+
+- 权限：仅 Owner
+- Query
+  - page: int（默认 1）
+  - page_size: int（默认 20，最大 200）
+- Response.data
+  - items: TenantUserSummary[]
+  - page: int
+  - page_size: int
+  - total: int64
+- 错误码
+  - `ROLE_NOT_FOUND`（404）
+  - `PERMISSION_DENIED`（403）
+  - `VALIDATION_*`（400）
+
+#### 5.11.4.4 GET /api/users/{tenant_user_id}/roles（查询成员角色）
+
+- 权限：仅 Owner
+- 语义：返回该成员已绑定角色（全量，不分页）
+- Response.data
+  - roles: RoleSummary[]
+- 错误码
+  - `TENANT_USER_NOT_FOUND`（404）
+  - `PERMISSION_DENIED`（403）
+  - `VALIDATION_*`（400）
 
 ### 5.11.5 Owner 管理
 
