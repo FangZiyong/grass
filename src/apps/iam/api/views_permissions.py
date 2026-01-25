@@ -1,9 +1,13 @@
 """
 IAM 权限 API Views
 
-实现 T3.5 角色资源授权接口：
+角色资源授权接口：
 - GET /api/roles/{role_id}/resource-permissions
 - PUT /api/roles/{role_id}/resource-permissions
+
+授权管理接口：
+- POST /api/permissions/grants
+- DELETE /api/permissions/grants/{grant_id}
 """
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers
@@ -13,9 +17,12 @@ from apps.accounts.api.permissions import IsAuthenticated
 from apps.iam.api.serializers_permissions import (
     PermissionPanelEnvelopeSerializer,
     PermissionPanelQuerySerializer,
+    RevokeGrantEnvelopeSerializer,
     RoleResourcePermissionsEnvelopeSerializer,
     SaveRoleResourcePermissionsEnvelopeSerializer,
     SaveRoleResourcePermissionsRequestSerializer,
+    UpsertGrantEnvelopeSerializer,
+    UpsertGrantRequestSerializer,
 )
 from apps.iam.models.grants import PermissionLevel
 from apps.iam.selectors import (
@@ -24,7 +31,7 @@ from apps.iam.selectors import (
     list_role_permissions,
     list_user_role_ids,
 )
-from apps.iam.services import save_role_resource_permissions
+from apps.iam.services import revoke_grant, save_role_resource_permissions, upsert_grant
 from common.errors.codes import ErrorCode
 from common.errors.exceptions import GrassAPIException
 from common.http.response import envelope_response
@@ -332,4 +339,215 @@ class ResourcePermissionPanelView(APIView):
             },
             request=request,
         )
+
+
+class GrantsView(APIView):
+    """
+    授权管理接口
+
+    POST /api/permissions/grants - 创建/更新授权
+
+    功能说明：
+    - 为指定角色授予对某资源节点的权限（upsert 语义）
+    - 若授权已存在，则更新权限等级
+    - 若 permission_level=NONE，则删除该授权
+
+    权限要求：仅 Owner 可操作
+
+    错误码：
+    - BAD_REQUEST(400): 参数校验失败
+    - UNAUTHENTICATED(401): 未登录
+    - PERMISSION_DENIED(403): 非 Owner 无权限
+    - ROLE_NOT_FOUND(404): 角色不存在
+    - RESOURCE_NODE_NOT_FOUND(404): 资源节点不存在
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=UpsertGrantRequestSerializer,
+        responses={
+            200: UpsertGrantEnvelopeSerializer,
+            400: OpenApiResponse(
+                response=inline_serializer(
+                    name="UpsertGrantError400",
+                    fields={
+                        "code": serializers.CharField(),
+                        "message": serializers.CharField(),
+                        "data": serializers.JSONField(required=False),
+                        "request_id": serializers.CharField(),
+                    },
+                ),
+                description="参数校验失败",
+            ),
+            401: OpenApiResponse(
+                response=inline_serializer(
+                    name="UpsertGrantError401",
+                    fields={
+                        "code": serializers.CharField(),
+                        "message": serializers.CharField(),
+                        "data": serializers.JSONField(required=False),
+                        "request_id": serializers.CharField(),
+                    },
+                ),
+                description="未认证",
+            ),
+            403: OpenApiResponse(
+                response=inline_serializer(
+                    name="UpsertGrantError403",
+                    fields={
+                        "code": serializers.CharField(),
+                        "message": serializers.CharField(),
+                        "data": serializers.JSONField(required=False),
+                        "request_id": serializers.CharField(),
+                    },
+                ),
+                description="无权限",
+            ),
+            404: OpenApiResponse(
+                response=inline_serializer(
+                    name="UpsertGrantError404",
+                    fields={
+                        "code": serializers.CharField(),
+                        "message": serializers.CharField(),
+                        "data": serializers.JSONField(required=False),
+                        "request_id": serializers.CharField(),
+                    },
+                ),
+                description="角色或资源节点不存在",
+            ),
+        },
+        tags=["IAM"],
+        summary="创建/更新授权",
+    )
+    def post(self, request):
+        """
+        创建或更新授权记录
+
+        请求体示例：
+        {
+            "scope": "FLOW",
+            "resource_tree_node_id": 123,
+            "role_id": 456,
+            "permission_level": "EDIT"
+        }
+
+        响应示例：
+        {
+            "code": "OK",
+            "message": "success",
+            "data": {"grant_id": 789},
+            "request_id": "..."
+        }
+        """
+        # 1. 获取租户上下文和操作人
+        tenant_id = _require_tenant_id(request)
+        actor = _get_tenant_actor(request)
+
+        # 2. 校验请求参数
+        serializer = UpsertGrantRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        # 3. 执行 upsert 操作
+        grant_id, _ = upsert_grant(
+            tenant_id=tenant_id,
+            role_id=data["role_id"],
+            resource_type=data["resource_type"],
+            resource_tree_node_id=data["resource_tree_node_id"],
+            permission_level=data["permission_level"],
+            actor=actor,
+        )
+        return envelope_response(data={"grant_id": grant_id}, request=request)
+
+
+class GrantDetailView(APIView):
+    """
+    授权详情接口
+
+    DELETE /api/permissions/grants/{grant_id} - 撤销授权
+
+    功能说明：
+    - 根据 grant_id 删除指定的授权记录
+    - 删除后，对应角色将失去该资源节点的权限
+
+    权限要求：仅 Owner 可操作
+
+    错误码：
+    - UNAUTHENTICATED(401): 未登录
+    - PERMISSION_DENIED(403): 非 Owner 无权限
+    - GRANT_NOT_FOUND(404): 授权记录不存在
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={
+            200: RevokeGrantEnvelopeSerializer,
+            401: OpenApiResponse(
+                response=inline_serializer(
+                    name="RevokeGrantError401",
+                    fields={
+                        "code": serializers.CharField(),
+                        "message": serializers.CharField(),
+                        "data": serializers.JSONField(required=False),
+                        "request_id": serializers.CharField(),
+                    },
+                ),
+                description="未认证",
+            ),
+            403: OpenApiResponse(
+                response=inline_serializer(
+                    name="RevokeGrantError403",
+                    fields={
+                        "code": serializers.CharField(),
+                        "message": serializers.CharField(),
+                        "data": serializers.JSONField(required=False),
+                        "request_id": serializers.CharField(),
+                    },
+                ),
+                description="无权限",
+            ),
+            404: OpenApiResponse(
+                response=inline_serializer(
+                    name="RevokeGrantError404",
+                    fields={
+                        "code": serializers.CharField(),
+                        "message": serializers.CharField(),
+                        "data": serializers.JSONField(required=False),
+                        "request_id": serializers.CharField(),
+                    },
+                ),
+                description="授权记录不存在",
+            ),
+        },
+        tags=["IAM"],
+        summary="撤销授权",
+    )
+    def delete(self, request, grant_id: int):
+        """
+        撤销（删除）授权记录
+
+        路径参数：
+        - grant_id: 授权记录 ID（即 role_permission_id）
+
+        响应示例：
+        {
+            "code": "OK",
+            "message": "success",
+            "data": {"deleted": true},
+            "request_id": "..."
+        }
+        """
+        # 1. 获取租户上下文和操作人
+        tenant_id = _require_tenant_id(request)
+        actor = _get_tenant_actor(request)
+
+        # 2. 执行撤销操作
+        deleted = revoke_grant(
+            tenant_id=tenant_id,
+            grant_id=grant_id,
+            actor=actor,
+        )
+        return envelope_response(data={"deleted": deleted}, request=request)
 

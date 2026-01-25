@@ -8,10 +8,11 @@ from django.db import IntegrityError, transaction
 from django.db.models import IntegerField, Max
 from django.db.models.functions import Cast, Substr
 
-from apps.iam.models.grants import RolePermission
+from apps.iam.models.grants import PermissionLevel, RolePermission
 from apps.iam.models.membership import TenantUserRole
 from apps.iam.models.roles import Role, RoleStatus
-from apps.iam.selectors import get_role_by_id, role_name_exists
+from apps.iam.selectors import get_grant_by_id, get_grant_by_unique_key, get_role_by_id, role_name_exists
+from apps.resource_tree.models.resource_node import ResourceTreeNode
 from apps.tenants.models.tenant_user import TenantUser
 from common.errors.codes import ErrorCode
 from common.errors.exceptions import GrassAPIException
@@ -496,3 +497,148 @@ def save_role_resource_permissions(
         )
 
     return len(items)
+
+
+# ======== 授权管理服务函数 ========
+
+
+def upsert_grant(
+    *,
+    tenant_id: int,
+    role_id: int,
+    resource_type: str,
+    resource_tree_node_id: int,
+    permission_level: str,
+    actor: TenantUser,
+) -> tuple[int, bool]:
+    """
+    创建或更新授权记录（upsert 语义）。
+
+    实现 POST /api/permissions/grants 接口的核心逻辑：
+    - 若授权不存在，则创建新授权
+    - 若授权已存在，则更新权限等级
+    - 当 permission_level=NONE 时，视为删除操作（若存在则删除）
+
+    Args:
+        tenant_id: 租户 ID
+        role_id: 角色 ID（必须存在于当前租户）
+        resource_type: 资源类型（TABLE_SCHEMA/TABLE_DATA/FLOW/DATASET/DASHBOARD）
+        resource_tree_node_id: 资源树节点 ID（必须存在于当前租户）
+        permission_level: 权限等级（NONE/VIEW/EDIT/MANAGE）
+        actor: 操作人（必须是 Owner）
+
+    Returns:
+        tuple[int, bool]: (grant_id, is_created)
+            - grant_id: 授权记录 ID，若删除则返回 0
+            - is_created: 是否为新建（更新或删除时为 False）
+
+    Raises:
+        GrassAPIException: 权限不足(403)、角色不存在(404)、资源节点不存在(404)
+    """
+    _ensure_role_grant_manage_permission(actor)
+
+    if actor.tenant_id != tenant_id:
+        raise GrassAPIException(
+            detail="跨租户操作被拒绝",
+            status_code=403,
+            code=ErrorCode.PERMISSION_DENIED,
+        )
+
+    # 校验角色存在
+    role = get_role_by_id(tenant_id, role_id)
+    if role is None:
+        raise GrassAPIException(
+            detail="角色不存在",
+            status_code=404,
+            code="ROLE_NOT_FOUND",
+        )
+
+    # 校验资源节点存在
+    try:
+        node = ResourceTreeNode.objects.get(
+            tenant_id=tenant_id,
+            node_id=resource_tree_node_id,
+        )
+    except ResourceTreeNode.DoesNotExist:
+        raise GrassAPIException(
+            detail="资源节点不存在",
+            status_code=404,
+            code="RESOURCE_NODE_NOT_FOUND",
+        )
+
+    # 查找现有授权
+    existing = get_grant_by_unique_key(
+        tenant_id=tenant_id,
+        role_id=role_id,
+        resource_type=resource_type,
+        resource_tree_node_id=resource_tree_node_id,
+    )
+
+    # 当 permission_level=NONE 时视为删除
+    if permission_level == PermissionLevel.NONE:
+        if existing:
+            existing.delete()
+        return (0, False)
+
+    if existing:
+        # 更新现有授权
+        if existing.permission != permission_level:
+            existing.permission = permission_level
+            existing.updated_by = actor
+            existing.save(update_fields=["permission", "updated_by", "updated_at"])
+        return (existing.role_permission_id, False)
+    else:
+        # 创建新授权
+        grant = RolePermission.objects.create(
+            tenant_id=tenant_id,
+            role_id=role_id,
+            resource_type=resource_type,
+            resource_tree_node_id=resource_tree_node_id,
+            permission=permission_level,
+            created_by=actor,
+            updated_by=actor,
+        )
+        return (grant.role_permission_id, True)
+
+
+def revoke_grant(
+    *,
+    tenant_id: int,
+    grant_id: int,
+    actor: TenantUser,
+) -> bool:
+    """
+    撤销授权（删除授权记录）。
+
+    实现 DELETE /api/permissions/grants/{grant_id} 接口的核心逻辑。
+
+    Args:
+        tenant_id: 租户 ID（确保租户隔离）
+        grant_id: 授权记录 ID（即 role_permission_id）
+        actor: 操作人（必须是 Owner）
+
+    Returns:
+        bool: 删除成功返回 True
+
+    Raises:
+        GrassAPIException: 权限不足(403)、授权记录不存在(404)
+    """
+    _ensure_role_grant_manage_permission(actor)
+
+    if actor.tenant_id != tenant_id:
+        raise GrassAPIException(
+            detail="跨租户操作被拒绝",
+            status_code=403,
+            code=ErrorCode.PERMISSION_DENIED,
+        )
+
+    grant = get_grant_by_id(tenant_id, grant_id)
+    if grant is None:
+        raise GrassAPIException(
+            detail="授权记录不存在",
+            status_code=404,
+            code="GRANT_NOT_FOUND",
+        )
+
+    grant.delete()
+    return True

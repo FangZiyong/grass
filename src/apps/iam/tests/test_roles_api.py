@@ -1,5 +1,5 @@
 """
-T3.2 角色管理接口测试
+角色管理接口测试
 """
 from django.test import TestCase
 from rest_framework import status

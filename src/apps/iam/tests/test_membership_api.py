@@ -1,5 +1,5 @@
 """
-T3.3 成员绑定角色接口测试
+成员绑定角色接口测试
 """
 from django.test import TestCase
 from rest_framework import status

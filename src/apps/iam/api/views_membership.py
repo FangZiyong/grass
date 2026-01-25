@@ -1,7 +1,7 @@
 """
 成员-角色绑定 API Views
 
-实现 T3.3 成员绑定角色接口：
+成员绑定角色接口：
 - POST /api/users/{tenant_user_id}/roles
 - DELETE /api/users/{tenant_user_id}/roles/{role_id}
 """

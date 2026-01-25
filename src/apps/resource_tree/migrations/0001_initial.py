@@ -4,6 +4,29 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+def create_path_index(apps, schema_editor):
+    """根据数据库后端创建 path 索引（MySQL 使用前缀索引，其他使用普通索引）"""
+    vendor = schema_editor.connection.vendor
+    if vendor == "mysql":
+        schema_editor.execute(
+            "CREATE INDEX idx_tree_path ON resource_tree_node (tenant_id, scope, path(255));"
+        )
+    else:
+        # SQLite / PostgreSQL 不支持前缀索引
+        schema_editor.execute(
+            "CREATE INDEX idx_tree_path ON resource_tree_node (tenant_id, scope, path);"
+        )
+
+
+def drop_path_index(apps, schema_editor):
+    """删除 path 索引"""
+    vendor = schema_editor.connection.vendor
+    if vendor == "mysql":
+        schema_editor.execute("DROP INDEX idx_tree_path ON resource_tree_node;")
+    else:
+        schema_editor.execute("DROP INDEX IF EXISTS idx_tree_path;")
+
+
 def create_resource_tree_roots(apps, schema_editor):
     Tenant = apps.get_model("tenants", "Tenant")
     TenantUser = apps.get_model("tenants", "TenantUser")
@@ -91,13 +114,7 @@ class Migration(migrations.Migration):
                 ],
             },
         ),
-        migrations.RunSQL(
-            sql=(
-                "CREATE INDEX idx_tree_path "
-                "ON resource_tree_node (tenant_id, scope, path(255));"
-            ),
-            reverse_sql="DROP INDEX idx_tree_path ON resource_tree_node;",
-        ),
+        migrations.RunPython(create_path_index, reverse_code=drop_path_index),
         migrations.RunPython(create_resource_tree_roots, reverse_code=migrations.RunPython.noop),
     ]
 

@@ -8,6 +8,7 @@ from apps.iam.models.grants import PermissionLevel, ResourceType, RolePermission
 from apps.iam.models.membership import TenantUserRole
 from apps.iam.models.roles import Role, RoleStatus
 from apps.iam.models.row_perms import RowPermission, RowPermissionStatus
+from apps.resource_tree.models.resource_node import ResourceNodeType, ResourceScope, ResourceTreeNode
 from apps.tenants.models.tenant import Tenant, TenantStatus
 from apps.tenants.models.tenant_user import TenantUser, TenantUserStatus
 
@@ -138,11 +139,24 @@ class IamModelsTest(TestCase):
                     updated_by=actor,
                 )
 
+        # 创建一个真实的 ResourceTreeNode 用于外键引用
+        resource_node = ResourceTreeNode.objects.create(
+            tenant=actor.tenant,
+            scope=ResourceScope.FLOW,
+            node_type=ResourceNodeType.FOLDER,
+            name="ROOT",
+            parent_node=None,
+            path="/",
+            depth=0,
+            created_by=actor,
+            updated_by=actor,
+        )
+
         perm = RolePermission.objects.create(
             tenant=actor.tenant,
             role=role,
             resource_type=ResourceType.FLOW,
-            resource_tree_node_id=999,
+            resource_tree_node=resource_node,
             permission=PermissionLevel.MANAGE,
             created_by=actor,
             updated_by=actor,

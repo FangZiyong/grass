@@ -94,3 +94,57 @@ def role_name_exists(tenant_id: int, name: str, *, exclude_role_id: Optional[int
     if exclude_role_id is not None:
         queryset = queryset.exclude(role_id=exclude_role_id)
     return queryset.exists()
+
+
+# ======== 授权查询函数 ========
+
+
+def get_grant_by_id(tenant_id: int, grant_id: int) -> Optional[RolePermission]:
+    """
+    根据 grant_id 获取指定租户内的授权记录。
+
+    用于 DELETE /api/permissions/grants/{grant_id} 接口。
+
+    Args:
+        tenant_id: 租户 ID（确保租户隔离）
+        grant_id: 授权记录 ID（即 role_permission_id）
+
+    Returns:
+        RolePermission 对象，不存在则返回 None
+    """
+    try:
+        return RolePermission.objects.get(tenant_id=tenant_id, role_permission_id=grant_id)
+    except RolePermission.DoesNotExist:
+        return None
+
+
+def get_grant_by_unique_key(
+    *,
+    tenant_id: int,
+    role_id: int,
+    resource_type: str,
+    resource_tree_node_id: int,
+) -> Optional[RolePermission]:
+    """
+    根据唯一键获取授权记录（用于 upsert 逻辑）。
+
+    RolePermission 的唯一约束为：(tenant_id, role_id, resource_type, resource_tree_node_id)
+
+    Args:
+        tenant_id: 租户 ID
+        role_id: 角色 ID
+        resource_type: 资源类型（TABLE_SCHEMA/TABLE_DATA/FLOW/DATASET/DASHBOARD）
+        resource_tree_node_id: 资源树节点 ID
+
+    Returns:
+        RolePermission 对象，不存在则返回 None
+    """
+    try:
+        return RolePermission.objects.get(
+            tenant_id=tenant_id,
+            role_id=role_id,
+            resource_type=resource_type,
+            resource_tree_node_id=resource_tree_node_id,
+        )
+    except RolePermission.DoesNotExist:
+        return None

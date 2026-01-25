@@ -1,7 +1,7 @@
 """
 Role API Views
 
-实现 T3.2 角色管理接口：
+角色管理接口：
 - GET /api/roles
 - POST /api/roles
 - PATCH /api/roles/{role_id}
